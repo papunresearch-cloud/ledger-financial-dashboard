@@ -68,7 +68,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
   return <>
     {section === 'overview' && <>
       <div className="bank-overview">
-        <div className="bank-overview-heading"><div className="overview-heading-content"><div className="overview-current-price"><span>Current Price</span><strong>{data.currentPrice === null ? '—' : `₹ ${amount(data.currentPrice)}`}</strong></div><div><div className="hero-kicker">BANK FINANCIAL SNAPSHOT</div><h2>At a glance</h2><p>Values are drawn from the uploaded Data Sheet; missing fields are left unavailable.</p></div></div><span className="bank-asof">LATEST DATA · {newest?.period ?? '—'}</span></div>
+        <div className="bank-overview-heading"><div className="overview-heading-title"><div className="hero-kicker">BANK FINANCIAL SNAPSHOT</div><h2>At a glance</h2><p>Values are drawn from the uploaded Data Sheet; missing fields are left unavailable.</p></div><div className="overview-current-price"><span>Current Price</span><strong>{data.currentPrice === null ? '—' : `₹ ${amount(data.currentPrice, 2)}`}</strong><small>LATEST DATA · {newest?.period ?? '—'}</small></div></div>
         <section className="bank-snapshot-grid" aria-label="Current bank figures">
           <SnapshotCard label="Current market cap" value={rupeesCr(data.currentMarketCap)} accent="mint"/>
           <SnapshotCard label="Total asset" value={rupeesCr(latest(data.annual, 'totalAssets'))} accent="violet"/>

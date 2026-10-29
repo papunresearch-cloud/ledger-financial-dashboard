@@ -119,9 +119,10 @@
 .per-share-mint{border-top-color:#22d3b5}.per-share-gold{border-top-color:#ffc857}.per-share-violet{border-top-color:#a78bfa}
 .per-share-summary>p{margin:0;color:#a1b8ad;font-size:13px;line-height:1.6}
 @media(max-width:700px){.per-share-card-grid{grid-template-columns:1fr}.per-share-summary{padding:15px}.per-share-summary-heading h3{font-size:17px}}
-.overview-heading-content{display:flex;align-items:center;gap:24px;min-width:0}
-.overview-current-price{display:grid;gap:5px;min-width:132px;padding:10px 15px;border:1px solid #23453b;border-radius:12px;background:linear-gradient(145deg,#10231e,#101a25)}
-.overview-current-price span{color:#a9c4b8;font-size:11px}
-.overview-current-price strong{color:#f2fbf7;font:700 20px Manrope,sans-serif;white-space:nowrap}
-@media(max-width:760px){.overview-heading-content{align-items:flex-start;gap:14px}.overview-current-price{min-width:112px;padding:9px 11px}.overview-current-price strong{font-size:17px}}
-@media(max-width:500px){.overview-heading-content{flex-direction:column}}
+.overview-heading-title{min-width:0}
+.overview-current-price{display:grid;gap:5px;min-width:132px;text-align:right;align-self:center}
+.overview-current-price span{color:#a9c4b8;font-size:14px}
+.overview-current-price strong{color:#f2fbf7;font:700 clamp(22px,2.2vw,30px) Manrope,sans-serif;letter-spacing:-.6px;white-space:nowrap}
+.overview-current-price small{color:#78a497;font:500 9px 'DM Mono',monospace;letter-spacing:.8px}
+@media(max-width:760px){.overview-current-price span{font-size:12px}.overview-current-price strong{font-size:24px}}
+@media(max-width:500px){.bank-overview-heading,.company-overview-heading{align-items:flex-start}.overview-current-price{align-self:flex-start;text-align:left}}
