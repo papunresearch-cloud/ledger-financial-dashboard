@@ -1,0 +1,6 @@
+node_modules
+dist
+backend/.browser-profile
+backend/__pycache__
+*.xlsx
+*.xls

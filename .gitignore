@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+.vercel/
+*.log
+*.xlsx
+*.xls
+*.csv
+.env
+.env.*
+!.env.example
+backend/.browser-profile/
+backend/__pycache__/
