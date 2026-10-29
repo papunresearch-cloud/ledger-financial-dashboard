@@ -8,7 +8,7 @@ import threading
 import time
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlsplit
 
 from openpyxl import load_workbook
 
@@ -127,15 +127,32 @@ def _download_cloud_workbook(code: str) -> bytes:
 
     target = urljoin(page.url, export_form["action"])
     headers = {"Referer": page.url, "Origin": "https://www.screener.in"}
-    method = export_form["method"]
-    if method == "post":
-        response = session.post(target, data=export_form["fields"], headers=headers, timeout=90)
-    else:
-        response = session.get(target, params=export_form["fields"], headers=headers, timeout=90)
-    response.raise_for_status()
+    # Screener's company workbook action is a POST. Some pages express this as a
+    # button `formaction`, so relying on the enclosing form's default method can
+    # accidentally issue a GET and return HTML instead of the workbook.
+    export_data = dict(export_form["fields"])
+    csrf = session.cookies.get("csrftoken", "")
+    if csrf:
+        export_data.setdefault("csrfmiddlewaretoken", csrf)
+    export_data.setdefault("next", urlsplit(page.url).path)
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    response = session.post(target, data=export_data, headers=headers, timeout=90)
+    if response.status_code >= 400:
+        raise ScreenerDownloadError(
+            f"Screener's Excel export endpoint returned HTTP {response.status_code}. "
+            "Check Screener sign-in and export access."
+        )
     content = response.content
     if not content.startswith(b"PK"):
-        raise ScreenerDownloadError("Screener did not return an Excel workbook. Check the Screener account and export access.")
+        content_type = response.headers.get("Content-Type", "unknown").split(";", 1)[0]
+        final_path = urlsplit(response.url).path
+        if "/login" in final_path:
+            reason = "Screener redirected the export to its login page; check the Screener credentials."
+        elif "text/html" in content_type or "html" in content[:300].lower().decode("utf-8", errors="ignore"):
+            reason = "Screener returned an HTML page instead of the workbook; the export request was rejected."
+        else:
+            reason = "Screener returned a response that is not an Excel workbook."
+        raise ScreenerDownloadError(f"{reason} (HTTP {response.status_code}, {content_type}).")
     return _clean_to_data_sheet(content)
 
 
