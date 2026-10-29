@@ -41,16 +41,18 @@ class _ExportFormParser(HTMLParser):
             target = attrs.get("formaction", "")
             label = " ".join(filter(None, (attrs.get("value", ""), attrs.get("aria-label", ""), attrs.get("title", ""))))
             is_export = "export" in (target + " " + label).lower()
-            if target:
+            if target and is_export:
                 self._form["action"] = target
             if is_export:
                 self._form["export"] = True
             if tag == "button":
-                self._button = {"export": is_export}
+                self._button = {"export": is_export, "target": target}
 
     def handle_data(self, data: str) -> None:
         if self._button and "export" in data.lower() and self._form is not None:
             self._form["export"] = True
+            if self._button["target"]:
+                self._form["action"] = self._button["target"]
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "button":
