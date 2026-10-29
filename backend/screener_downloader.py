@@ -148,10 +148,21 @@ def _download_cloud_workbook(code: str) -> bytes:
     if not content.startswith(b"PK"):
         content_type = response.headers.get("Content-Type", "unknown").split(";", 1)[0]
         final_path = urlsplit(response.url).path
+        page_text = response.text[:20000].lower()
+        indicators = [
+            label for label, terms in (
+                ("login", ("login", "sign in", "username", "password")),
+                ("csrf", ("csrf", "forbidden")),
+                ("captcha", ("captcha", "verify you are human")),
+                ("access-denied", ("access denied", "temporarily blocked", "rate limit")),
+                ("subscription", ("subscribe", "premium", "upgrade your plan")),
+            ) if any(term in page_text for term in terms)
+        ]
         if "/login" in final_path:
             reason = "Screener redirected the export to its login page; check the Screener credentials."
         elif "text/html" in content_type or "html" in content[:300].lower().decode("utf-8", errors="ignore"):
-            reason = "Screener returned an HTML page instead of the workbook; the export request was rejected."
+            clue = ", ".join(indicators) if indicators else "no known rejection marker"
+            reason = f"Screener returned HTML instead of the workbook (page {final_path}; clues: {clue})."
         else:
             reason = "Screener returned a response that is not an Excel workbook."
         raise ScreenerDownloadError(f"{reason} (HTTP {response.status_code}, {content_type}).")
