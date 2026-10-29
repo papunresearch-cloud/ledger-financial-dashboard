@@ -5,7 +5,6 @@
   "functions": {
     "api/**/*.py": {
       "maxDuration": 300,
-      "includeFiles": "**/playwright/driver/package/.local-browsers/**",
       "excludeFiles": "{node_modules/**,dist/**,src/**,scripts/**,*.md,*.tsx,*.ts,*.css,*.html,package.json,package-lock.json,vite.config.ts,tsconfig*.json}"
     }
   }

@@ -4,6 +4,8 @@ from __future__ import annotations
 import io
 import os
 import re
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -19,6 +21,29 @@ _DOWNLOAD_LOCK = threading.Lock()
 
 class ScreenerDownloadError(RuntimeError):
     pass
+
+
+def _prepare_cloud_browser() -> None:
+    """Install Playwright's headless Chromium into Vercel's writable scratch space."""
+    browser_cache = Path("/tmp/ledger-playwright-browsers")
+    env = os.environ.copy()
+    env["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_cache)
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium", "--only-shell"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ScreenerDownloadError("Cloud browser setup timed out while downloading Chromium.") from exc
+    except subprocess.CalledProcessError as exc:
+        # Avoid echoing subprocess output, which could include environment or proxy details.
+        raise ScreenerDownloadError(
+            f"Cloud browser setup failed (Playwright installer exit {exc.returncode})."
+        ) from exc
 
 
 def _clean_to_data_sheet(downloaded: bytes) -> bytes:
@@ -126,9 +151,9 @@ def download_company_workbook(company_code: str) -> bytes:
 
     cloud_mode = os.environ.get("LEDGER_CLOUD_MODE") == "1" or os.environ.get("VERCEL") == "1"
     if cloud_mode:
-        # The Vercel build installs Chromium with PLAYWRIGHT_BROWSERS_PATH=0,
-        # placing it inside the Playwright package. Match that path at runtime.
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+        # Browser binaries are downloaded on first use to /tmp because Vercel's
+        # function package should contain Python dependencies, not Chromium itself.
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/tmp/ledger-playwright-browsers"
 
     # Serialize browser work because one persistent Chrome profile cannot be opened twice.
     if not _DOWNLOAD_LOCK.acquire(timeout=240):
@@ -136,6 +161,8 @@ def download_company_workbook(company_code: str) -> bytes:
     context = None
     browser = None
     try:
+        if cloud_mode:
+            _prepare_cloud_browser()
         with sync_playwright() as playwright:
             if cloud_mode:
                 # Serverless runs have no desktop or durable browser profile. Keep each
