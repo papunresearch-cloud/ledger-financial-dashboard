@@ -264,7 +264,7 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
     if (quarterRows.some(row => row.operatingProfitMargin === null)) missingMetrics.push('Quarterly OPM')
     const companyName = String(matrix.find(row => cleanLabel(row?.[0]) === 'company name')?.[1] ?? file.name.replace(/\.xlsx?$/i, ''))
     return {
-      companyName, faceValue: metaValue(matrix, 'Face Value'), currentMarketCap: metaValue(matrix, 'Market Capitalization'), annual, quarterly: quarterRows,
+      companyName, faceValue: metaValue(matrix, 'Face Value'), currentMarketCap: metaValue(matrix, 'Market Capitalization'), currentPrice: metaValue(matrix, 'Current Price'), annual, quarterly: quarterRows,
       sourceMatrix: matrix, sourceFileName: file.name, warnings, missingMetrics,
     }
 }
@@ -398,7 +398,7 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
   const companyName = String(matrix.find(row => cleanLabel(row?.[0]) === 'company name')?.[1] ?? file.name.replace(/\.xlsx?$/i, ''))
   return {
     mode: 'bank', companyName, faceValue: metaValue(matrix, 'Face Value'),
-    currentMarketCap: metaValue(matrix, 'Market Capitalization'), currentAssets, annual, quarterly,
+    currentMarketCap: metaValue(matrix, 'Market Capitalization'), currentPrice: metaValue(matrix, 'Current Price'), currentAssets, annual, quarterly,
     sourceMatrix: matrix, sourceFileName: file.name, warnings, missingMetrics,
   }
 }

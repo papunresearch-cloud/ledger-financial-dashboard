@@ -84,7 +84,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     : value
   return <>
     {section === 'overview' && <div className="company-overview">
-      <div className="company-overview-heading"><div><div className="hero-kicker">NON-BANK FINANCIAL SNAPSHOT</div><h2>At a glance</h2><p>Valuation, returns, cash quality and growth from the uploaded Data Sheet.</p></div><span>{data.annual.at(-1)?.period ?? ''}</span></div>
+      <div className="company-overview-heading"><div className="overview-heading-content"><div className="overview-current-price"><span>Current Price</span><strong>{data.currentPrice === null ? '—' : `₹ ${fmt(data.currentPrice, 2)}`}</strong></div><div><div className="hero-kicker">NON-BANK FINANCIAL SNAPSHOT</div><h2>At a glance</h2><p>Valuation, returns, cash quality and growth from the uploaded Data Sheet.</p></div></div><span>{data.annual.at(-1)?.period ?? ''}</span></div>
       <div className="company-snapshot-grid">
         <Snapshot label="Current market cap" value={moneyCr(marketCap)} tone="mint"/><Snapshot label="Total asset" value={moneyCr(latest(data.annual, 'totalAssets'))} tone="violet"/><Snapshot label="TTM sales" value={moneyCr(ttmSales)} tone="blue"/>
         <Snapshot label="P / E" value={marketCap !== null && ttmProfit !== null && ttmProfit > 0 ? `${fmt(marketCap / ttmProfit, 2)}×` : '—'} tone="pink"/><Snapshot label="P / B" value={marketCap !== null && equity !== null && equity !== undefined && equity > 0 ? `${fmt(marketCap / equity, 2)}×` : '—'} tone="gold"/><Snapshot label="P / S" value={marketCap !== null && ttmSales !== null && ttmSales > 0 ? `${fmt(marketCap / ttmSales, 2)}×` : '—'} tone="teal"/>

@@ -62,6 +62,7 @@ export type CompanyData = {
   companyName: string
   faceValue: number | null
   currentMarketCap: number | null
+  currentPrice: number | null
   annual: AnnualRow[]
   quarterly: QuarterRow[]
   sourceMatrix: unknown[][]
@@ -127,6 +128,7 @@ export type BankData = {
   companyName: string
   faceValue: number | null
   currentMarketCap: number | null
+  currentPrice: number | null
   currentAssets: number | null
   annual: BankAnnualRow[]
   quarterly: BankQuarterRow[]
