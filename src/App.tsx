@@ -12,7 +12,7 @@ type Mode = 'nonbank' | 'bank'
 type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const compact = (n: number | null | undefined, digits = 1) => n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(n)
 const supportsLocalScreener = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
-const supportsCloudScreener = import.meta.env.VITE_ENABLE_SCREENER_DOWNLOAD === 'true'
+const supportsCloudScreener = !supportsLocalScreener
 
 function App() {
   const [mode, setMode] = useState<Mode>('nonbank')
@@ -45,7 +45,7 @@ function App() {
     setBusy(true); setError('')
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (!supportsLocalScreener && supportsCloudScreener) headers['X-Ledger-Key'] = accessKey
+      if (supportsCloudScreener) headers['X-Ledger-Key'] = accessKey
       const response = await fetch('/api/download', { method: 'POST', headers, body: JSON.stringify({ code }) })
       if (!response.ok) {
         let message = `Screener download failed (HTTP ${response.status}).`

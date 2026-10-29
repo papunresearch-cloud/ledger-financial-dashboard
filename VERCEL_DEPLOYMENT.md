@@ -7,21 +7,20 @@ This deployment keeps Ledger as a separate project. Vercel serves the Vite React
 - `api/download.py` implements `GET /api/status` and `POST /api/download`.
 - `backend/screener_downloader.py` retains the local visible-Chrome path and adds a Vercel headless-browser path routed through a proxy.
 - The Vercel function requires a private `LEDGER_ACCESS_KEY` entered in the dashboard. The key is checked server-side and is never compiled into JavaScript.
-- The Vite app calls the same-origin `/api/download` endpoint and sends the access key in an HTTPS request header.
+- The Vite app shows the cloud download card on non-localhost deployments, calls the same-origin `/api/download` endpoint, and sends the access key in an HTTPS request header.
 - The build installs Playwright's Chromium headless shell into the Python package before building the React static assets.
 
 ## Deploy it
 
 1. Create a separate Git repository containing only this `financial-dashboard` project. Do not include workbook samples, `.browser-profile`, `node_modules`, or `.env` files.
 2. Import that repository as a new project in Vercel. Use the project root (no monorepo root override).
-3. Set the Vercel project environment variable `VITE_ENABLE_SCREENER_DOWNLOAD` to `true` for Production and Preview if you want the download card enabled. This is a public UI switch, not a secret.
-4. In Vercel Project Settings → Environment Variables, add:
+3. In Vercel Project Settings → Environment Variables, add:
    - `LEDGER_ACCESS_KEY`: a long, private random string that only you enter into the dashboard's Ledger access-key field.
    - `SCREENER_PROXY_SERVER`: proxy address, for example `http://proxy-host:proxy-port` or `https://proxy-host:proxy-port` as supplied by your provider.
    - `SCREENER_PROXY_USERNAME` and `SCREENER_PROXY_PASSWORD` if required by that proxy.
    - `SCREENER_EMAIL` and `SCREENER_PASSWORD` if the Screener export requires sign-in and the provider/account permits automated sign-in. These stay server-side. Do not set them as `VITE_*` variables.
-5. Redeploy after setting variables. Vercel uses `vercel-build`: it installs Chromium's headless shell and runs the existing TypeScript/Vite production build.
-6. Open `/api/status`; it should return a small JSON health response. Then open the homepage, enter the access key and a supported Screener code, and try **Download & analyze**.
+4. Redeploy after setting variables. Vercel uses `vercel-build`: it installs Chromium's headless shell and runs the existing TypeScript/Vite production build.
+5. Open `/api/status`; it should return a small JSON health response. Then open the homepage, enter the access key and a supported Screener code, and try **Download & analyze**.
 
 For initial setup, leave the proxy username/password empty if the proxy has no authentication. The user supplies the proxy endpoint values through Vercel's Environment Variables; no proxy address or credentials are committed in this project.
 
