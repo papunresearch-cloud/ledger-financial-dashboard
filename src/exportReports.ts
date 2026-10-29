@@ -12,30 +12,104 @@ const excelValue = (value: unknown): string | number | boolean | Date | null => 
 }
 
 async function captureCharts(): Promise<CapturedChart[]> {
-  const { default: html2canvas } = await import('html2canvas')
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
   const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-export-chart-card]'))
-  const captured: Array<CapturedChart | null> = Array(cards.length).fill(null)
-  let nextCard = 0
-  const captureWorker = async () => {
-    while (nextCard < cards.length) {
-      const index = nextCard++
-      const card = cards[index]
-      const snapshot = card.querySelector<HTMLElement>('.chart-snapshot')
-      if (!snapshot) continue
-      const darkChart = card.classList.contains('chart-card-dark')
-      const canvas = await html2canvas(snapshot, {
-        backgroundColor: darkChart ? '#10211e' : '#ffffff',
-        scale: 1,
-        logging: false,
-        useCORS: true,
+  const captured: CapturedChart[] = []
+  const svgNs = 'http://www.w3.org/2000/svg'
+
+  for (const card of cards) {
+    const snapshot = card.querySelector<HTMLElement>('.chart-snapshot')
+    if (!snapshot) continue
+    const bounds = snapshot.getBoundingClientRect()
+    const width = Math.max(1, Math.round(bounds.width))
+    const height = Math.max(1, Math.round(bounds.height))
+    const darkChart = card.classList.contains('chart-card-dark')
+    const background = darkChart ? '#10211e' : '#ffffff'
+    const sourceSvg = snapshot.querySelector('svg')
+    const svg = sourceSvg
+      ? sourceSvg.cloneNode(true) as SVGSVGElement
+      : document.createElementNS(svgNs, 'svg')
+
+    svg.setAttribute('xmlns', svgNs)
+    svg.setAttribute('width', String(width))
+    svg.setAttribute('height', String(height))
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`)
+    svg.style.width = `${width}px`
+    svg.style.height = `${height}px`
+
+    const backgroundRect = document.createElementNS(svgNs, 'rect')
+    backgroundRect.setAttribute('width', '100%')
+    backgroundRect.setAttribute('height', '100%')
+    backgroundRect.setAttribute('fill', background)
+    svg.insertBefore(backgroundRect, svg.firstChild)
+
+    if (!sourceSvg) {
+      const emptyText = snapshot.querySelector('.chart-empty strong')?.textContent?.trim() ?? 'Not enough data to plot'
+      const label = document.createElementNS(svgNs, 'text')
+      label.setAttribute('x', String(width / 2))
+      label.setAttribute('y', String(height / 2))
+      label.setAttribute('text-anchor', 'middle')
+      label.setAttribute('dominant-baseline', 'middle')
+      label.setAttribute('fill', darkChart ? '#c5ddd3' : '#687a70')
+      label.setAttribute('font-family', 'Arial, sans-serif')
+      label.setAttribute('font-size', '14')
+      label.textContent = emptyText
+      svg.appendChild(label)
+    } else {
+      const legendItems = Array.from(snapshot.querySelectorAll<HTMLElement>('.recharts-legend-item'))
+      for (const item of legendItems) {
+        const itemBounds = item.getBoundingClientRect()
+        const icon = item.querySelector<SVGElement>('svg path, svg line, svg circle')
+        const iconColor = icon?.getAttribute('fill') && icon.getAttribute('fill') !== 'none'
+          ? icon.getAttribute('fill')!
+          : icon?.getAttribute('stroke') ?? '#168b72'
+        const textColor = getComputedStyle(item).color
+        const x = Math.max(6, itemBounds.left - bounds.left)
+        const y = itemBounds.top - bounds.top + itemBounds.height / 2
+        const marker = document.createElementNS(svgNs, 'circle')
+        marker.setAttribute('cx', String(x + 5))
+        marker.setAttribute('cy', String(y))
+        marker.setAttribute('r', '4')
+        marker.setAttribute('fill', iconColor)
+        svg.appendChild(marker)
+        const label = document.createElementNS(svgNs, 'text')
+        label.setAttribute('x', String(x + 13))
+        label.setAttribute('y', String(y))
+        label.setAttribute('dominant-baseline', 'middle')
+        label.setAttribute('fill', textColor)
+        label.setAttribute('font-family', 'Arial, sans-serif')
+        label.setAttribute('font-size', '11')
+        label.textContent = item.textContent?.trim() ?? ''
+        svg.appendChild(label)
+      }
+    }
+
+    const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml;charset=utf-8' })
+    const svgUrl = URL.createObjectURL(svgBlob)
+    try {
+      const image = new Image()
+      image.src = svgUrl
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('A chart could not be rendered for export.'))
       })
-      const title = card.querySelector('h3')?.textContent?.trim() ?? 'Financial chart'
-      captured[index] = { title, dataUrl: canvas.toDataURL('image/png') }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('Canvas is unavailable for chart export.')
+      context.fillStyle = background
+      context.fillRect(0, 0, width, height)
+      context.drawImage(image, 0, 0, width, height)
+      captured.push({
+        title: card.querySelector('h3')?.textContent?.trim() ?? 'Financial chart',
+        dataUrl: canvas.toDataURL('image/png'),
+      })
+    } finally {
+      URL.revokeObjectURL(svgUrl)
     }
   }
-  await Promise.all(Array.from({ length: Math.min(3, cards.length) }, () => captureWorker()))
-  return captured.filter((chart): chart is CapturedChart => chart !== null)
+  return captured
 }
 
 const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: '102D2B' } }
