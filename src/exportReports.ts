@@ -15,16 +15,27 @@ async function captureCharts(): Promise<CapturedChart[]> {
   const { default: html2canvas } = await import('html2canvas')
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
   const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-export-chart-card]'))
-  const captured: CapturedChart[] = []
-  for (const card of cards) {
-    const snapshot = card.querySelector<HTMLElement>('.chart-snapshot')
-    if (!snapshot) continue
-    const darkChart = card.classList.contains('chart-card-dark')
-    const canvas = await html2canvas(snapshot, { backgroundColor: darkChart ? '#10211e' : '#ffffff', scale: 1.5, logging: false, useCORS: true })
-    const title = card.querySelector('h3')?.textContent?.trim() ?? 'Financial chart'
-    captured.push({ title, dataUrl: canvas.toDataURL('image/png') })
+  const captured: Array<CapturedChart | null> = Array(cards.length).fill(null)
+  let nextCard = 0
+  const captureWorker = async () => {
+    while (nextCard < cards.length) {
+      const index = nextCard++
+      const card = cards[index]
+      const snapshot = card.querySelector<HTMLElement>('.chart-snapshot')
+      if (!snapshot) continue
+      const darkChart = card.classList.contains('chart-card-dark')
+      const canvas = await html2canvas(snapshot, {
+        backgroundColor: darkChart ? '#10211e' : '#ffffff',
+        scale: 1,
+        logging: false,
+        useCORS: true,
+      })
+      const title = card.querySelector('h3')?.textContent?.trim() ?? 'Financial chart'
+      captured[index] = { title, dataUrl: canvas.toDataURL('image/png') }
+    }
   }
-  return captured
+  await Promise.all(Array.from({ length: Math.min(3, cards.length) }, () => captureWorker()))
+  return captured.filter((chart): chart is CapturedChart => chart !== null)
 }
 
 const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: '102D2B' } }
