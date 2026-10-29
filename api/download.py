@@ -13,6 +13,26 @@ MAX_BODY_BYTES = 8_000
 MAX_RESPONSE_BYTES = 4_000_000  # Leave margin below Vercel's 4.5 MB function payload ceiling.
 
 
+def _safe_error_detail(exc: Exception) -> str:
+    """Expose useful diagnostics while stripping configured credentials first."""
+    message = str(exc).replace("\r", " ").replace("\n", " ").strip()
+    secret_names = (
+        "LEDGER_ACCESS_KEY",
+        "SCREENER_PROXY_USERNAME",
+        "SCREENER_PROXY_PASSWORD",
+        "SCREENER_EMAIL",
+        "SCREENER_PASSWORD",
+    )
+    for name in secret_names:
+        secret = os.environ.get(name, "")
+        if secret:
+            message = message.replace(secret, "[redacted]")
+    # Also remove credentials if a library echoes an authenticated proxy URL.
+    message = re.sub(r"(?i)(https?://)[^/\s@]+@", r"\1[redacted]@", message)
+    message = message[:600] if message else "(no exception message)"
+    return f"{type(exc).__name__}: {message}"
+
+
 class handler(BaseHTTPRequestHandler):
     def _json(self, status: int, payload: dict) -> None:
         body = json.dumps(payload).encode("utf-8")
@@ -68,9 +88,9 @@ class handler(BaseHTTPRequestHandler):
             self._json(422, {"detail": str(exc)})
             return
         except Exception as exc:
-            print(f"Company download failed: {type(exc).__name__}", flush=True)
-            # Do not return or log exception text: it can include proxy details.
-            self._json(500, {"detail": f"Screener export failed ({type(exc).__name__}). Check the Vercel function logs."})
+            detail = _safe_error_detail(exc)
+            print(f"Company download failed: {detail}", flush=True)
+            self._json(500, {"detail": f"Screener export failed. {detail}"})
             return
 
         filename = f"{code.upper()}.xlsx"
