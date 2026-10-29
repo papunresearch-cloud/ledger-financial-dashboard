@@ -107,7 +107,7 @@ def _cloud_login(session) -> None:
         form["csrfmiddlewaretoken"] = csrf
     result = session.post(login_url, data=form, headers={"Referer": login_url, "Origin": "https://www.screener.in"}, timeout=45)
     result.raise_for_status()
-    if not session.cookies.get("sessionid"):
+    if not session.cookies.get("sessionid") or urlsplit(result.url).path.rstrip("/").endswith("login"):
         raise ScreenerDownloadError("Screener sign-in failed. Check the Vercel Screener credentials.")
 
 
@@ -134,8 +134,10 @@ def _download_cloud_workbook(code: str) -> bytes:
     csrf = session.cookies.get("csrftoken", "")
     if csrf:
         export_data.setdefault("csrfmiddlewaretoken", csrf)
-    export_data.setdefault("next", urlsplit(page.url).path)
+    export_data.setdefault("next", f"/company/{code}/consolidated/")
     headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if csrf:
+        headers["X-CSRFToken"] = csrf
     response = session.post(target, data=export_data, headers=headers, timeout=90)
     if response.status_code >= 400:
         raise ScreenerDownloadError(
