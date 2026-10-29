@@ -89,6 +89,14 @@ def _cloud_proxy_session():
 
 
 def _cloud_login(session) -> None:
+    # Reuse a known-good browser session when provided. Screener may issue an
+    # anonymous sessionid cookie before login, so cookie existence alone cannot
+    # prove that a credential login succeeded.
+    session_id = os.environ.get("SCREENER_SESSION_ID", "").strip().strip("\"'")
+    if session_id:
+        session.cookies.set("sessionid", session_id, domain=".screener.in", path="/")
+        return
+
     email = os.environ.get("SCREENER_EMAIL", "").strip()
     password = os.environ.get("SCREENER_PASSWORD", "")
     if not email or not password:
@@ -118,6 +126,11 @@ def _download_cloud_workbook(code: str) -> bytes:
     page_url = f"https://www.screener.in/company/{code}/"
     page = session.get(page_url, timeout=60)
     page.raise_for_status()
+    if urlsplit(page.url).path.rstrip("/").endswith("login"):
+        raise ScreenerDownloadError(
+            "Screener redirected the company page to login. Set a valid SCREENER_SESSION_ID in Vercel, "
+            "or check SCREENER_EMAIL and SCREENER_PASSWORD."
+        )
 
     parser = _ExportFormParser()
     parser.feed(page.text)
@@ -151,18 +164,22 @@ def _download_cloud_workbook(code: str) -> bytes:
         page_text = response.text[:20000].lower()
         indicators = [
             label for label, terms in (
-                ("login", ("login", "sign in", "username", "password")),
-                ("csrf", ("csrf", "forbidden")),
+                ("login", ("please log in to continue", "invalid username or password", "login required")),
+                ("csrf-rejection", ("csrf verification failed", "csrf token missing", "csrf cookie not set")),
                 ("captcha", ("captcha", "verify you are human")),
-                ("access-denied", ("access denied", "temporarily blocked", "rate limit")),
-                ("subscription", ("subscribe", "premium", "upgrade your plan")),
+                ("access-denied", ("access denied", "temporarily blocked", "rate limit exceeded")),
+                ("subscription-required", ("subscription required to export", "upgrade your plan to export")),
             ) if any(term in page_text for term in terms)
         ]
         if "/login" in final_path:
             reason = "Screener redirected the export to its login page; check the Screener credentials."
         elif "text/html" in content_type or "html" in content[:300].lower().decode("utf-8", errors="ignore"):
-            clue = ", ".join(indicators) if indicators else "no known rejection marker"
-            reason = f"Screener returned HTML instead of the workbook (page {final_path}; clues: {clue})."
+            clue = ", ".join(indicators) if indicators else "no explicit rejection marker"
+            redirects = ",".join(str(item.status_code) for item in response.history) or "none"
+            reason = (
+                f"Screener returned HTML instead of the workbook (export endpoint {urlsplit(target).path}; "
+                f"final page {final_path}; redirects {redirects}; clues: {clue})."
+            )
         else:
             reason = "Screener returned a response that is not an Excel workbook."
         raise ScreenerDownloadError(f"{reason} (HTTP {response.status_code}, {content_type}).")

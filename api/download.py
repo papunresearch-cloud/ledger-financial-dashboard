@@ -20,6 +20,7 @@ def _safe_error_detail(exc: Exception) -> str:
         "LEDGER_ACCESS_KEY",
         "SCREENER_PROXY_USERNAME",
         "SCREENER_PROXY_PASSWORD",
+        "SCREENER_SESSION_ID",
         "SCREENER_EMAIL",
         "SCREENER_PASSWORD",
     )
