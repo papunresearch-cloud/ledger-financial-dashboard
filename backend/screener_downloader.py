@@ -4,15 +4,13 @@ from __future__ import annotations
 import io
 import os
 import re
-import subprocess
-import sys
 import threading
 import time
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import quote, urljoin
 
 from openpyxl import load_workbook
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
 
 APP_DIR = Path(__file__).resolve().parents[1]
 PROFILE_DIR = APP_DIR / "backend" / ".browser-profile"
@@ -23,27 +21,122 @@ class ScreenerDownloadError(RuntimeError):
     pass
 
 
-def _prepare_cloud_browser() -> None:
-    """Install Playwright's headless Chromium into Vercel's writable scratch space."""
-    browser_cache = Path("/tmp/ledger-playwright-browsers")
-    env = os.environ.copy()
-    env["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_cache)
-    try:
-        subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium", "--only-shell"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=180,
-            env=env,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise ScreenerDownloadError("Cloud browser setup timed out while downloading Chromium.") from exc
-    except subprocess.CalledProcessError as exc:
-        # Avoid echoing subprocess output, which could include environment or proxy details.
-        raise ScreenerDownloadError(
-            f"Cloud browser setup failed (Playwright installer exit {exc.returncode})."
-        ) from exc
+class _ExportFormParser(HTMLParser):
+    """Find Screener's company export form and the fields it submits."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.forms: list[dict] = []
+        self._form: dict | None = None
+        self._button: dict | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attrs = dict(attrs)
+        if tag == "form":
+            self._form = {"action": attrs.get("action", ""), "method": attrs.get("method", "get").lower(), "fields": {}, "export": False}
+            self.forms.append(self._form)
+        elif self._form is not None and tag == "input" and attrs.get("name"):
+            self._form["fields"][attrs["name"]] = attrs.get("value", "") or ""
+        elif self._form is not None and tag in ("button", "input"):
+            target = attrs.get("formaction", "")
+            label = " ".join(filter(None, (attrs.get("value", ""), attrs.get("aria-label", ""), attrs.get("title", ""))))
+            is_export = "export" in (target + " " + label).lower()
+            if target:
+                self._form["action"] = target
+            if is_export:
+                self._form["export"] = True
+            if tag == "button":
+                self._button = {"export": is_export}
+
+    def handle_data(self, data: str) -> None:
+        if self._button and "export" in data.lower() and self._form is not None:
+            self._form["export"] = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "button":
+            self._button = None
+        elif tag == "form":
+            self._form = None
+
+
+def _cloud_proxy_session():
+    """Create a Requests session routed through the supplied Webshare proxy."""
+    import requests
+
+    server = os.environ.get("SCREENER_PROXY_SERVER", "").strip().strip("\"'")
+    if not server:
+        raise ScreenerDownloadError("SCREENER_PROXY_SERVER is not configured for the cloud downloader.")
+    if "://" not in server:
+        server = "http://" + server
+    username = os.environ.get("SCREENER_PROXY_USERNAME", "").strip()
+    password = os.environ.get("SCREENER_PROXY_PASSWORD", "")
+    if username and not password:
+        raise ScreenerDownloadError("SCREENER_PROXY_PASSWORD is missing for the configured proxy username.")
+    if username:
+        scheme, address = server.split("://", 1)
+        server = f"{scheme}://{quote(username, safe='')}:{quote(password, safe='')}@{address.rstrip('/')}"
+    else:
+        server = server.rstrip("/")
+
+    session = requests.Session()
+    session.trust_env = False
+    session.proxies.update({"http": server, "https": server})
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    })
+    return session
+
+
+def _cloud_login(session) -> None:
+    email = os.environ.get("SCREENER_EMAIL", "").strip()
+    password = os.environ.get("SCREENER_PASSWORD", "")
+    if not email or not password:
+        raise ScreenerDownloadError("Set SCREENER_EMAIL and SCREENER_PASSWORD in Vercel to sign in to Screener.")
+
+    login_url = "https://www.screener.in/login/"
+    response = session.get(login_url, timeout=45)
+    response.raise_for_status()
+    csrf = session.cookies.get("csrftoken", "")
+    if not csrf:
+        match = re.search(r'name=[\"\']csrfmiddlewaretoken[\"\']\s+value=[\"\']([^\"\']+)', response.text)
+        if match:
+            csrf = match.group(1)
+    form = {"username": email, "password": password, "next": ""}
+    if csrf:
+        form["csrfmiddlewaretoken"] = csrf
+    result = session.post(login_url, data=form, headers={"Referer": login_url, "Origin": "https://www.screener.in"}, timeout=45)
+    result.raise_for_status()
+    if not session.cookies.get("sessionid"):
+        raise ScreenerDownloadError("Screener sign-in failed. Check the Vercel Screener credentials.")
+
+
+def _download_cloud_workbook(code: str) -> bytes:
+    """Fetch the same company Excel export over HTTP, without installing Chromium."""
+    session = _cloud_proxy_session()
+    _cloud_login(session)
+    page_url = f"https://www.screener.in/company/{code}/"
+    page = session.get(page_url, timeout=60)
+    page.raise_for_status()
+
+    parser = _ExportFormParser()
+    parser.feed(page.text)
+    export_form = next((form for form in parser.forms if form["export"] and form["action"]), None)
+    if not export_form:
+        raise ScreenerDownloadError("Could not find the company Excel export form. Confirm Screener sign-in and try again.")
+
+    target = urljoin(page.url, export_form["action"])
+    headers = {"Referer": page.url, "Origin": "https://www.screener.in"}
+    method = export_form["method"]
+    if method == "post":
+        response = session.post(target, data=export_form["fields"], headers=headers, timeout=90)
+    else:
+        response = session.get(target, params=export_form["fields"], headers=headers, timeout=90)
+    response.raise_for_status()
+    content = response.content
+    if not content.startswith(b"PK"):
+        raise ScreenerDownloadError("Screener did not return an Excel workbook. Check the Screener account and export access.")
+    return _clean_to_data_sheet(content)
 
 
 def _clean_to_data_sheet(downloaded: bytes) -> bytes:
@@ -78,6 +171,8 @@ def _visible_first(page, selectors: tuple[str, ...]):
 
 
 def _try_environment_login(page) -> bool:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
     email = os.environ.get("SCREENER_EMAIL", "").strip()
     password = os.environ.get("SCREENER_PASSWORD", "")
     if not email or not password:
@@ -121,6 +216,8 @@ def _export_button(page):
 
 
 def _wait_until_signed_in(page, code: str, timeout_seconds: int = 180) -> None:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
     company_url = f"https://www.screener.in/company/{code}/"
     end = time.monotonic() + timeout_seconds
     while time.monotonic() < end:
@@ -151,9 +248,11 @@ def download_company_workbook(company_code: str) -> bytes:
 
     cloud_mode = os.environ.get("LEDGER_CLOUD_MODE") == "1" or os.environ.get("VERCEL") == "1"
     if cloud_mode:
-        # Browser binaries are downloaded on first use to /tmp because Vercel's
-        # function package should contain Python dependencies, not Chromium itself.
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/tmp/ledger-playwright-browsers"
+        return _download_cloud_workbook(code)
+
+    # Browser automation remains available for the local interactive workflow.
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+    from playwright.sync_api import sync_playwright
 
     # Serialize browser work because one persistent Chrome profile cannot be opened twice.
     if not _DOWNLOAD_LOCK.acquire(timeout=240):
@@ -161,34 +260,16 @@ def download_company_workbook(company_code: str) -> bytes:
     context = None
     browser = None
     try:
-        if cloud_mode:
-            _prepare_cloud_browser()
         with sync_playwright() as playwright:
-            if cloud_mode:
-                # Serverless runs have no desktop or durable browser profile. Keep each
-                # invocation isolated and route browser traffic through the supplied proxy.
-                proxy_server = os.environ.get("SCREENER_PROXY_SERVER", "").strip()
-                if not proxy_server:
-                    raise ScreenerDownloadError("SCREENER_PROXY_SERVER is not configured for the cloud downloader.")
-                proxy = {"server": proxy_server}
-                proxy_username = os.environ.get("SCREENER_PROXY_USERNAME", "")
-                proxy_password = os.environ.get("SCREENER_PROXY_PASSWORD", "")
-                if proxy_username:
-                    proxy["username"] = proxy_username
-                if proxy_password:
-                    proxy["password"] = proxy_password
-                browser = playwright.chromium.launch(headless=True, proxy=proxy)
-                context = browser.new_context(accept_downloads=True)
-            else:
-                PROFILE_DIR.mkdir(parents=True, exist_ok=True)
-                # Local mode reuses this app-owned Chrome profile and opens a visible window.
-                context = playwright.chromium.launch_persistent_context(
-                    user_data_dir=str(PROFILE_DIR),
-                    channel="chrome",
-                    headless=False,
-                    accept_downloads=True,
-                    args=["--start-maximized"],
-                )
+            PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+            # Local mode reuses this app-owned Chrome profile and opens a visible window.
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(PROFILE_DIR),
+                channel="chrome",
+                headless=False,
+                accept_downloads=True,
+                args=["--start-maximized"],
+            )
             page = context.pages[0] if context.pages else context.new_page()
             company_url = f"https://www.screener.in/company/{code}/"
             page.goto(company_url, wait_until="domcontentloaded", timeout=60000)
@@ -206,8 +287,7 @@ def download_company_workbook(company_code: str) -> bytes:
                     _export_button(page).wait_for(state="visible", timeout=7000)
                 except PlaywrightTimeoutError:
                     print("Screener sign-in is needed in the opened Chrome window. Complete it there; waiting up to 3 minutes.")
-                    wait_seconds = 20 if cloud_mode else 180
-                    _wait_until_signed_in(page, code, timeout_seconds=wait_seconds)
+                    _wait_until_signed_in(page, code, timeout_seconds=180)
 
             try:
                 with page.expect_download(timeout=60000) as download_event:
