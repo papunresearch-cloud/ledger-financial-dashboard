@@ -124,6 +124,12 @@ def download_company_workbook(company_code: str) -> bytes:
     if not re.fullmatch(r"[A-Z0-9][A-Z0-9&._-]{0,31}", code):
         raise ScreenerDownloadError("Enter a Screener company code such as INFY, ITC, or RELIANCE.")
 
+    cloud_mode = os.environ.get("LEDGER_CLOUD_MODE") == "1" or os.environ.get("VERCEL") == "1"
+    if cloud_mode:
+        # The Vercel build installs Chromium with PLAYWRIGHT_BROWSERS_PATH=0,
+        # placing it inside the Playwright package. Match that path at runtime.
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+
     # Serialize browser work because one persistent Chrome profile cannot be opened twice.
     if not _DOWNLOAD_LOCK.acquire(timeout=240):
         raise ScreenerDownloadError("Another Screener download is still running. Wait and retry.")
@@ -131,7 +137,7 @@ def download_company_workbook(company_code: str) -> bytes:
     browser = None
     try:
         with sync_playwright() as playwright:
-            if os.environ.get("LEDGER_CLOUD_MODE") == "1" or os.environ.get("VERCEL") == "1":
+            if cloud_mode:
                 # Serverless runs have no desktop or durable browser profile. Keep each
                 # invocation isolated and route browser traffic through the supplied proxy.
                 proxy_server = os.environ.get("SCREENER_PROXY_SERVER", "").strip()
@@ -173,7 +179,6 @@ def download_company_workbook(company_code: str) -> bytes:
                     _export_button(page).wait_for(state="visible", timeout=7000)
                 except PlaywrightTimeoutError:
                     print("Screener sign-in is needed in the opened Chrome window. Complete it there; waiting up to 3 minutes.")
-                    cloud_mode = os.environ.get("LEDGER_CLOUD_MODE") == "1" or os.environ.get("VERCEL") == "1"
                     wait_seconds = 20 if cloud_mode else 180
                     _wait_until_signed_in(page, code, timeout_seconds=wait_seconds)
 
