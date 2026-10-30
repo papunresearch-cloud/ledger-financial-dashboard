@@ -125,7 +125,7 @@ def _download_cloud_workbook(code: str) -> bytes:
     """Fetch the same company Excel export over HTTP, without installing Chromium."""
     session = _cloud_proxy_session()
     _cloud_login(session)
-    page_url = f"https://www.screener.in/company/{code}/"
+    page_url = f"https://www.screener.in/company/{code}/consolidated/"
     page = session.get(page_url, timeout=60)
     page.raise_for_status()
     if urlsplit(page.url).path.rstrip("/").endswith("login"):
@@ -267,7 +267,7 @@ def _export_button(page):
 def _wait_until_signed_in(page, code: str, timeout_seconds: int = 180) -> None:
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-    company_url = f"https://www.screener.in/company/{code}/"
+    company_url = f"https://www.screener.in/company/{code}/consolidated/"
     end = time.monotonic() + timeout_seconds
     while time.monotonic() < end:
         if "/login" not in page.url.lower():
@@ -320,7 +320,7 @@ def download_company_workbook(company_code: str) -> bytes:
                 args=["--start-maximized"],
             )
             page = context.pages[0] if context.pages else context.new_page()
-            company_url = f"https://www.screener.in/company/{code}/"
+            company_url = f"https://www.screener.in/company/{code}/consolidated/"
             page.goto(company_url, wait_until="domcontentloaded", timeout=60000)
             button = _export_button(page)
             try:
