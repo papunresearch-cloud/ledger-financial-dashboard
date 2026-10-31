@@ -54,6 +54,16 @@ function annualCagr(start: { year: number; sales: number }, end: { year: number;
   return (end.sales / start.sales) ** (1 / intervals) - 1
 }
 
+function middleAverage(values: Array<number | null | undefined>): number | null {
+  const sorted = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value)).sort((a, b) => b - a)
+  const count = sorted.length
+  if (count === 0) return null
+  const keep = count >= 6 ? (count % 2 === 0 ? 4 : 3) : count === 5 ? 3 : count === 4 ? 2 : count === 3 ? 1 : count
+  const start = Math.floor((count - keep) / 2)
+  const middle = sorted.slice(start, start + keep)
+  return middle.reduce((sum, value) => sum + value, 0) / middle.length
+}
+
 function ttmSalesGrowth(data: FinancialData): number | null {
   const bank = data.mode === 'bank'
   const quarters = data.quarterly.map(row => {
@@ -103,24 +113,26 @@ function defaultSalesGrowth(data: FinancialData): SalesGrowthDefault {
   return { value: null, basis: 'Insufficient history · enter a value' }
 }
 
-function sourceInputs(data: FinancialData): { sales: number; equity: number; shares: number; price: number; salesGrowth: SalesGrowthDefault; npm: number; payout: number; cfoSales: number; fcfSales: number } {
+function sourceInputs(data: FinancialData): { sales: number; equity: number; shares: number; price: number; salesGrowth: SalesGrowthDefault; npm: number | null; payout: number; cfoSales: number; fcfSales: number } {
   const latest = data.annual.at(-1)
   const bank = data.mode === 'bank'
   const sales = latest ? bank ? (latest as BankData['annual'][number]).totalRevenue : (latest as CompanyData['annual'][number]).sales : null
   const equity = latest ? bank ? (latest as BankData['annual'][number]).equity : (latest as CompanyData['annual'][number]).equity : null
   const shares = latest?.sharesCr
-  const npm = latest?.netProfitMargin
-  const payout = latest ? bank ? (latest as BankData['annual'][number]).dividendPayout : (latest as CompanyData['annual'][number]).dividendPayout : null
+  const annualNpm = middleAverage(data.annual.map(row => row.netProfitMargin))
+  const quarterlyNpm = middleAverage(data.quarterly.map(row => row.netProfitMargin))
+  const npm = annualNpm !== null && quarterlyNpm !== null ? (annualNpm + quarterlyNpm) / 2 : annualNpm ?? quarterlyNpm
+  const annualPayout = middleAverage(data.annual.map(row => row.dividendPayout))
   const cfo = latest ? bank ? (latest as BankData['annual'][number]).operatingCashFlow : (latest as CompanyData['annual'][number]).operatingCashFlow : null
   const fcf = latest ? bank ? (latest as BankData['annual'][number]).freeCashFlow : (latest as CompanyData['annual'][number]).freeCashFlow : null
   const salesGrowth = defaultSalesGrowth(data)
-  return { sales: n(sales), equity: n(equity), shares: n(shares), price: n(data.currentPrice), salesGrowth, npm: n(npm), payout: n(payout), cfoSales: sales ? n(cfo) / sales * 100 : 0, fcfSales: sales ? n(fcf) / sales * 100 : 0 }
+  return { sales: n(sales), equity: n(equity), shares: n(shares), price: n(data.currentPrice), salesGrowth, npm, payout: annualPayout ?? 0, cfoSales: sales ? n(cfo) / sales * 100 : 0, fcfSales: sales ? n(fcf) / sales * 100 : 0 }
 }
 
 export function ForecastCalculator({ data, onClose }: { data: FinancialData; onClose: () => void }) {
   const source = useMemo(() => sourceInputs(data), [data])
   const [mode, setMode] = useState<CalculatorMode>(data.mode === 'bank' ? 'bank' : 'nonbank')
-  const [inputs, setInputs] = useState<Inputs>({ salesGrowth: source.salesGrowth.value === null ? '' : String(Number(source.salesGrowth.value.toFixed(2))), npm: String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: String(Number(source.cfoSales.toFixed(2))), fcfSales: String(Number(source.fcfSales.toFixed(2))), years: '5', price: String(source.price) })
+  const [inputs, setInputs] = useState<Inputs>({ salesGrowth: source.salesGrowth.value === null ? '' : String(Number(source.salesGrowth.value.toFixed(2))), npm: source.npm === null ? '' : String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: String(Number(source.cfoSales.toFixed(2))), fcfSales: String(Number(source.fcfSales.toFixed(2))), years: '5', price: String(source.price) })
   const [validation, setValidation] = useState('')
 
   useEffect(() => {
@@ -130,7 +142,7 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
   }, [onClose])
 
   const parsed = { growth: Number(inputs.salesGrowth), npm: Number(inputs.npm), payout: Number(inputs.payout), cfoSales: Number(inputs.cfoSales), fcfSales: Number(inputs.fcfSales), years: Number(inputs.years), price: Number(inputs.price) }
-  const valid = inputs.salesGrowth.trim() !== '' && Object.values(parsed).every(Number.isFinite) && Number.isInteger(parsed.years) && parsed.years >= 1 && parsed.years <= 10 && parsed.price >= 0 && parsed.payout >= 0 && source.shares > 0 && source.sales > 0
+  const valid = inputs.salesGrowth.trim() !== '' && inputs.npm.trim() !== '' && Object.values(parsed).every(Number.isFinite) && Number.isInteger(parsed.years) && parsed.years >= 1 && parsed.years <= 10 && parsed.price >= 0 && parsed.payout >= 0 && source.shares > 0 && source.sales > 0
   const rows: ForecastRow[] = useMemo(() => {
     if (!valid) return []
     let sales = source.sales
@@ -180,7 +192,7 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
       </header>
       <div className="forecast-body">
         <form className="forecast-input-panel" onSubmit={handleSubmit}>
-          <div className="forecast-section-heading"><span>01</span><div><b>Set your assumptions</b><small>Pre-filled from the latest annual Data Sheet where possible</small></div></div>
+          <div className="forecast-section-heading"><span>01</span><div><b>Set your assumptions</b><small>Defaults calculated from Data Sheet history where available</small></div></div>
           <label className="forecast-label">Company type</label><div className="forecast-mode-switch"><button type="button" className={mode === 'nonbank' ? 'selected' : ''} onClick={() => setMode('nonbank')}><CircleDollarSign size={16}/> Non-bank</button><button type="button" className={mode === 'bank' ? 'selected' : ''} onClick={() => setMode('bank')}><Landmark size={16}/> Bank</button></div>
           <div className="forecast-field-grid">{fields.map(field => { const cashFlowInput = field.key === 'cfoSales' || field.key === 'fcfSales'; const inactive = cashFlowInput && mode === 'bank'; return <label className={`forecast-field ${inactive ? 'disabled' : ''}`} key={field.key}>
             <span>{field.label}</span><div className="forecast-input-wrap"><input type="number" inputMode="decimal" step={field.step ?? 'any'} value={inputs[field.key]} disabled={inactive} min={field.key === 'years' ? 1 : undefined} max={field.key === 'years' ? 10 : undefined} onChange={event => update(field.key, event.target.value)} /><i>{field.suffix}</i></div>{field.hint && <small>{field.hint}</small>}
