@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, Calculator, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { BankDashboard } from './BankDashboard'
 import { CompanyDashboard } from './CompanyDashboard'
+import { ForecastCalculator } from './ForecastCalculator'
 import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel, exportPdf } from './exportReports'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
@@ -26,6 +27,7 @@ function App() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [calculatorOpen, setCalculatorOpen] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const companySpecs = useMemo(() => !data || data.mode === 'bank' ? null : makeChartSpecs(data.annual, data.quarterly), [data])
   const bankSpecs = useMemo(() => !data || data.mode !== 'bank' ? null : makeBankChartSpecs(data.annual, data.quarterly), [data])
@@ -91,7 +93,7 @@ function App() {
   return <div className={`app-shell ${data?.mode === 'bank' ? 'bank-theme' : data ? 'company-theme' : ''}`}>
     <header className="topbar">
       <a className="brand" href="#top" aria-label="Ledger home"><span className="brand-mark"><Activity size={18}/></span><span>ledger<span className="brand-dot">.</span></span></a>
-      <div className="topbar-right"><span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>{data && <><button className="button button-soft" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button><button className="button button-primary" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel with charts</button></>}</div>
+      <div className="topbar-right"><span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>{data && <><button className="button forecast-ribbon-button" onClick={() => setCalculatorOpen(true)}><Calculator size={16}/> Forecast calculator</button><button className="button button-soft" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button><button className="button button-primary" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel with charts</button></>}</div>
     </header>
     <main id="top" className="main-wrap">
       {!data ? <section className="welcome-view">
@@ -110,6 +112,7 @@ function App() {
         <footer className="app-footer"><span>LEDGER <b>·</b> PRIVATE BY DESIGN</span><span>Workbook is processed in browser memory only. Clearing or refreshing removes it.</span></footer>
       </>}
     </main>
+    {data && calculatorOpen && <ForecastCalculator data={data} onClose={() => setCalculatorOpen(false)}/>}
   </div>
 }
 
