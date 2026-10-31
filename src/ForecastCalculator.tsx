@@ -4,14 +4,14 @@ import type { BankData, CompanyData, FinancialData } from './types'
 import './forecastCalculator.css'
 
 type CalculatorMode = 'nonbank' | 'bank'
-type Inputs = { salesGrowth: string; opm: string; npm: string; payout: string; cfoSales: string; years: string; price: string }
-type ForecastRow = { year: string; sales: number; eps: number; bvps: number; dps: number; cfoPerShare: number | null; pe: number | null; pb: number | null; ps: number | null; earningsYield: number | null; dividendYield: number | null }
+type Inputs = { salesGrowth: string; npm: string; payout: string; cfoSales: string; fcfSales: string; years: string; price: string }
+type ForecastRow = { year: string; sales: number; sps: number; eps: number; bvps: number; dps: number; cfoPerShare: number | null; fcfPerShare: number | null; pe: number | null; pb: number | null; ps: number | null; earningsYield: number | null; dividendYield: number | null }
 const n = (value: number | null | undefined, fallback = 0) => value !== null && value !== undefined && Number.isFinite(value) ? value : fallback
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value)}%`
 const amount = (value: number | null | undefined, digits = 2) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
 const multiple = (value: number | null) => value === null || !Number.isFinite(value) ? '—' : `${amount(value, 2)}×`
 
-function sourceInputs(data: FinancialData): { sales: number; equity: number; shares: number; price: number; salesGrowth: number; opm: number; npm: number; payout: number; cfoSales: number } {
+function sourceInputs(data: FinancialData): { sales: number; equity: number; shares: number; price: number; salesGrowth: number; npm: number; payout: number; cfoSales: number; fcfSales: number } {
   const latest = data.annual.at(-1)
   const prior = data.annual.at(-2)
   const bank = data.mode === 'bank'
@@ -19,18 +19,18 @@ function sourceInputs(data: FinancialData): { sales: number; equity: number; sha
   const priorSales = prior ? bank ? (prior as BankData['annual'][number]).totalRevenue : (prior as CompanyData['annual'][number]).sales : null
   const equity = latest ? bank ? (latest as BankData['annual'][number]).equity : (latest as CompanyData['annual'][number]).equity : null
   const shares = latest?.sharesCr
-  const opm = latest?.operatingProfitMargin
   const npm = latest?.netProfitMargin
   const payout = latest ? bank ? (latest as BankData['annual'][number]).dividendPayout : (latest as CompanyData['annual'][number]).dividendPayout : null
   const cfo = latest ? bank ? (latest as BankData['annual'][number]).operatingCashFlow : (latest as CompanyData['annual'][number]).operatingCashFlow : null
+  const fcf = latest ? bank ? (latest as BankData['annual'][number]).freeCashFlow : (latest as CompanyData['annual'][number]).freeCashFlow : null
   const salesGrowth = sales !== null && sales !== undefined && priorSales !== null && priorSales !== undefined && priorSales !== 0 ? (sales / priorSales - 1) * 100 : 0
-  return { sales: n(sales), equity: n(equity), shares: n(shares), price: n(data.currentPrice), salesGrowth, opm: n(opm), npm: n(npm), payout: n(payout), cfoSales: sales ? n(cfo) / sales * 100 : 0 }
+  return { sales: n(sales), equity: n(equity), shares: n(shares), price: n(data.currentPrice), salesGrowth, npm: n(npm), payout: n(payout), cfoSales: sales ? n(cfo) / sales * 100 : 0, fcfSales: sales ? n(fcf) / sales * 100 : 0 }
 }
 
 export function ForecastCalculator({ data, onClose }: { data: FinancialData; onClose: () => void }) {
   const source = useMemo(() => sourceInputs(data), [data])
   const [mode, setMode] = useState<CalculatorMode>(data.mode === 'bank' ? 'bank' : 'nonbank')
-  const [inputs, setInputs] = useState<Inputs>({ salesGrowth: String(Number(source.salesGrowth.toFixed(2))), opm: String(Number(source.opm.toFixed(2))), npm: String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: String(Number(source.cfoSales.toFixed(2))), years: '5', price: String(source.price) })
+  const [inputs, setInputs] = useState<Inputs>({ salesGrowth: String(Number(source.salesGrowth.toFixed(2))), npm: String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: String(Number(source.cfoSales.toFixed(2))), fcfSales: String(Number(source.fcfSales.toFixed(2))), years: '5', price: String(source.price) })
   const [validation, setValidation] = useState('')
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const parsed = { growth: Number(inputs.salesGrowth), opm: Number(inputs.opm), npm: Number(inputs.npm), payout: Number(inputs.payout), cfoSales: Number(inputs.cfoSales), years: Number(inputs.years), price: Number(inputs.price) }
+  const parsed = { growth: Number(inputs.salesGrowth), npm: Number(inputs.npm), payout: Number(inputs.payout), cfoSales: Number(inputs.cfoSales), fcfSales: Number(inputs.fcfSales), years: Number(inputs.years), price: Number(inputs.price) }
   const valid = Object.values(parsed).every(Number.isFinite) && Number.isInteger(parsed.years) && parsed.years >= 1 && parsed.years <= 10 && parsed.price >= 0 && parsed.payout >= 0 && source.shares > 0 && source.sales > 0
   const rows: ForecastRow[] = useMemo(() => {
     if (!valid) return []
@@ -55,14 +55,15 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
       const dps = eps * parsed.payout / 100
       bvps += eps - dps
       const cfoPerShare = mode === 'bank' ? null : sales * parsed.cfoSales / 100 / source.shares
+      const fcfPerShare = mode === 'bank' ? null : sales * parsed.fcfSales / 100 / source.shares
       const salesPerShare = sales / source.shares
-      output.push({ year: Number.isFinite(lastYear) ? `FY${lastYear + i}` : `Year ${i}`, sales, eps, bvps, dps, cfoPerShare,
+      output.push({ year: Number.isFinite(lastYear) ? `FY${lastYear + i}` : `Year ${i}`, sales, sps: salesPerShare, eps, bvps, dps, cfoPerShare, fcfPerShare,
         pe: eps > 0 ? parsed.price / eps : null, pb: bvps > 0 ? parsed.price / bvps : null, ps: salesPerShare > 0 ? parsed.price / salesPerShare : null,
         earningsYield: parsed.price > 0 && eps > 0 ? eps / parsed.price * 100 : null,
         dividendYield: parsed.price > 0 && dps >= 0 ? dps / parsed.price * 100 : null })
     }
     return output
-  }, [data.annual, mode, parsed.growth, parsed.npm, parsed.payout, parsed.price, parsed.years, parsed.cfoSales, source.equity, source.sales, source.shares, valid])
+  }, [data.annual, mode, parsed.growth, parsed.npm, parsed.payout, parsed.price, parsed.years, parsed.cfoSales, parsed.fcfSales, source.equity, source.sales, source.shares, valid])
 
   function update(field: keyof Inputs, value: string) { setInputs(current => ({ ...current, [field]: value })); setValidation('') }
   function handleSubmit(event: React.FormEvent) {
@@ -73,10 +74,10 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
 
   const fields: Array<{ key: keyof Inputs; label: string; suffix: string; step?: string; hint?: string }> = [
     { key: 'salesGrowth', label: 'Expected sales growth', suffix: '%', step: '0.1', hint: 'Annual compound growth assumption' },
-    { key: 'opm', label: 'Expected OPM', suffix: '%', step: '0.1', hint: 'Shown as an assumption; EPS is based on NPM' },
     { key: 'npm', label: 'Expected NPM', suffix: '%', step: '0.1' },
     { key: 'payout', label: 'Expected dividend payout', suffix: '%', step: '0.1' },
     { key: 'cfoSales', label: 'CFO / Sales', suffix: '%', step: '0.1', hint: 'Not used for a bank' },
+    { key: 'fcfSales', label: 'FCF / Sales', suffix: '%', step: '0.1', hint: 'Not used for a bank' },
     { key: 'years', label: 'Number of years', suffix: 'years', step: '1' },
     { key: 'price', label: 'Market price', suffix: '₹', step: '0.01' },
   ]
@@ -101,11 +102,10 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
         <div className="forecast-results">
           <div className="forecast-section-heading result-heading"><span>02</span><div><b>Projection</b><small>Computed from your assumptions · ₹ per share unless noted</small></div></div>
           {!valid ? <div className="forecast-empty">Complete the inputs with valid values to see the projection.</div> : <>
-            <section className="forecast-table-card earnings-card"><div className="forecast-card-title"><span className="table-icon purple">₹</span><div><b>Per-share outlook</b><small>Income, equity and cash generation</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>EPS</th><th>Book value</th><th>Dividend</th>{mode === 'nonbank' && <th>OCF/share</th>}</tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{amount(row.eps)}</td><td>{amount(row.bvps)}</td><td>{amount(row.dps)}</td>{mode === 'nonbank' && <td>{amount(row.cfoPerShare)}</td>}</tr>)}</tbody></table></div></section>
-            <section className="forecast-table-card multiples-card"><div className="forecast-card-title"><span className="table-icon blue">×</span><div><b>Forward valuation</b><small>At market price ₹{amount(parsed.price)} · price held constant</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>Forward P/E</th><th>Forward P/B</th><th>Forward P/S</th></tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{multiple(row.pe)}</td><td>{multiple(row.pb)}</td><td>{multiple(row.ps)}</td></tr>)}</tbody></table></div></section>
-            <section className="forecast-table-card yields-card"><div className="forecast-card-title"><span className="table-icon coral">%</span><div><b>Forward yields</b><small>Per-share return relative to reference price</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>Earnings yield</th><th>Dividend yield</th></tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{percent(row.earningsYield)}</td><td>{percent(row.dividendYield)}</td></tr>)}</tbody></table></div></section>
+            <section className="forecast-table-card earnings-card"><div className="forecast-card-title"><span className="table-icon purple">₹</span><div><b>Per-share values (₹)</b><small>Per-share measures for each forecast year</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>SPS</th><th>EPS</th><th>BVS</th><th>Dividend</th>{mode === 'nonbank' && <><th>OCF</th><th>FCF</th></>}</tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{amount(row.sps)}</td><td>{amount(row.eps)}</td><td>{amount(row.bvps)}</td><td>{amount(row.dps)}</td>{mode === 'nonbank' && <><td>{amount(row.cfoPerShare)}</td><td>{amount(row.fcfPerShare)}</td></>}</tr>)}</tbody></table></div></section>
+            <section className="forecast-table-card multiples-card"><div className="forecast-card-title"><span className="table-icon blue">×</span><div><b>Forward valuation & yields</b><small>At market price ₹{amount(parsed.price)} · price held constant</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>Forward P/E</th><th>Forward P/B</th><th>Forward P/S</th><th>Earnings yield</th><th>Dividend yield</th></tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{multiple(row.pe)}</td><td>{multiple(row.pb)}</td><td>{multiple(row.ps)}</td><td>{percent(row.earningsYield)}</td><td>{percent(row.dividendYield)}</td></tr>)}</tbody></table></div></section>
           </>}
-          <p className="forecast-footnote">EPS = sales × NPM ÷ shares. BVPS rolls forward by EPS less dividend/share. OCF/share = sales × CFO/Sales ÷ shares{mode === 'bank' ? ' and is omitted for banks' : ''}. OPM is recorded as an assumption but does not affect these requested outputs because no operating-profit measure is shown. Multiples and yields use the entered market price; negative or unavailable valuation denominators show as —.</p>
+          <p className="forecast-footnote">SPS = forecast sales ÷ shares; EPS = forecast sales × NPM ÷ shares; BVS rolls forward by EPS less dividend/share. OCF/share and FCF/share use their respective sales ratios and are omitted for banks. Multiples and yields use the entered market price; negative or unavailable valuation denominators show as —.</p>
         </div>
       </div>
     </section>
