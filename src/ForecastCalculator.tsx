@@ -12,7 +12,7 @@ const percent = (value: number | null | undefined) => value === null || value ==
 const amount = (value: number | null | undefined, digits = 2) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
 const multiple = (value: number | null) => value === null || !Number.isFinite(value) ? '—' : `${amount(value, 2)}×`
 
-function quadraticFit(points: Array<{ year: number; sales: number }>): { rSquared: number; startFit: number; endFit: number } | null {
+function quadraticFit(points: Array<{ year: number; sales: number }>): { rSquared: number; predictAt: (year: number) => number } | null {
   if (points.length < 3 || points.some(point => point.sales <= 0)) return null
   const origin = points[0].year
   const xs = points.map(point => point.year - origin)
@@ -45,7 +45,7 @@ function quadraticFit(points: Array<{ year: number; sales: number }>): { rSquare
   const totalSquares = ys.reduce((total, y) => total + (y - mean) ** 2, 0)
   const residualSquares = ys.reduce((total, y, i) => total + (y - predict(xs[i])) ** 2, 0)
   const rSquared = totalSquares === 0 ? (residualSquares < 1e-9 ? 1 : 0) : 1 - residualSquares / totalSquares
-  return { rSquared, startFit: predict(xs[0]), endFit: predict(xs.at(-1)!) }
+  return { rSquared, predictAt: year => predict(year - origin) }
 }
 
 function annualCagr(start: { year: number; sales: number }, end: { year: number; sales: number }): number | null {
@@ -78,11 +78,12 @@ function defaultSalesGrowth(data: FinancialData): SalesGrowthDefault {
   }).filter((row): row is { year: number; sales: number } => Number.isFinite(row.year) && row.sales !== null && Number.isFinite(row.sales)).sort((a, b) => a.year - b.year)
   const latest = annual.at(-1)
   const quadratic = quadraticFit(annual)
-  if (annual.length >= 5 && quadratic && quadratic.rSquared >= 0.8) {
-    const intervals = annual.at(-1)!.year - annual[0].year
-    if (intervals > 0 && quadratic.startFit > 0 && quadratic.endFit > 0) {
-      const cagr = (quadratic.endFit / quadratic.startFit) ** (1 / intervals) - 1
-      return { value: cagr * 100, basis: `Quadratic curve · R² ${(quadratic.rSquared * 100).toFixed(1)}%` }
+  if (annual.length >= 5 && quadratic && quadratic.rSquared > 0.8 && latest) {
+    const curveStart = quadratic.predictAt(latest.year - 3)
+    const curveEnd = quadratic.predictAt(latest.year)
+    if (curveStart > 0 && curveEnd > 0) {
+      const cagr = (curveEnd / curveStart) ** (1 / 3) - 1
+      return { value: cagr * 100, basis: `Quadratic curve · last-3Y CAGR · R² ${(quadratic.rSquared * 100).toFixed(1)}%` }
     }
   }
 
