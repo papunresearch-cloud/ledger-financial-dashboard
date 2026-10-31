@@ -73,11 +73,11 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
   }
 
   const fields: Array<{ key: keyof Inputs; label: string; suffix: string; step?: string; hint?: string }> = [
-    { key: 'salesGrowth', label: 'Expected sales growth', suffix: '%', step: '0.1', hint: 'Annual compound growth assumption' },
+    { key: 'salesGrowth', label: 'Expected sales growth', suffix: '%', step: '0.1' },
     { key: 'npm', label: 'Expected NPM', suffix: '%', step: '0.1' },
     { key: 'payout', label: 'Expected dividend payout', suffix: '%', step: '0.1' },
-    { key: 'cfoSales', label: 'CFO / Sales', suffix: '%', step: '0.1', hint: 'Not used for a bank' },
-    { key: 'fcfSales', label: 'FCF / Sales', suffix: '%', step: '0.1', hint: 'Not used for a bank' },
+    { key: 'cfoSales', label: 'CFO / Sales', suffix: '%', step: '0.1' },
+    { key: 'fcfSales', label: 'FCF / Sales', suffix: '%', step: '0.1' },
     { key: 'years', label: 'Number of years', suffix: 'years', step: '1' },
     { key: 'price', label: 'Market price', suffix: '₹', step: '0.01' },
   ]
@@ -100,10 +100,10 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
           <button className="forecast-generate" type="submit">Update projection <ChevronDown size={17}/></button>
         </form>
         <div className="forecast-results">
-          <div className="forecast-section-heading result-heading"><span>02</span><div><b>Projection</b><small>Computed from your assumptions · ₹ per share unless noted</small></div></div>
+          <div className="forecast-section-heading result-heading"><span>02</span><div><b>Projection</b><small>Computed from your inputs and last year data</small></div></div>
           {!valid ? <div className="forecast-empty">Complete the inputs with valid values to see the projection.</div> : <>
             <section className="forecast-table-card earnings-card"><div className="forecast-card-title"><span className="table-icon purple">₹</span><div><b>Per-share values (₹)</b><small>Per-share measures for each forecast year</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>SPS</th><th>EPS</th><th>BVS</th><th>Dividend</th>{mode === 'nonbank' && <><th>OCF</th><th>FCF</th></>}</tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{amount(row.sps)}</td><td>{amount(row.eps)}</td><td>{amount(row.bvps)}</td><td>{amount(row.dps)}</td>{mode === 'nonbank' && <><td>{amount(row.cfoPerShare)}</td><td>{amount(row.fcfPerShare)}</td></>}</tr>)}</tbody></table></div></section>
-            <section className="forecast-table-card multiples-card"><div className="forecast-card-title"><span className="table-icon blue">×</span><div><b>Forward valuation & yields</b><small>At market price ₹{amount(parsed.price)} · price held constant</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>PE</th><th>PB</th><th>PS</th><th><span className="forecast-wrap-heading">Earning<br/>Yield</span></th><th><span className="forecast-wrap-heading">Dividend<br/>Yield</span></th></tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{multiple(row.pe)}</td><td>{multiple(row.pb)}</td><td>{multiple(row.ps)}</td><td>{percent(row.earningsYield)}</td><td>{percent(row.dividendYield)}</td></tr>)}</tbody></table></div></section>
+            <section className="forecast-table-card multiples-card"><div className="forecast-card-title"><span className="table-icon blue">×</span><div><b>Forward valuation & yields</b><small>At constant input Market price</small></div></div><div className="forecast-table-scroll"><table><thead><tr><th>Year</th><th>PE</th><th>PB</th><th>PS</th><th><span className="forecast-wrap-heading">Earning<br/>Yield</span></th><th><span className="forecast-wrap-heading">Dividend<br/>Yield</span></th></tr></thead><tbody>{rows.map(row => <tr key={row.year}><th>{row.year}</th><td>{multiple(row.pe)}</td><td>{multiple(row.pb)}</td><td>{multiple(row.ps)}</td><td>{percent(row.earningsYield)}</td><td>{percent(row.dividendYield)}</td></tr>)}</tbody></table></div></section>
           </>}
           <p className="forecast-footnote">SPS = forecast sales ÷ shares; EPS = forecast sales × NPM ÷ shares; BVS rolls forward by EPS less dividend/share. OCF/share and FCF/share use their respective sales ratios and are omitted for banks. Multiples and yields use the entered market price; negative or unavailable valuation denominators show as —.</p>
         </div>
