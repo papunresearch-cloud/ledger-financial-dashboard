@@ -6,31 +6,120 @@ import './forecastCalculator.css'
 type CalculatorMode = 'nonbank' | 'bank'
 type Inputs = { salesGrowth: string; npm: string; payout: string; cfoSales: string; fcfSales: string; years: string; price: string }
 type ForecastRow = { year: string; sales: number; sps: number; eps: number; bvps: number; dps: number; cfoPerShare: number | null; fcfPerShare: number | null; pe: number | null; pb: number | null; ps: number | null; earningsYield: number | null; dividendYield: number | null }
+type SalesGrowthDefault = { value: number | null; basis: string }
 const n = (value: number | null | undefined, fallback = 0) => value !== null && value !== undefined && Number.isFinite(value) ? value : fallback
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value)}%`
 const amount = (value: number | null | undefined, digits = 2) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
 const multiple = (value: number | null) => value === null || !Number.isFinite(value) ? '—' : `${amount(value, 2)}×`
 
-function sourceInputs(data: FinancialData): { sales: number; equity: number; shares: number; price: number; salesGrowth: number; npm: number; payout: number; cfoSales: number; fcfSales: number } {
+function quadraticFit(points: Array<{ year: number; sales: number }>): { rSquared: number; startFit: number; endFit: number } | null {
+  if (points.length < 3 || points.some(point => point.sales <= 0)) return null
+  const origin = points[0].year
+  const xs = points.map(point => point.year - origin)
+  const ys = points.map(point => point.sales)
+  const sums = (power: number) => xs.reduce((total, x) => total + x ** power, 0)
+  const sumY = ys.reduce((total, y) => total + y, 0)
+  const sumXY = xs.reduce((total, x, i) => total + x * ys[i], 0)
+  const sumX2Y = xs.reduce((total, x, i) => total + x * x * ys[i], 0)
+  const matrix = [
+    [sums(4), sums(3), sums(2), sumX2Y],
+    [sums(3), sums(2), sums(1), sumXY],
+    [sums(2), sums(1), points.length, sumY],
+  ]
+  for (let column = 0; column < 3; column++) {
+    let pivot = column
+    for (let row = column + 1; row < 3; row++) if (Math.abs(matrix[row][column]) > Math.abs(matrix[pivot][column])) pivot = row
+    if (Math.abs(matrix[pivot][column]) < 1e-12) return null
+    ;[matrix[column], matrix[pivot]] = [matrix[pivot], matrix[column]]
+    const divisor = matrix[column][column]
+    for (let j = column; j < 4; j++) matrix[column][j] /= divisor
+    for (let row = 0; row < 3; row++) {
+      if (row === column) continue
+      const factor = matrix[row][column]
+      for (let j = column; j < 4; j++) matrix[row][j] -= factor * matrix[column][j]
+    }
+  }
+  const [a, b, c] = matrix.map(row => row[3])
+  const predict = (x: number) => a * x * x + b * x + c
+  const mean = sumY / points.length
+  const totalSquares = ys.reduce((total, y) => total + (y - mean) ** 2, 0)
+  const residualSquares = ys.reduce((total, y, i) => total + (y - predict(xs[i])) ** 2, 0)
+  const rSquared = totalSquares === 0 ? (residualSquares < 1e-9 ? 1 : 0) : 1 - residualSquares / totalSquares
+  return { rSquared, startFit: predict(xs[0]), endFit: predict(xs.at(-1)!) }
+}
+
+function annualCagr(start: { year: number; sales: number }, end: { year: number; sales: number }): number | null {
+  const intervals = end.year - start.year
+  if (intervals <= 0 || start.sales <= 0 || end.sales <= 0) return null
+  return (end.sales / start.sales) ** (1 / intervals) - 1
+}
+
+function ttmSalesGrowth(data: FinancialData): number | null {
+  const bank = data.mode === 'bank'
+  const quarters = data.quarterly.map(row => {
+    const period = row.period.match(/Q([1-4])\s*FY(\d{4})/i)
+    const sales = bank ? (row as BankData['quarterly'][number]).totalRevenue : (row as CompanyData['quarterly'][number]).sales
+    return period ? { ordinal: Number(period[2]) * 4 + Number(period[1]), sales } : null
+  }).filter((row): row is { ordinal: number; sales: number | null } => row !== null).sort((a, b) => a.ordinal - b.ordinal)
+  if (quarters.length < 8) return null
+  const recent = quarters.slice(-8)
+  if (recent.some((row, i) => i > 0 && row.ordinal !== recent[i - 1].ordinal + 1) || recent.some(row => row.sales === null)) return null
+  const priorTtm = recent.slice(0, 4).reduce((sum, row) => sum + row.sales!, 0)
+  const latestTtm = recent.slice(4).reduce((sum, row) => sum + row.sales!, 0)
+  return priorTtm > 0 ? latestTtm / priorTtm - 1 : null
+}
+
+function defaultSalesGrowth(data: FinancialData): SalesGrowthDefault {
+  const bank = data.mode === 'bank'
+  const annual = data.annual.map(row => {
+    const year = Number(row.period.match(/\d{4}/)?.[0])
+    const sales = bank ? (row as BankData['annual'][number]).totalRevenue : (row as CompanyData['annual'][number]).sales
+    return { year, sales }
+  }).filter((row): row is { year: number; sales: number } => Number.isFinite(row.year) && row.sales !== null && Number.isFinite(row.sales)).sort((a, b) => a.year - b.year)
+  const latest = annual.at(-1)
+  const quadratic = quadraticFit(annual)
+  if (annual.length >= 5 && quadratic && quadratic.rSquared >= 0.8) {
+    const intervals = annual.at(-1)!.year - annual[0].year
+    if (intervals > 0 && quadratic.startFit > 0 && quadratic.endFit > 0) {
+      const cagr = (quadratic.endFit / quadratic.startFit) ** (1 / intervals) - 1
+      return { value: cagr * 100, basis: `Quadratic curve · R² ${(quadratic.rSquared * 100).toFixed(1)}%` }
+    }
+  }
+
+  const prior3Year = latest ? annual.find(row => row.year === latest.year - 3) : undefined
+  const threeYear = prior3Year && latest ? annualCagr(prior3Year, latest) : null
+  if (threeYear !== null) {
+    const reason = annual.length < 5 ? 'fewer than 5 annual years' : `quadratic R² ${quadratic ? `${(quadratic.rSquared * 100).toFixed(1)}%` : 'unavailable'}`
+    return { value: threeYear * 100, basis: `3-year CAGR · ${reason}` }
+  }
+
+  const ttm = ttmSalesGrowth(data)
+  if (ttm !== null) return { value: ttm * 100, basis: 'TTM sales growth · fallback' }
+
+  const priorYear = annual.at(-2)
+  const oneYear = priorYear && latest ? annualCagr(priorYear, latest) : null
+  if (oneYear !== null) return { value: oneYear * 100, basis: '1-year CAGR · last-resort fallback' }
+  return { value: null, basis: 'Insufficient history · enter a value' }
+}
+
+function sourceInputs(data: FinancialData): { sales: number; equity: number; shares: number; price: number; salesGrowth: SalesGrowthDefault; npm: number; payout: number; cfoSales: number; fcfSales: number } {
   const latest = data.annual.at(-1)
-  const prior = data.annual.at(-2)
   const bank = data.mode === 'bank'
   const sales = latest ? bank ? (latest as BankData['annual'][number]).totalRevenue : (latest as CompanyData['annual'][number]).sales : null
-  const priorSales = prior ? bank ? (prior as BankData['annual'][number]).totalRevenue : (prior as CompanyData['annual'][number]).sales : null
   const equity = latest ? bank ? (latest as BankData['annual'][number]).equity : (latest as CompanyData['annual'][number]).equity : null
   const shares = latest?.sharesCr
   const npm = latest?.netProfitMargin
   const payout = latest ? bank ? (latest as BankData['annual'][number]).dividendPayout : (latest as CompanyData['annual'][number]).dividendPayout : null
   const cfo = latest ? bank ? (latest as BankData['annual'][number]).operatingCashFlow : (latest as CompanyData['annual'][number]).operatingCashFlow : null
   const fcf = latest ? bank ? (latest as BankData['annual'][number]).freeCashFlow : (latest as CompanyData['annual'][number]).freeCashFlow : null
-  const salesGrowth = sales !== null && sales !== undefined && priorSales !== null && priorSales !== undefined && priorSales !== 0 ? (sales / priorSales - 1) * 100 : 0
+  const salesGrowth = defaultSalesGrowth(data)
   return { sales: n(sales), equity: n(equity), shares: n(shares), price: n(data.currentPrice), salesGrowth, npm: n(npm), payout: n(payout), cfoSales: sales ? n(cfo) / sales * 100 : 0, fcfSales: sales ? n(fcf) / sales * 100 : 0 }
 }
 
 export function ForecastCalculator({ data, onClose }: { data: FinancialData; onClose: () => void }) {
   const source = useMemo(() => sourceInputs(data), [data])
   const [mode, setMode] = useState<CalculatorMode>(data.mode === 'bank' ? 'bank' : 'nonbank')
-  const [inputs, setInputs] = useState<Inputs>({ salesGrowth: String(Number(source.salesGrowth.toFixed(2))), npm: String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: String(Number(source.cfoSales.toFixed(2))), fcfSales: String(Number(source.fcfSales.toFixed(2))), years: '5', price: String(source.price) })
+  const [inputs, setInputs] = useState<Inputs>({ salesGrowth: source.salesGrowth.value === null ? '' : String(Number(source.salesGrowth.value.toFixed(2))), npm: String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: String(Number(source.cfoSales.toFixed(2))), fcfSales: String(Number(source.fcfSales.toFixed(2))), years: '5', price: String(source.price) })
   const [validation, setValidation] = useState('')
 
   useEffect(() => {
@@ -40,7 +129,7 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
   }, [onClose])
 
   const parsed = { growth: Number(inputs.salesGrowth), npm: Number(inputs.npm), payout: Number(inputs.payout), cfoSales: Number(inputs.cfoSales), fcfSales: Number(inputs.fcfSales), years: Number(inputs.years), price: Number(inputs.price) }
-  const valid = Object.values(parsed).every(Number.isFinite) && Number.isInteger(parsed.years) && parsed.years >= 1 && parsed.years <= 10 && parsed.price >= 0 && parsed.payout >= 0 && source.shares > 0 && source.sales > 0
+  const valid = inputs.salesGrowth.trim() !== '' && Object.values(parsed).every(Number.isFinite) && Number.isInteger(parsed.years) && parsed.years >= 1 && parsed.years <= 10 && parsed.price >= 0 && parsed.payout >= 0 && source.shares > 0 && source.sales > 0
   const rows: ForecastRow[] = useMemo(() => {
     if (!valid) return []
     let sales = source.sales
@@ -73,7 +162,7 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
   }
 
   const fields: Array<{ key: keyof Inputs; label: string; suffix: string; step?: string; hint?: string }> = [
-    { key: 'salesGrowth', label: 'Expected sales growth', suffix: '%', step: '0.1' },
+    { key: 'salesGrowth', label: 'Expected sales growth', suffix: '%', step: '0.1', hint: source.salesGrowth.basis },
     { key: 'npm', label: 'Expected NPM', suffix: '%', step: '0.1' },
     { key: 'payout', label: 'Expected dividend payout', suffix: '%', step: '0.1' },
     { key: 'cfoSales', label: 'CFO / Sales', suffix: '%', step: '0.1' },
