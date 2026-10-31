@@ -40,3 +40,5 @@
 .forecast-table-card{width:100%}.forecast-table-scroll table{width:100%;table-layout:fixed}.forecast-table-scroll th,.forecast-table-scroll td{overflow:hidden;text-overflow:ellipsis}
 .forecast-table-scroll th,.forecast-table-scroll td,.forecast-table-scroll th:first-child,.forecast-table-scroll td:first-child{text-align:left}.forecast-wrap-heading{display:inline-block;line-height:1.25;white-space:normal}
 @media(max-width:760px){.forecast-table-scroll table{min-width:650px}.forecast-table-scroll th,.forecast-table-scroll td{overflow:visible;text-overflow:clip}}
+.forecast-field{grid-template-rows:30px 42px;gap:5px}.forecast-field>span{display:flex;align-items:flex-end;min-height:0;line-height:1.25}
+@media(max-width:600px){.forecast-field{grid-template-rows:28px 39px;gap:5px}}
