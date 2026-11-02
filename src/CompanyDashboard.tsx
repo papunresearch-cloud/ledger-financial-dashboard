@@ -31,6 +31,16 @@ const sumRatio = (rows: AnnualRow[], numerator: 'operatingCashFlow' | 'freeCashF
   const value = d <= 0 ? null : 100 * n / d
   return value !== null && Number.isFinite(value) && Math.abs(value) <= 1000 ? value : null
 }
+const middleAverage = (values: Array<number | null | undefined>): number | null => {
+  const sorted = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value)).sort((a, b) => b - a)
+  const count = sorted.length
+  if (!count) return null
+  const keep = count >= 6 ? count % 2 === 0 ? 4 : 3 : count === 5 ? 3 : count === 4 ? 2 : count === 3 ? 1 : count
+  const start = Math.floor((count - keep) / 2)
+  const middle = sorted.slice(start, start + keep)
+  const average = middle.reduce((sum, value) => sum + value, 0) / middle.length
+  return Number.isFinite(average) && Math.abs(average) <= 1000 ? average : null
+}
 const cagr = (start: number | null | undefined, end: number | null | undefined, years: number) => start === null || start === undefined || end === null || end === undefined || start <= 0 || end <= 0 || years <= 0 ? null : (Math.pow(end / start, 1 / years) - 1) * 100
 const annualCagr = (rows: AnnualRow[], key: 'sales' | 'totalIncome' | 'netProfit' | 'equity', years: number) => cagr(rows.at(-(years + 1))?.[key], rows.at(-1)?.[key], years)
 const ttmSum = (rows: QuarterRow[], key: 'sales' | 'totalIncome' | 'netProfit', offset = 0) => {
@@ -79,6 +89,39 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     { title: 'CFO / Net profit', one: sumRatio(data.annual, 'operatingCashFlow', 'netProfit', 1), three: sumRatio(data.annual, 'operatingCashFlow', 'netProfit', 3), five: sumRatio(data.annual, 'operatingCashFlow', 'netProfit', 5), seven: sumRatio(data.annual, 'operatingCashFlow', 'netProfit', 7), nine: sumRatio(data.annual, 'operatingCashFlow', 'netProfit', 9) },
     { title: 'FCF / Net profit', one: sumRatio(data.annual, 'freeCashFlow', 'netProfit', 1), three: sumRatio(data.annual, 'freeCashFlow', 'netProfit', 3), five: sumRatio(data.annual, 'freeCashFlow', 'netProfit', 5), seven: sumRatio(data.annual, 'freeCashFlow', 'netProfit', 7), nine: sumRatio(data.annual, 'freeCashFlow', 'netProfit', 9) },
   ]
+  const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: i === 0 ? 'LY' : `${i + 1}Y`, offset: i }))
+  const historyMetricRows = (metrics: Array<{ title: string; getValue: (row: AnnualRow) => number | null }>) => metrics.map(metric => {
+    const values = historyPeriods.map(period => metric.getValue(data.annual[data.annual.length - 1 - period.offset]))
+    return { title: metric.title, values, average: middleAverage(values) }
+  })
+  const returnHistory = historyMetricRows([
+    { title: 'ROA', getValue: row => row.roa },
+    { title: 'ROE', getValue: row => row.roe },
+    { title: 'ROCE', getValue: row => row.roce },
+  ])
+  const cashHistory = historyMetricRows([
+    { title: 'OPM', getValue: row => row.operatingProfitMargin },
+    { title: 'NPM', getValue: row => row.netProfitMargin },
+    { title: 'CFO / Sales', getValue: row => row.sales !== null && row.sales > 0 && row.operatingCashFlow !== null ? 100 * row.operatingCashFlow / row.sales : null },
+    { title: 'FCF / Sales', getValue: row => row.sales !== null && row.sales > 0 && row.freeCashFlow !== null ? 100 * row.freeCashFlow / row.sales : null },
+    { title: 'CFO / Net profit', getValue: row => row.netProfit !== null && row.netProfit > 0 && row.operatingCashFlow !== null ? 100 * row.operatingCashFlow / row.netProfit : null },
+    { title: 'FCF / Net profit', getValue: row => row.netProfit !== null && row.netProfit > 0 && row.freeCashFlow !== null ? 100 * row.freeCashFlow / row.netProfit : null },
+  ])
+  const ttmOtherIncome = (offset = 0) => {
+    const income = ttmSum(data.quarterly, 'totalIncome', offset)
+    const sales = ttmSum(data.quarterly, 'sales', offset)
+    return income === null || sales === null ? null : income - sales
+  }
+  const cagrPeriods = Array.from({ length: 9 }, (_, i) => i + 1)
+  const cagrRows = [
+    { title: 'Sales', ttm: cagr(ttmSum(data.quarterly, 'sales', 4), ttmSales, 1), annual: cagrPeriods.map(years => annualCagr(data.annual, 'sales', years)) },
+    { title: 'Other Income', ttm: cagr(ttmOtherIncome(4), ttmOtherIncome(), 1), annual: cagrPeriods.map(years => {
+      const start = data.annual.at(-(years + 1)); const end = data.annual.at(-1)
+      return start?.totalIncome === null || start?.totalIncome === undefined || start.sales === null || end?.totalIncome === null || end?.totalIncome === undefined || end.sales === null ? null : cagr(start.totalIncome - start.sales, end.totalIncome - end.sales, years)
+    }) },
+    { title: 'Net Profit', ttm: cagr(ttmSum(data.quarterly, 'netProfit', 4), ttmProfit, 1), annual: cagrPeriods.map(years => annualCagr(data.annual, 'netProfit', years)) },
+    { title: 'Book Value', ttm: null, annual: cagrPeriods.map(years => annualCagr(data.annual, 'equity', years)) },
+  ].map(row => ({ ...row, average: middleAverage(row.annual) }))
   const displayRows = [...data.sourceMatrix].map(row => row ?? [])
   const cleanSourceText = (value: unknown) => typeof value === 'string'
     ? value.replace(/PLEASE\s+DO\s+NOT\s+MAKE\s+ANY\s+CHANGES\s+TO\s+THIS\s+SHEET/gi, '').trim()
@@ -93,8 +136,11 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
       <PerShareRollingSummary eps={epsRollingAverage} dividendPerShare={dividendRollingAverage} freeCashFlowPerShare={fcfPerShareRollingAverage} note="EPS includes the latest TTM value when four quarters and share data are available. Dividend per Share and FCF per Share use annual data because quarterly dividend and cash-flow inputs are unavailable."/>
       <div className="company-ratio-strip">{ratios.map(item => <div className="company-ratio-chip" key={item.label}><span>{item.label} · latest</span><strong>{item.value === null || item.value === undefined || !Number.isFinite(item.value) || item.value < 0 || item.value > 1000 ? '' : `${fmt(item.suffix === '%' ? item.value * 100 : item.value, 2)}${item.suffix}`}</strong></div>)}</div>
       <SummaryTable title="Returns & dividend payout" note="Dividend payout averages skip blank or unusable years and divide by the number of valid years; Last year shows only the latest year." rows={returnRows}/>
+      <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="LY is the latest available annual observation. AVG sorts annual values from highest to lowest and averages the centered values: 3 for an odd count or 4 for an even count when at least 6 values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations."/>
       <SummaryTable title="Cash flow quality" note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress. Period ratios use summed cash flows divided by summed denominators." rows={cashQuality}/>
+      <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress. AVG uses the centered-value averaging rule shown above. CFO/Net profit and FCF/Net profit are blank when net profit is not positive."/>
       <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>Growth by period</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th>{growthPeriods.map(p => <th key={p.label}>{p.label}</th>)}</tr></thead><tbody>{([['Total income','totalIncome'],['Sales','sales'],['Total net profit','netProfit'],['Total equity','equity']] as const).map(([label,key])=><tr key={key}><th>{label}</th>{growthPeriods.map(p=><td key={p.label}>{percent(p.value(key))}</td>)}</tr>)}</tbody></table></div><p className="company-summary-note">TTM growth compares the latest four quarters with the previous four. Equity uses annual periods only. CAGR is blank when there is insufficient history or a non-positive start/end value. Unusable ratios remain blank.</p></section>
+      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual CAGRs use the corresponding number of fiscal-year intervals. Other income is total income less sales; book value is equity share capital plus reserves. AVG uses annual 1Y–9Y CAGR values only and applies the centered-value averaging rule. Non-positive endpoints are not meaningful for CAGR and remain blank.</p></section>
       <div className="company-method-note"><Activity size={17}/><span>Interest coverage = (profit before tax + interest) ÷ interest. ROCE = EBIT ÷ average capital employed, where capital employed is equity plus borrowings. Current ratio uses Other Assets ÷ Other Liabilities; cash ratio uses Cash & Bank ÷ Other Liabilities.</span></div>
     </div>}
     {section === 'yearly' && <div className="company-plots-page">
@@ -111,6 +157,9 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
 }
 
 function Snapshot({ label, value, tone }: { label: string; value: string; tone: string }) { return <article className={`company-snapshot tone-${tone}`}><span>{label}</span><strong>{value}</strong></article> }
+function AnnualHistoryTable({ title, note, periods, rows }: { title: string; note: string; periods: string[]; rows: Array<{ title: string; values: Array<number | null>; average: number | null }> }) {
+  return <section className="company-summary-block"><div className="company-block-heading"><div><span>ANNUAL DETAIL</span><h3>{title}</h3></div><small>Percent</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Ratio</th>{periods.map(label=><th key={label}>{label}</th>)}<th>AVG</th></tr></thead><tbody>{rows.map(row=><tr key={row.title}><th>{row.title}</th>{row.values.map((value,index)=><td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">{note}</p></section>
+}
 function SummaryTable({ title, note, rows }: { title: string; note: string; rows: Array<{ title: string; one: number | null; three: number | null; five: number | null; seven: number | null; nine: number | null }> }) {
   return <section className="company-summary-block"><div className="company-block-heading"><div><span>{title.startsWith('Returns') ? 'PROFITABILITY' : 'CASH CONVERSION'}</span><h3>{title}</h3></div><small>Percent</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Ratio</th><th>Last year</th><th>3-year average</th><th>5-year average</th><th>7-year average</th><th>9-year average</th></tr></thead><tbody>{rows.map(r=><tr key={r.title}><th>{r.title}</th><td>{percent(r.one)}</td><td>{percent(r.three)}</td><td>{percent(r.five)}</td><td>{percent(r.seven)}</td><td>{percent(r.nine)}</td></tr>)}</tbody></table></div><p className="company-summary-note">{note}</p></section>
 }
