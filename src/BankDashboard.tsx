@@ -104,15 +104,49 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
   const pe = data.currentMarketCap !== null && ttmNetProfit !== null && ttmNetProfit > 0 ? data.currentMarketCap / ttmNetProfit : null
   const pb = data.currentMarketCap !== null && currentEquity !== null && currentEquity !== undefined && currentEquity > 0 ? data.currentMarketCap / currentEquity : null
   const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: i === 0 ? 'LY' : `${i + 1}Y`, offset: i }))
-  const returnMetrics = [
-    { label: 'ROA', metric: 'roa' as const },
-    { label: 'ROE', metric: 'roe' as const },
-    { label: 'Dividend payout', metric: 'dividendPayout' as const },
+  const returnRows = [
+    {
+      title: 'ROA',
+      values: historyPeriods.map(period => data.annual[data.annual.length - 1 - period.offset]?.roa ?? null),
+    },
+    {
+      title: 'ROE',
+      values: historyPeriods.map(period => data.annual[data.annual.length - 1 - period.offset]?.roe ?? null),
+    },
+    {
+      title: 'NPM',
+      values: historyPeriods.map(period => {
+        const row = data.annual[data.annual.length - 1 - period.offset]
+        const sales = ((row as Record<string, unknown>)?.sales ?? row?.interestEarned) as number | null | undefined
+        return row && typeof row.netProfit === 'number' && typeof sales === 'number' && sales > 0
+          ? (row.netProfit / sales) * 100
+          : null
+      }),
+    },
+    {
+      title: "NPM'",
+      values: historyPeriods.map(period => {
+        const row = data.annual[data.annual.length - 1 - period.offset]
+        const sales = ((row as Record<string, unknown>)?.sales ?? row?.interestEarned) as number | null | undefined
+        const total = typeof row?.totalRevenue === 'number'
+          ? row.totalRevenue
+          : typeof sales === 'number' && typeof row?.otherIncome === 'number'
+            ? sales + row.otherIncome
+            : null
+        return row && typeof row.netProfit === 'number' && typeof total === 'number' && total > 0
+          ? (row.netProfit / total) * 100
+          : null
+      }),
+    },
+    {
+      title: 'Dividend payout',
+      values: historyPeriods.map(period => data.annual[data.annual.length - 1 - period.offset]?.dividendPayout ?? null),
+    },
   ]
-  const returnHistory = returnMetrics.map(({ label, metric }) => {
-    const values = historyPeriods.map(period => data.annual[data.annual.length - 1 - period.offset]?.[metric] ?? null)
-    return { title: label, values, average: middleAverage(values) }
-  })
+  const returnHistory = returnRows.map(row => ({
+    ...row,
+    average: middleAverage(row.values),
+  }))
   const metricPoints = (key: GrowthMetric) => data.annual.map(row => ({ year: Number(row.period.match(/\d{4}/)?.[0]), value: row[key] }))
     .filter((point): point is { year: number; value: number } => Number.isFinite(point.year) && point.value !== null && Number.isFinite(point.value))
     .sort((a, b) => a.year - b.year)
@@ -147,11 +181,12 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         </section>
         <PerShareRollingSummary eps={epsRollingAverage} dividendPerShare={dividendRollingAverage} freeCashFlowPerShare={fcfPerShareRollingAverage} note="EPS includes the latest TTM value when four quarters and share data are available. Dividend per Share and FCF per Share use annual data because quarterly dividend and cash-flow inputs are unavailable."/>
         <section className="bank-summary-block">
-          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>Year-by-year returns</h3></div><span>ROA, ROE & dividend payout · %</span></div>
+          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>Year-by-year returns</h3></div><span>ROA, ROE, NPM & dividend payout · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
             {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
           <div className="bank-growth-note">LY is the latest annual observation. AVG sorts available values from highest to lowest and averages the centered values: 3 for an odd or 4 for an even count when 6 or more values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations. Dividend payout remains blank when unavailable.</div>
+          <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
         </section>
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
