@@ -30,6 +30,58 @@ const ttmSum = (rows: QuarterRow[], key: 'sales' | 'totalIncome' | 'netProfit', 
   const group = rows.slice(start, end)
   return group.some(row => row[key] === null) ? null : group.reduce((sum, row) => sum + (row[key] as number), 0)
 }
+function quadraticCurveFit(points: Array<{ year: number; value: number }>): { rSquared: number; predictAt: (year: number) => number } | null {
+  if (points.length < 3) return null
+  const origin = points[0].year
+  const xs = points.map(point => point.year - origin)
+  const ys = points.map(point => point.value)
+  const sumX = (power: number) => xs.reduce((total, x) => total + x ** power, 0)
+  const sumY = ys.reduce((total, y) => total + y, 0)
+  const sumXY = xs.reduce((total, x, i) => total + x * ys[i], 0)
+  const sumX2Y = xs.reduce((total, x, i) => total + x * x * ys[i], 0)
+  const matrix = [[sumX(4), sumX(3), sumX(2), sumX2Y], [sumX(3), sumX(2), sumX(1), sumXY], [sumX(2), sumX(1), points.length, sumY]]
+  for (let column = 0; column < 3; column++) {
+    let pivot = column
+    for (let row = column + 1; row < 3; row++) if (Math.abs(matrix[row][column]) > Math.abs(matrix[pivot][column])) pivot = row
+    if (Math.abs(matrix[pivot][column]) < 1e-12) return null
+    ;[matrix[column], matrix[pivot]] = [matrix[pivot], matrix[column]]
+    const divisor = matrix[column][column]
+    for (let j = column; j < 4; j++) matrix[column][j] /= divisor
+    for (let row = 0; row < 3; row++) {
+      if (row === column) continue
+      const factor = matrix[row][column]
+      for (let j = column; j < 4; j++) matrix[row][j] -= factor * matrix[column][j]
+    }
+  }
+  const [a, b, c] = matrix.map(row => row[3])
+  const predictX = (x: number) => a * x * x + b * x + c
+  const average = sumY / points.length
+  const totalSquares = ys.reduce((sum, y) => sum + (y - average) ** 2, 0)
+  const residualSquares = ys.reduce((sum, y, i) => sum + (y - predictX(xs[i])) ** 2, 0)
+  const rSquared = totalSquares === 0 ? (residualSquares < 1e-9 ? 1 : 0) : 1 - residualSquares / totalSquares
+  return { rSquared, predictAt: year => predictX(year - origin) }
+}
+
+function curveBasedCagrAverage(metric: string, points: Array<{ year: number; value: number }>, ttmGrowth: number | null): { value: number | null; basis: string; rSquared: number | null } {
+  const latest = points.at(-1)
+  const curve = quadraticCurveFit(points)
+  if (points.length >= 6 && curve && curve.rSquared > 0.8 && latest) {
+    const start = curve.predictAt(latest.year - 3)
+    const end = curve.predictAt(latest.year)
+    if (start > 0 && end > 0) return { value: cagr(start, end, 3), basis: `${metric}: fitted 3Y CAGR, R² ${(curve.rSquared * 100).toFixed(1)}%`, rSquared: curve.rSquared }
+  }
+  const prior3 = latest ? points.find(point => point.year === latest.year - 3) : undefined
+  const actualThreeYear = prior3 && latest ? cagr(prior3.value, latest.value, 3) : null
+  if (actualThreeYear !== null) {
+    const reason = points.length < 6 ? 'under 6 annual values' : `R² ${(curve ? curve.rSquared * 100 : 0).toFixed(1)}% or fitted endpoints unusable`
+    return { value: actualThreeYear, basis: `${metric}: actual 3Y CAGR fallback (${reason})`, rSquared: curve?.rSquared ?? null }
+  }
+  if (ttmGrowth !== null) return { value: ttmGrowth, basis: `${metric}: TTM growth fallback`, rSquared: curve?.rSquared ?? null }
+  const priorYear = points.at(-2)
+  const lastYear = priorYear && latest ? cagr(priorYear.value, latest.value, latest.year - priorYear.year) : null
+  if (lastYear !== null) return { value: lastYear, basis: `${metric}: 1Y growth fallback`, rSquared: curve?.rSquared ?? null }
+  return { value: null, basis: `${metric}: unavailable`, rSquared: curve?.rSquared ?? null }
+}
 export function CompanyDashboard({ data, section, specs }: { data: CompanyData; section: Section; specs: CompanySpecs }) {
   const ttmSales = ttmSum(data.quarterly, 'sales')
   const ttmProfit = ttmSum(data.quarterly, 'netProfit')
@@ -71,6 +123,15 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     const sales = ttmSum(data.quarterly, 'sales', offset)
     return income === null || sales === null ? null : income - sales
   }
+  const metricPoints = (getValue: (row: AnnualRow) => number | null) => data.annual.map(row => ({ year: Number(row.period.match(/\d{4}/)?.[0]), value: getValue(row) }))
+    .filter((point): point is { year: number; value: number } => Number.isFinite(point.year) && point.value !== null && Number.isFinite(point.value))
+    .sort((a, b) => a.year - b.year)
+  const cagrAverageByMetric: Record<string, ReturnType<typeof curveBasedCagrAverage>> = {
+    Sales: curveBasedCagrAverage('Sales', metricPoints(row => row.sales), cagr(ttmSum(data.quarterly, 'sales', 4), ttmSales, 1)),
+    'Other Income': curveBasedCagrAverage('Other Income', metricPoints(row => row.totalIncome !== null && row.sales !== null ? row.totalIncome - row.sales : null), cagr(ttmOtherIncome(4), ttmOtherIncome(), 1)),
+    'Net Profit': curveBasedCagrAverage('Net Profit', metricPoints(row => row.netProfit), cagr(ttmSum(data.quarterly, 'netProfit', 4), ttmProfit, 1)),
+    'Book Value': curveBasedCagrAverage('Book Value', metricPoints(row => row.equity), null),
+  }
   const cagrPeriods = Array.from({ length: 9 }, (_, i) => i + 1)
   const cagrRows = [
     { title: 'Sales', ttm: cagr(ttmSum(data.quarterly, 'sales', 4), ttmSales, 1), annual: cagrPeriods.map(years => annualCagr(data.annual, 'sales', years)) },
@@ -80,7 +141,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     }) },
     { title: 'Net Profit', ttm: cagr(ttmSum(data.quarterly, 'netProfit', 4), ttmProfit, 1), annual: cagrPeriods.map(years => annualCagr(data.annual, 'netProfit', years)) },
     { title: 'Book Value', ttm: null, annual: cagrPeriods.map(years => annualCagr(data.annual, 'equity', years)) },
-  ].map(row => ({ ...row, average: middleAverage(row.annual) }))
+  ].map(row => ({ ...row, average: cagrAverageByMetric[row.title].value }))
   const displayRows = [...data.sourceMatrix].map(row => row ?? [])
   const cleanSourceText = (value: unknown) => typeof value === 'string'
     ? value.replace(/PLEASE\s+DO\s+NOT\s+MAKE\s+ANY\s+CHANGES\s+TO\s+THIS\s+SHEET/gi, '').trim()
@@ -96,7 +157,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
       <div className="company-ratio-strip">{ratios.map(item => <div className="company-ratio-chip" key={item.label}><span>{item.label} · latest</span><strong>{item.value === null || item.value === undefined || !Number.isFinite(item.value) || item.value < 0 || item.value > 1000 ? '' : `${fmt(item.suffix === '%' ? item.value * 100 : item.value, 2)}${item.suffix}`}</strong></div>)}</div>
       <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="LY is the latest available annual observation. AVG sorts annual values from highest to lowest and averages the centered values: 3 for an odd count or 4 for an even count when at least 6 values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations."/>
       <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress. AVG uses the centered-value averaging rule shown above. CFO/Net profit and FCF/Net profit are blank when net profit is not positive."/>
-      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual CAGRs use the corresponding number of fiscal-year intervals. Other income is total income less sales; book value is equity share capital plus reserves. AVG uses annual 1Y–9Y CAGR values only and applies the centered-value averaging rule. Non-positive endpoints are not meaningful for CAGR and remain blank.</p></section>
+      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
       <div className="company-method-note"><Activity size={17}/><span>Interest coverage = (profit before tax + interest) ÷ interest. ROCE = EBIT ÷ average capital employed, where capital employed is equity plus borrowings. Current ratio uses Other Assets ÷ Other Liabilities; cash ratio uses Cash & Bank ÷ Other Liabilities.</span></div>
     </div>}
     {section === 'yearly' && <div className="company-plots-page">
