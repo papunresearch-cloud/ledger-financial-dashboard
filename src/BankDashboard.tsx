@@ -7,6 +7,7 @@ import type { BankData, BankAnnualRow, BankQuarterRow } from './types'
 type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const amount = (value: number | null | undefined, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`
+const percent2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) || Math.abs(value) > 1000 ? '—' : `${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}%`
 const latest = <K extends keyof BankAnnualRow>(rows: BankAnnualRow[], key: K) => [...rows].reverse().find(row => typeof row[key] === 'number')?.[key] as number | null | undefined
 const middleAverage = (values: Array<number | null | undefined>) => {
   const sorted = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value)).sort((a, b) => b - a)
@@ -147,6 +148,54 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
     ...row,
     average: middleAverage(row.values),
   }))
+  const roaDecompositionRows = [
+    {
+      title: 'ROA',
+      values: historyPeriods.map(period => {
+        const index = data.annual.length - 1 - period.offset
+        return data.annual[index]?.roa ?? null
+      }),
+    },
+    {
+      title: 'NPM',
+      values: historyPeriods.map(period => {
+        const index = data.annual.length - 1 - period.offset
+        const row = data.annual[index]
+        const sales = ((row as Record<string, unknown>)?.sales ?? row?.interestEarned) as number | null | undefined
+        const total = typeof row?.totalRevenue === 'number'
+          ? row.totalRevenue
+          : typeof sales === 'number' && typeof row?.otherIncome === 'number'
+            ? sales + row.otherIncome
+            : null
+        return row && typeof row.netProfit === 'number' && typeof total === 'number' && total > 0
+          ? (row.netProfit / total) * 100
+          : null
+      }),
+    },
+    {
+      title: 'AY',
+      values: historyPeriods.map(period => {
+        const index = data.annual.length - 1 - period.offset
+        const row = data.annual[index]
+        const priorRow = index > 0 ? data.annual[index - 1] : null
+        const sales = ((row as Record<string, unknown>)?.sales ?? row?.interestEarned) as number | null | undefined
+        const total = typeof row?.totalRevenue === 'number'
+          ? row.totalRevenue
+          : typeof sales === 'number' && typeof row?.otherIncome === 'number'
+            ? sales + row.otherIncome
+            : null
+        const avgAssets = priorRow && typeof priorRow.totalAssets === 'number' && typeof row?.totalAssets === 'number'
+          ? (priorRow.totalAssets + row.totalAssets) / 2
+          : null
+        return typeof total === 'number' && typeof avgAssets === 'number' && avgAssets > 0
+          ? (total / avgAssets) * 100
+          : null
+      }),
+    },
+  ].map(row => ({
+    ...row,
+    average: middleAverage(row.values),
+  }))
   const metricPoints = (key: GrowthMetric) => data.annual.map(row => ({ year: Number(row.period.match(/\d{4}/)?.[0]), value: row[key] }))
     .filter((point): point is { year: number; value: number } => Number.isFinite(point.year) && point.value !== null && Number.isFinite(point.value))
     .sort((a, b) => a.year - b.year)
@@ -187,6 +236,13 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           </tbody></table></div>
           <div className="bank-growth-note">LY is the latest annual observation. AVG sorts available values from highest to lowest and averages the centered values: 3 for an odd or 4 for an even count when 6 or more values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations. Dividend payout remains blank when unavailable.</div>
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
+        </section>
+        <section className="bank-summary-block">
+          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROA decomposition</h3></div><span>2 Decimals · %</span></div>
+          <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
+            {roaDecompositionRows.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index}>{percent2Dec(value)}</td>)}<td>{percent2Dec(row.average)}</td></tr>)}
+          </tbody></table></div>
+          <div className="bank-growth-note">*** ROA = Net Profit Margin on Total Income (NPM) * Asset Yield (AY)</div>
         </section>
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
