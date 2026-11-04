@@ -8,6 +8,7 @@ type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const amount = (value: number | null | undefined, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`
 const percent2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) || Math.abs(value) > 1000 ? '—' : `${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}%`
+const fmt2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
 const latest = <K extends keyof BankAnnualRow>(rows: BankAnnualRow[], key: K) => [...rows].reverse().find(row => typeof row[key] === 'number')?.[key] as number | null | undefined
 const middleAverage = (values: Array<number | null | undefined>) => {
   const sorted = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value)).sort((a, b) => b - a)
@@ -155,6 +156,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         const index = data.annual.length - 1 - period.offset
         return data.annual[index]?.roe ?? null
       }),
+      format: percent2Dec,
     },
     {
       title: 'NPM',
@@ -171,6 +173,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           ? (row.netProfit / total) * 100
           : null
       }),
+      format: percent2Dec,
     },
     {
       title: 'AY',
@@ -191,9 +194,30 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           ? (total / avgAssets) * 100
           : null
       }),
+      format: percent2Dec,
     },
     {
-      title: 'Interest income part',
+      title: 'EM',
+      values: historyPeriods.map(period => {
+        const index = data.annual.length - 1 - period.offset
+        const row = data.annual[index]
+        const priorRow = index > 0 ? data.annual[index - 1] : null
+        const avgAssets = priorRow && typeof priorRow.totalAssets === 'number' && typeof row?.totalAssets === 'number'
+          ? (priorRow.totalAssets + row.totalAssets) / 2
+          : null
+        const avgEquity = priorRow && typeof priorRow.equity === 'number' && typeof row?.equity === 'number'
+          ? (priorRow.equity + row.equity) / 2
+          : null
+        return avgAssets !== null && avgEquity !== null && avgEquity > 0
+          ? avgAssets / avgEquity
+          : typeof row?.totalAssets === 'number' && typeof row?.equity === 'number' && row.equity > 0
+            ? row.totalAssets / row.equity
+            : null
+      }),
+      format: fmt2Dec,
+    },
+    {
+      title: 'Interest Income Part',
       values: historyPeriods.map(period => {
         const index = data.annual.length - 1 - period.offset
         const row = data.annual[index]
@@ -207,6 +231,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           ? (interest / total) * 100
           : null
       }),
+      format: percent2Dec,
     },
   ].map(row => ({
     ...row,
@@ -254,11 +279,21 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
         </section>
         <section className="bank-summary-block">
-          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROE decomposition</h3></div><span>2 Decimals · %</span></div>
+          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROE decomposition</h3></div><span>2 Decimals · % / Ratio</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
-            {roeDecompositionRows.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index}>{percent2Dec(value)}</td>)}<td>{percent2Dec(row.average)}</td></tr>)}
+            {roeDecompositionRows.map(row => {
+              const formatCell = row.format ?? percent2Dec
+              return (
+                <tr key={row.title}>
+                  <th>{row.title}</th>
+                  {row.values.map((value, index) => <td key={index}>{formatCell(value)}</td>)}
+                  <td>{formatCell(row.average)}</td>
+                </tr>
+              )
+            })}
           </tbody></table></div>
-          <div className="bank-growth-note">*** NPM = Net profit / Total income · AY = Total income / Average assets · Interest income part = Interest income / Total income</div>
+          <div className="bank-growth-note">*** ROE = Net Profit Margin (NPM) * Asset Yield (AY)  * Equity Multiplier (EM)</div>
+          <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Equity Multiplier =&gt; EM</div>
         </section>
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
