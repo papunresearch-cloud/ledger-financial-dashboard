@@ -148,12 +148,12 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
     ...row,
     average: middleAverage(row.values),
   }))
-  const roaDecompositionRows = [
+  const roeDecompositionRows = [
     {
-      title: 'ROA',
+      title: 'ROE',
       values: historyPeriods.map(period => {
         const index = data.annual.length - 1 - period.offset
-        return data.annual[index]?.roa ?? null
+        return data.annual[index]?.roe ?? null
       }),
     },
     {
@@ -189,6 +189,22 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           : null
         return typeof total === 'number' && typeof avgAssets === 'number' && avgAssets > 0
           ? (total / avgAssets) * 100
+          : null
+      }),
+    },
+    {
+      title: 'Interest income part',
+      values: historyPeriods.map(period => {
+        const index = data.annual.length - 1 - period.offset
+        const row = data.annual[index]
+        const interest = ((row as Record<string, unknown>)?.sales ?? row?.interestEarned) as number | null | undefined
+        const total = typeof row?.totalRevenue === 'number'
+          ? row.totalRevenue
+          : typeof interest === 'number' && typeof row?.otherIncome === 'number'
+            ? interest + row.otherIncome
+            : null
+        return typeof interest === 'number' && typeof total === 'number' && total > 0
+          ? (interest / total) * 100
           : null
       }),
     },
@@ -238,11 +254,11 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
         </section>
         <section className="bank-summary-block">
-          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROA decomposition</h3></div><span>2 Decimals · %</span></div>
+          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROE decomposition</h3></div><span>2 Decimals · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
-            {roaDecompositionRows.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index}>{percent2Dec(value)}</td>)}<td>{percent2Dec(row.average)}</td></tr>)}
+            {roeDecompositionRows.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index}>{percent2Dec(value)}</td>)}<td>{percent2Dec(row.average)}</td></tr>)}
           </tbody></table></div>
-          <div className="bank-growth-note">*** ROA = Net Profit Margin on Total Income (NPM) * Asset Yield (AY)</div>
+          <div className="bank-growth-note">*** NPM = Net profit / Total income · AY = Total income / Average assets · Interest income part = Interest income / Total income</div>
         </section>
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
