@@ -123,12 +123,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
   const dupontHistory = [
     {
       title: 'ROE',
-      getValue: (row: AnnualRow) => {
-        if (row.equity !== null && row.equity > 0 && row.netProfit !== null) {
-          return 100 * row.netProfit / row.equity
-        }
-        return row.roe
-      },
+      getValue: (row: AnnualRow) => row.roe,
       format: percent2Dec,
     },
     {
@@ -143,16 +138,34 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     },
     {
       title: 'ATO',
-      getValue: (row: AnnualRow) => (row.sales !== null && row.totalAssets !== null && row.totalAssets > 0 ? row.sales / row.totalAssets : null),
+      getValue: (row: AnnualRow, priorRow?: AnnualRow | null) => {
+        if (row.sales === null) return null
+        const avgAssets = priorRow && priorRow.totalAssets !== null && row.totalAssets !== null
+          ? (priorRow.totalAssets + row.totalAssets) / 2
+          : null
+        return avgAssets !== null && avgAssets > 0 ? row.sales / avgAssets : null
+      },
       format: fmt2Dec,
     },
     {
       title: 'EM',
-      getValue: (row: AnnualRow) => (row.totalAssets !== null && row.equity !== null && row.equity > 0 ? row.totalAssets / row.equity : null),
+      getValue: (row: AnnualRow, priorRow?: AnnualRow | null) => {
+        if (!priorRow || priorRow.totalAssets === null || row.totalAssets === null || priorRow.equity === null || row.equity === null) {
+          return null
+        }
+        const avgAssets = (priorRow.totalAssets + row.totalAssets) / 2
+        const avgEquity = (priorRow.equity + row.equity) / 2
+        return avgEquity > 0 && avgAssets > 0 ? avgAssets / avgEquity : null
+      },
       format: fmt2Dec,
     },
   ].map(metric => {
-    const values = historyPeriods.map(period => metric.getValue(data.annual[data.annual.length - 1 - period.offset]))
+    const values = historyPeriods.map(period => {
+      const index = data.annual.length - 1 - period.offset
+      const row = data.annual[index]
+      const priorRow = index > 0 ? data.annual[index - 1] : null
+      return metric.getValue(row, priorRow)
+    })
     return { title: metric.title, values, average: middleAverage(values), format: metric.format }
   })
   const ttmOtherIncome = (offset = 0) => {
