@@ -47,3 +47,18 @@ export function getRelativeColor(
 
   return '#808080'
 }
+
+/**
+ * Formats a period string (e.g., "FY2026", "2026", "FY26") into a 2-digit fiscal year label ("FY26").
+ */
+export function formatFiscalYearHeader(
+  period: string | null | undefined,
+  fallback = ''
+): string {
+  if (!period) return fallback
+  const year4 = period.match(/(?:19|20)\d{2}/)?.[0]
+  if (year4) return `FY${year4.slice(-2)}`
+  const year2 = period.match(/\d{2}/)?.[0]
+  if (year2) return `FY${year2}`
+  return period
+}

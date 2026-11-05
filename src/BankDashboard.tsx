@@ -2,7 +2,7 @@ import { AlertTriangle, CircleHelp, Landmark, ShieldCheck } from 'lucide-react'
 import { ChartPanel, type BankChartSpecs } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { averageOfThreeYearRollingAverages } from './rollingPerShare'
-import { getRelativeColor } from './colorUtils'
+import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
 import type { BankData, BankAnnualRow, BankQuarterRow } from './types'
 
 type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
@@ -106,7 +106,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
   const currentEquity = latest(data.annual, 'equity')
   const pe = data.currentMarketCap !== null && ttmNetProfit !== null && ttmNetProfit > 0 ? data.currentMarketCap / ttmNetProfit : null
   const pb = data.currentMarketCap !== null && currentEquity !== null && currentEquity !== undefined && currentEquity > 0 ? data.currentMarketCap / currentEquity : null
-  const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: i === 0 ? 'LY' : `${i + 1}Y`, offset: i }))
+  const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: formatFiscalYearHeader(data.annual[data.annual.length - 1 - i]?.period, i === 0 ? 'LY' : `${i + 1}Y`), offset: i }))
   const returnRows = [
     {
       title: 'ROA',
@@ -276,7 +276,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
             {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
-          <div className="bank-growth-note">LY is the latest annual observation. AVG sorts available values from highest to lowest and averages the centered values: 3 for an odd or 4 for an even count when 6 or more values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations. Dividend payout remains blank when unavailable.</div>
+          <div className="bank-growth-note">AVG =&gt; sorts annual values from highest to lowest and then averages of the centered values</div>
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
         </section>
         <section className="bank-summary-block">
