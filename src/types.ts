@@ -76,7 +76,9 @@ export type BankAnnualRow = {
   interestEarned: number | null
   interestPaid: number | null
   interestGap: number | null
+  interestRatio: number | null
   otherIncomeToInterestEarned: number | null
+  interestIncomeContribution: number | null
   otherIncome: number | null
   totalRevenue: number | null
   basicExpense: number | null
@@ -112,7 +114,9 @@ export type BankQuarterRow = {
   interestEarned: number | null
   interestPaid: number | null
   interestGap: number | null
+  interestRatio: number | null
   otherIncomeToInterestEarned: number | null
+  interestIncomeContribution: number | null
   otherIncome: number | null
   totalRevenue: number | null
   expenses: number | null

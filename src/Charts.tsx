@@ -167,12 +167,23 @@ export function makeBankChartSpecs(annual: BankAnnualRow[], quarterly: BankQuart
   const A = (key: keyof BankAnnualRow, label: string, color: string, kind?: 'line', axis?: 'right', unit?: Metric['unit']): Metric => ({ key, label, color, kind, axis, unit })
   const Q = (key: keyof BankQuarterRow, label: string, color: string, kind?: 'line', axis?: 'right', unit?: Metric['unit']): Metric => ({ key, label, color, kind, axis, unit })
   const shortPeriod = (period: string) => period.replace(/FY(?:20)?(\d{2})/g, 'FY$1')
-  const annualRows = annual.map(row => ({ ...row, period: shortPeriod(row.period), roaOverlay: row.roa }))
-  const quarterRows = quarterly.map(row => ({ ...row, period: shortPeriod(row.period) }))
+  const annualRows = annual.map(row => ({
+    ...row,
+    period: shortPeriod(row.period),
+    roaOverlay: row.roa,
+    interestRatio: row.interestRatio ?? (row.interestEarned && row.interestPaid !== null ? (row.interestPaid / row.interestEarned) * 100 : null),
+    interestIncomeContribution: row.interestIncomeContribution ?? (row.totalRevenue && row.interestEarned !== null ? (row.interestEarned / row.totalRevenue) * 100 : null),
+  }))
+  const quarterRows = quarterly.map(row => ({
+    ...row,
+    period: shortPeriod(row.period),
+    interestRatio: row.interestRatio ?? (row.interestEarned && row.interestPaid !== null ? (row.interestPaid / row.interestEarned) * 100 : null),
+    interestIncomeContribution: row.interestIncomeContribution ?? (row.totalRevenue && row.interestEarned !== null ? (row.interestEarned / row.totalRevenue) * 100 : null),
+  }))
   return {
     annual: [
-      annualSpec(annualRows, 'bank-interest-gap', 'Interest earned & interest paid', '₹ crore · Interest gap % = 100 × (earned − paid) ÷ earned', [A('interestEarned','Interest earned','#22D3B5'), A('interestPaid','Interest paid','#FFC857'), A('interestGap','Interest gap %','#A78BFA','line','right','percent')], 'combo'),
-      annualSpec(annualRows, 'bank-interest-other-income', 'Interest earned & other income', '₹ crore · other income / interest earned · %', [A('interestEarned','Interest earned','#22D3B5'), A('otherIncome','Other income','#FFC857'), A('otherIncomeToInterestEarned','Other income / interest earned','#FF72B6','line','right','percent')], 'combo'),
+      annualSpec(annualRows, 'bank-interest-gap', 'Interest earned & interest paid', '₹ crore · Interest Ratio = Interest Paid / Interest Earned (%)', [A('interestEarned','Interest earned','#22D3B5'), A('interestPaid','Interest paid','#FFC857'), A('interestRatio','Interest Ratio','#A78BFA','line','right','percent')], 'combo'),
+      annualSpec(annualRows, 'bank-interest-other-income', 'Interest earned & other income', '₹ crore · Interest income contribution = Interest income \\ Total income (%)', [A('interestEarned','Interest earned','#22D3B5'), A('otherIncome','Other income','#FFC857'), A('interestIncomeContribution','Interest income contribution','#FF72B6','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-revenue-expense-opm', 'Total revenue & total expense', '₹ crore · OPM = (total revenue − total expense) ÷ total revenue · %', [A('totalRevenue','Total revenue','#22D3B5'), A('totalExpense','Total expense','#FFC857'), A('operatingProfitMargin','OPM','#A78BFA','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-profit-npm', 'Net profit & NPM', 'Net profit · ₹ crore; NPM = net profit ÷ total revenue · %', [A('netProfit','Net profit','#22D3B5'), A('netProfitMargin','NPM','#FF72B6','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-dividend', 'Dividend & payout', 'Dividend amount · ₹ crore; payout ratio · %', [A('dividend','Dividend amount','#FFC857'), A('dividendPayout','Dividend payout','#A78BFA','line','right','percent')], 'combo'),
@@ -183,8 +194,8 @@ export function makeBankChartSpecs(annual: BankAnnualRow[], quarterly: BankQuart
       annualSpec(annualRows, 'bank-assets', 'Total assets, other assets & borrowings', '₹ crore · source labels retained', [A('totalAssets','Total assets','#22D3B5'), A('otherAssets','Other assets','#FFC857'), A('borrowings','Borrowings','#A78BFA')]),
     ],
     quarterly: [
-      quarterSpec(quarterRows, 'bank-quarter-interest-gap', 'Interest earned & interest paid', '₹ crore · Interest gap % = 100 × (earned − paid) ÷ earned', [Q('interestEarned','Interest earned','#22D3B5'), Q('interestPaid','Interest paid','#FFC857'), Q('interestGap','Interest gap %','#A78BFA','line','right','percent')], 'combo'),
-      quarterSpec(quarterRows, 'bank-quarter-income', 'Interest earned & other income', '₹ crore · other income / interest earned · %', [Q('interestEarned','Interest earned','#22D3B5'), Q('otherIncome','Other income','#FFC857'), Q('otherIncomeToInterestEarned','Other income / interest earned','#FF72B6','line','right','percent')], 'combo'),
+      quarterSpec(quarterRows, 'bank-quarter-interest-gap', 'Interest earned & interest paid', '₹ crore · Interest Ratio = Interest Paid / Interest Earned (%)', [Q('interestEarned','Interest earned','#22D3B5'), Q('interestPaid','Interest paid','#FFC857'), Q('interestRatio','Interest Ratio','#A78BFA','line','right','percent')], 'combo'),
+      quarterSpec(quarterRows, 'bank-quarter-income', 'Interest earned & other income', '₹ crore · Interest income contribution = Interest income \\ Total income (%)', [Q('interestEarned','Interest earned','#22D3B5'), Q('otherIncome','Other income','#FFC857'), Q('interestIncomeContribution','Interest income contribution','#FF72B6','line','right','percent')], 'combo'),
       quarterSpec(quarterRows, 'bank-quarter-revenue-expense', 'Total revenue & total expense', '₹ crore · OPM = (total revenue − total expense) ÷ total revenue · %', [Q('totalRevenue','Total revenue','#22D3B5'), Q('totalExpense','Total expense','#FFC857'), Q('operatingProfitMargin','OPM','#A78BFA','line','right','percent')], 'combo'),
       quarterSpec(quarterRows, 'bank-quarter-profit', 'Net profit & NPM', 'Net profit · ₹ crore; NPM = net profit ÷ total revenue · %', [Q('netProfit','Net profit','#22D3B5'), Q('netProfitMargin','NPM','#FF72B6','line','right','percent')], 'combo'),
     ],

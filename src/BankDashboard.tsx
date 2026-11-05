@@ -320,7 +320,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         <div className="checks-card definitions-card"><h3><CircleHelp size={18}/> Bank-mode calculations</h3><ul>
           <li><b>Annual and quarterly interest earned</b> = source Sales; <b>interest paid</b> = source Interest.</li>
           <li><b>Total revenue</b> = interest earned + Other Income.</li>
-          <li><b>Interest gap %</b> = 100 × (interest earned − interest paid) ÷ interest earned. <b>Other income / interest earned</b> = 100 × other income ÷ interest earned.</li>
+          <li><b>Interest Ratio %</b> = 100 × interest paid ÷ interest earned. <b>Interest income contribution %</b> = 100 × interest earned ÷ total revenue.</li>
           <li><b>Annual total expense</b> = available itemized expense rows + Other Expenses + Interest when all components exist; otherwise total revenue − reported PBT. The fallback is flagged in data notes.</li>
           <li><b>Quarterly total expense</b> = Expenses + Interest. <b>OPM</b> = 100 × (total revenue − total expense) ÷ total revenue. <b>NPM</b> = 100 × net profit ÷ total revenue.</li>
           <li><b>Equity</b> = share capital + reserves. <b>Borrowings / equity</b> is plotted as requested; interpret as a user-defined bank funding ratio.</li>

@@ -341,8 +341,12 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
     const dividend = get(pnl, 'Dividend Amount', i, ['Dividend'])
     const interestGap = interestEarned === null || interestPaid === null || interestEarned === 0
       ? null : 100 * (interestEarned - interestPaid) / interestEarned
+    const interestRatio = interestEarned === null || interestPaid === null || interestEarned === 0
+      ? null : 100 * interestPaid / interestEarned
     const otherIncomeToInterestEarned = interestEarned === null || otherIncome === null || interestEarned === 0
       ? null : 100 * otherIncome / interestEarned
+    const interestIncomeContribution = interestEarned === null || totalRevenue === null || totalRevenue === 0
+      ? null : 100 * interestEarned / totalRevenue
     const operatingProfitMargin = totalRevenue === null || totalExpense === null || totalRevenue === 0
       ? null : 100 * (totalRevenue - totalExpense) / totalRevenue
     const netProfitMargin = totalRevenue === null || netProfit === null || totalRevenue === 0
@@ -354,7 +358,7 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
     const roa = i === 0 || totalAssets === null || priorAssets === null || netProfit === null || priorAssets + totalAssets === 0
       ? null : 100 * netProfit / ((priorAssets + totalAssets) / 2)
     return {
-      period, interestEarned, interestPaid, interestGap, otherIncome, otherIncomeToInterestEarned, totalRevenue, basicExpense, provisionOtherExpense,
+      period, interestEarned, interestPaid, interestGap, interestRatio, otherIncome, otherIncomeToInterestEarned, interestIncomeContribution, totalRevenue, basicExpense, provisionOtherExpense,
       totalExpense, expenseMethod, profitBeforeTax, netProfit, operatingProfitMargin, netProfitMargin, dividend,
       dividendPerShare: dividend === 0 ? 0 : dividend === null || dividend < 0 || sharesCr === null || sharesCr <= 0 ? null : dividend / sharesCr,
       dividendPayout: dividend === 0 ? 0 : dividend === null || dividend < 0 || netProfit === null || netProfit <= 0 ? null : 100 * dividend / netProfit,
@@ -377,10 +381,13 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
     const netProfit = get(quarters, 'Net profit', i, ['Net Profit'])
     const otherIncomeToInterestEarned = interestEarned === null || otherIncome === null || interestEarned === 0
       ? null : 100 * otherIncome / interestEarned
+    const interestRatio = interestEarned === null || interestPaid === null || interestEarned === 0 ? null : 100 * interestPaid / interestEarned
+    const interestIncomeContribution = interestEarned === null || totalRevenue === null || totalRevenue === 0 ? null : 100 * interestEarned / totalRevenue
     return {
       period, interestEarned, interestPaid,
       interestGap: interestEarned === null || interestPaid === null || interestEarned === 0 ? null : 100 * (interestEarned - interestPaid) / interestEarned,
-      otherIncome, otherIncomeToInterestEarned, totalRevenue, expenses, totalExpense, operatingProfit, netProfit,
+      interestRatio,
+      otherIncome, otherIncomeToInterestEarned, interestIncomeContribution, totalRevenue, expenses, totalExpense, operatingProfit, netProfit,
       operatingProfitMargin: totalRevenue === null || totalExpense === null || totalRevenue === 0 ? null : 100 * (totalRevenue - totalExpense) / totalRevenue,
       netProfitMargin: totalRevenue === null || netProfit === null || totalRevenue === 0 ? null : 100 * netProfit / totalRevenue,
     }
