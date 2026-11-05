@@ -94,15 +94,16 @@
 @media(max-width:420px){.company-snapshot-grid{grid-template-columns:1fr}.company-snapshot{min-width:0}.company-snapshot strong{font-size:clamp(17px,5vw,22px);line-height:1.2}.company-theme .company-overview{padding:12px;border-radius:15px}.company-theme .topbar{padding:0 10px}.company-theme .topbar-right .button{font-size:9px;padding:8px}}
 .company-theme .company-block-heading>div>span{font-size:13px;letter-spacing:1.1px}
 .company-theme .company-block-heading>small{font-size:12px}
-.company-theme .company-growth-table thead th{font-size:13px}
-.company-theme .company-growth-table th:first-child{font-size:14px}
+.company-theme .company-growth-table thead th{font-size:15px;font-weight:700;letter-spacing:0.5px}
+.company-theme .company-growth-table th:first-child{font-size:15px;font-weight:700}
 .company-theme .company-growth-table td{font-size:15px}
 .bank-theme .return-values{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:760px){.bank-theme .return-values{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bank-theme .bank-overview-heading p{font-size:14px}
 .bank-theme .bank-section-kicker{font-size:11px}
 .bank-theme .bank-block-title>span{font-size:11px}
-.bank-theme .bank-growth-table thead th{font-size:12px}
+.bank-theme .bank-growth-table thead th{font-size:15px;font-weight:700;letter-spacing:0.5px}
+.bank-theme .bank-growth-table th:first-child{font-size:15px;font-weight:700}
 .bank-theme .bank-growth-note,.bank-theme .bank-overview-note{font-size:13px}
 .bank-theme .bank-asof{font-size:12px}
 .company-theme .company-overview-heading .hero-kicker{font-size:12px}

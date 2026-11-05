@@ -2,6 +2,7 @@ import { Activity } from 'lucide-react'
 import { ChartPanel, type ChartSpec } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { averageOfThreeYearRollingAverages } from './rollingPerShare'
+import { getRelativeColor } from './colorUtils'
 import type { AnnualRow, CompanyData, QuarterRow } from './types'
 
 type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
@@ -208,7 +209,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
       <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="LY is the latest available annual observation. AVG sorts annual values from highest to lowest and averages the centered values: 3 for an odd count or 4 for an even count when at least 6 values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations."/>
       <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="2 Decimals" note=" *** ROE = Net Profit Margin (NPM) * Asset turn Over (ATO)  * Equity Multiplier (EM)"/>
       <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress. AVG uses the centered-value averaging rule shown above. CFO/Net profit and FCF/Net profit are blank when net profit is not positive."/>
-      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
+      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td style={{ color: getRelativeColor(row.ttm, row.average) }}>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
       <div className="company-method-note"><Activity size={17}/><span>Interest coverage = (profit before tax + interest) ÷ interest. ROCE = EBIT ÷ average capital employed, where capital employed is equity plus borrowings. Current ratio uses Other Assets ÷ Other Liabilities; cash ratio uses Cash & Bank ÷ Other Liabilities.</span></div>
     </div>}
     {section === 'yearly' && <div className="company-plots-page">
@@ -264,7 +265,7 @@ function AnnualHistoryTable({
               return (
                 <tr key={row.title}>
                   <th>{row.title}</th>
-                  {row.values.map((value, index) => <td key={index}>{formatCell(value)}</td>)}
+                  {row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{formatCell(value)}</td>)}
                   <td>{formatCell(row.average)}</td>
                 </tr>
               )

@@ -2,6 +2,7 @@ import { AlertTriangle, CircleHelp, Landmark, ShieldCheck } from 'lucide-react'
 import { ChartPanel, type BankChartSpecs } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { averageOfThreeYearRollingAverages } from './rollingPerShare'
+import { getRelativeColor } from './colorUtils'
 import type { BankData, BankAnnualRow, BankQuarterRow } from './types'
 
 type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
@@ -273,7 +274,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>Year-by-year returns</h3></div><span>ROA, ROE, NPM & dividend payout · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
-            {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
+            {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
           <div className="bank-growth-note">LY is the latest annual observation. AVG sorts available values from highest to lowest and averages the centered values: 3 for an odd or 4 for an even count when 6 or more values are available; 3 for 5, 2 for 4, 1 for 3, and all values for 1–2 observations. Dividend payout remains blank when unavailable.</div>
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
@@ -286,7 +287,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
               return (
                 <tr key={row.title}>
                   <th>{row.title}</th>
-                  {row.values.map((value, index) => <td key={index}>{formatCell(value)}</td>)}
+                  {row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{formatCell(value)}</td>)}
                   <td>{formatCell(row.average)}</td>
                 </tr>
               )
@@ -298,7 +299,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>
-            {cagrRows.map(row => <tr key={row.label}><th>{row.label}</th><td>{percent(row.ttm)}</td>{row.annual.map((value, index) => <td key={index}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
+            {cagrRows.map(row => <tr key={row.label}><th>{row.label}</th><td style={{ color: getRelativeColor(row.ttm, row.average) }}>{percent(row.ttm)}</td>{row.annual.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
           <div className="bank-growth-note">Annual 1Y–9Y columns use actual period endpoints. AVG uses a separate quadratic fit per metric: with 6 or more annual values and R² greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverages).map(result => result.basis).join(' · ')}. Book Value = equity share capital + reserves. Non-positive endpoints remain blank.</div>
         </section>
