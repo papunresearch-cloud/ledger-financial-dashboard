@@ -96,9 +96,7 @@ function curveBasedCagrAverage(metric: string, points: Array<{ year: number; val
 export function BankDashboard({ data, section, specs }: { data: BankData; section: Section; specs: BankChartSpecs }) {
   const newest = data.annual.at(-1)
   const ttmNetProfit = ttmSum(data.quarterly, 'netProfit', 0)
-  const currentShares = latest(data.annual, 'sharesCr')
-  const ttmEps = ttmNetProfit === null || currentShares === null || currentShares === undefined || currentShares <= 0 ? null : ttmNetProfit / currentShares
-  const epsRollingAverage = averageOfThreeYearRollingAverages([...data.annual.map(row => row.eps), ttmEps])
+  const epsRollingAverage = averageOfThreeYearRollingAverages(data.annual.map(row => row.eps))
   const dividendRollingAverage = averageOfThreeYearRollingAverages(data.annual.map(row => row.dividendPerShare))
   const fcfPerShareRollingAverage = averageOfThreeYearRollingAverages(data.annual.map(row =>
     row.freeCashFlow === null || row.sharesCr === null || row.sharesCr <= 0 ? null : row.freeCashFlow / row.sharesCr,
@@ -270,7 +268,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           <SnapshotCard label="P / E" value={pe === null ? '—' : `${pe.toFixed(2)}×`} accent="pink"/>
           <SnapshotCard label="P / B" value={pb === null ? '—' : `${pb.toFixed(2)}×`} accent="teal"/>
         </section>
-        <PerShareRollingSummary eps={epsRollingAverage} dividendPerShare={dividendRollingAverage} freeCashFlowPerShare={fcfPerShareRollingAverage} note="EPS includes the latest TTM value when four quarters and share data are available. Dividend per Share and FCF per Share use annual data because quarterly dividend and cash-flow inputs are unavailable."/>
+        <PerShareRollingSummary eps={epsRollingAverage} dividendPerShare={dividendRollingAverage} freeCashFlowPerShare={fcfPerShareRollingAverage} note="EPS, Dividend per Share, and FCF per Share all use annual data across complete 3-year rolling windows."/>
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>Year-by-year returns</h3></div><span>ROA, ROE, NPM & dividend payout · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
