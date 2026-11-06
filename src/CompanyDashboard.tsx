@@ -1,7 +1,7 @@
 import { Activity } from 'lucide-react'
 import { ChartPanel, type ChartSpec } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
-import { averageOfThreeYearRollingAverages } from './rollingPerShare'
+import { calculateRobustWeightedAverage } from './rollingPerShare'
 import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
 import type { AnnualRow, CompanyData, QuarterRow } from './types'
 
@@ -88,9 +88,9 @@ function curveBasedCagrAverage(metric: string, points: Array<{ year: number; val
 export function CompanyDashboard({ data, section, specs }: { data: CompanyData; section: Section; specs: CompanySpecs }) {
   const ttmSales = ttmSum(data.quarterly, 'sales')
   const ttmProfit = ttmSum(data.quarterly, 'netProfit')
-  const epsRollingAverage = averageOfThreeYearRollingAverages(data.annual.map(row => row.eps))
-  const dividendRollingAverage = averageOfThreeYearRollingAverages(data.annual.map(row => row.dividendPerShare))
-  const fcfPerShareRollingAverage = averageOfThreeYearRollingAverages(data.annual.map(row =>
+  const epsAverage = calculateRobustWeightedAverage(data.annual.map(row => row.eps))
+  const dividendAverage = calculateRobustWeightedAverage(data.annual.map(row => row.dividendPerShare))
+  const fcfPerShareAverage = calculateRobustWeightedAverage(data.annual.map(row =>
     row.freeCashFlow === null || row.sharesCr === null || row.sharesCr <= 0 ? null : row.freeCashFlow / row.sharesCr,
   ))
   const equity = latest(data.annual, 'equity')
@@ -202,7 +202,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
         <Snapshot label="Current market cap" value={moneyCr(marketCap)} tone="mint"/><Snapshot label="Total asset" value={moneyCr(latest(data.annual, 'totalAssets'))} tone="violet"/><Snapshot label="TTM sales" value={moneyCr(ttmSales)} tone="blue"/>
         <Snapshot label="P / E" value={marketCap !== null && ttmProfit !== null && ttmProfit > 0 ? `${fmt(marketCap / ttmProfit, 2)}×` : '—'} tone="pink"/><Snapshot label="P / B" value={marketCap !== null && equity !== null && equity !== undefined && equity > 0 ? `${fmtTwoDecimals(marketCap / equity)}×` : '—'} tone="gold"/><Snapshot label="P / S" value={marketCap !== null && ttmSales !== null && ttmSales > 0 ? `${fmt(marketCap / ttmSales, 2)}×` : '—'} tone="teal"/>
       </div>
-      <PerShareRollingSummary eps={epsRollingAverage} dividendPerShare={dividendRollingAverage} freeCashFlowPerShare={fcfPerShareRollingAverage} note="EPS, Dividend per Share, and FCF per Share all use annual data across complete 3-year rolling windows."/>
+      <PerShareRollingSummary eps={epsAverage} dividendPerShare={dividendAverage} freeCashFlowPerShare={fcfPerShareAverage} note="Average is calculated using annual data with IQR outlier Winsorization and recency weighting (50% spread ratio). Zero and negative values are included. TTM data is excluded."/>
       <div className="company-ratio-strip">{ratios.map(item => <div className="company-ratio-chip" key={item.label}><span>{item.label} · latest</span><strong>{item.value === null || item.value === undefined || !Number.isFinite(item.value) || item.value < 0 || item.value > 1000 ? '' : `${fmt(item.suffix === '%' ? item.value * 100 : item.value, 2)}${item.suffix}`}</strong></div>)}</div>
       <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="AVG => sorts annual values from highest to lowest and then averages of the centered values"/>
       <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="2 Decimals" note="ROE = Net Profit Margin (NPM) * Asset turn Over (ATO) * Equity Multiplier (EM) | Equity Multiplier (EM)  = Total asset / Total equity"/>
