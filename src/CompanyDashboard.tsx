@@ -10,8 +10,7 @@ type CompanySpecs = { annual: ChartSpec[]; margins: ChartSpec[]; quarterly: Char
 const fmt = (value: number | null | undefined, decimals = 1) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: decimals }).format(value)
 const fmtTwoDecimals = (value: number) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
 const fmt2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const percent = (value: number | null) => value === null || !Number.isFinite(value) || Math.abs(value) > 1000 ? '—' : `${value.toFixed(1)}%`
-const percent2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) || Math.abs(value) > 1000 ? '—' : `${fmt2Dec(value)}%`
+const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) || Math.abs(value) > 1000 ? '—' : `${value.toFixed(1)}%`
 const moneyCr = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `₹ ${fmt(value, 0)} Cr`
 const latest = <K extends keyof AnnualRow>(rows: AnnualRow[], key: K) => [...rows].reverse().find(row => typeof row[key] === 'number')?.[key] as number | null | undefined
 const middleAverage = (values: Array<number | null | undefined>): number | null => {
@@ -101,19 +100,22 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     { label: 'Cash ratio', value: latest(data.annual, 'cashRatio'), suffix: '%' },
   ]
   const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: formatFiscalYearHeader(data.annual[data.annual.length - 1 - i]?.period, i === 0 ? 'LY' : `${i + 1}Y`), offset: i }))
-  const historyMetricRows = (metrics: Array<{ title: string; getValue: (row: AnnualRow) => number | null }>) => metrics.map(metric => {
+  const historyMetricRows = (metrics: Array<{ title: string; getValue: (row: AnnualRow) => number | null; useWeightedAvg?: boolean }>) => metrics.map(metric => {
     const values = historyPeriods.map(period => metric.getValue(data.annual[data.annual.length - 1 - period.offset]))
-    return { title: metric.title, values, average: middleAverage(values) }
+    const average = metric.useWeightedAvg
+      ? calculateRobustWeightedAverage([...values].reverse())
+      : middleAverage(values)
+    return { title: metric.title, values, average }
   })
   const returnHistory = historyMetricRows([
-    { title: 'ROA', getValue: row => row.roa },
-    { title: 'ROE', getValue: row => row.roe },
-    { title: 'ROCE', getValue: row => row.roce },
-    { title: 'Dividend payout', getValue: row => row.dividendPayout },
+    { title: 'ROA', getValue: row => row.roa, useWeightedAvg: true },
+    { title: 'ROE', getValue: row => row.roe, useWeightedAvg: true },
+    { title: 'ROCE', getValue: row => row.roce, useWeightedAvg: true },
+    { title: 'Dividend payout', getValue: row => row.dividendPayout, useWeightedAvg: true },
   ])
   const cashHistory = historyMetricRows([
-    { title: 'OPM', getValue: row => row.operatingProfitMargin },
-    { title: 'NPM', getValue: row => row.netProfitMargin },
+    { title: 'OPM', getValue: row => row.operatingProfitMargin, useWeightedAvg: true },
+    { title: 'NPM', getValue: row => row.netProfitMargin, useWeightedAvg: true },
     { title: 'CFO / Sales', getValue: row => row.sales !== null && row.sales > 0 && row.operatingCashFlow !== null ? 100 * row.operatingCashFlow / row.sales : null },
     { title: 'FCF / Sales', getValue: row => row.sales !== null && row.sales > 0 && row.freeCashFlow !== null ? 100 * row.freeCashFlow / row.sales : null },
     { title: 'CFO / Net profit', getValue: row => row.netProfit !== null && row.netProfit > 0 && row.operatingCashFlow !== null ? 100 * row.operatingCashFlow / row.netProfit : null },
@@ -123,7 +125,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
     {
       title: 'ROE',
       getValue: (row: AnnualRow) => row.roe,
-      format: percent2Dec,
+      format: percent,
     },
     {
       title: 'NPM',
@@ -133,7 +135,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
         }
         return row.netProfitMargin
       },
-      format: percent2Dec,
+      format: percent,
     },
     {
       title: 'ATO',
@@ -165,7 +167,7 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
       const priorRow = index > 0 ? data.annual[index - 1] : null
       return metric.getValue(row, priorRow)
     })
-    return { title: metric.title, values, average: middleAverage(values), format: metric.format }
+    return { title: metric.title, values, average: calculateRobustWeightedAverage([...values].reverse()), format: metric.format }
   })
   const ttmOtherIncome = (offset = 0) => {
     const income = ttmSum(data.quarterly, 'totalIncome', offset)
@@ -204,9 +206,9 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
       </div>
       <PerShareRollingSummary eps={epsAverage} dividendPerShare={dividendAverage} freeCashFlowPerShare={fcfPerShareAverage} note="Average is calculated using annual data with IQR outlier Winsorization and recency weighting (50% spread ratio). Zero and negative values are included. TTM data is excluded."/>
       <div className="company-ratio-strip">{ratios.map(item => <div className="company-ratio-chip" key={item.label}><span>{item.label} · latest</span><strong>{item.value === null || item.value === undefined || !Number.isFinite(item.value) || item.value < 0 || item.value > 1000 ? '' : `${fmt(item.suffix === '%' ? item.value * 100 : item.value, 2)}${item.suffix}`}</strong></div>)}</div>
-      <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="AVG => sorts annual values from highest to lowest and then averages of the centered values"/>
-      <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="2 Decimals" note="ROE = Net Profit Margin (NPM) * Asset turn Over (ATO) * Equity Multiplier (EM) | Equity Multiplier (EM)  = Total asset / Total equity"/>
-      <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress. AVG uses the centered-value averaging rule shown above. CFO/Net profit and FCF/Net profit are blank when net profit is not positive."/>
+      <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="AVG => Recency-weighted average with IQR outlier Winsorization; recent years carry higher weight."/>
+      <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="Percent / Ratio" note="ROE = Net Profit Margin (NPM) * Asset turn Over (ATO) * Equity Multiplier (EM) | Equity Multiplier (EM)  = Total asset / Total equity | AVG uses recency weighting with IQR outlier Winsorization"/>
+      <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress. OPM & NPM AVG use recency weighting with IQR outlier Winsorization. CFO/Net profit and FCF/Net profit are blank when net profit is not positive."/>
       <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td style={{ color: getRelativeColor(row.ttm, row.average) }}>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
       <div className="company-method-note"><Activity size={17}/><span>Interest coverage = (profit before tax + interest) ÷ interest. ROCE = EBIT ÷ average capital employed, where capital employed is equity plus borrowings. Current ratio uses Other Assets ÷ Other Liabilities; cash ratio uses Cash & Bank ÷ Other Liabilities.</span></div>
     </div>}

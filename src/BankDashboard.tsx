@@ -8,19 +8,9 @@ import type { BankData, BankAnnualRow, BankQuarterRow } from './types'
 type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const amount = (value: number | null | undefined, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`
-const percent2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) || Math.abs(value) > 1000 ? '—' : `${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}%`
 const fmt2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
 const latest = <K extends keyof BankAnnualRow>(rows: BankAnnualRow[], key: K) => [...rows].reverse().find(row => typeof row[key] === 'number')?.[key] as number | null | undefined
-const middleAverage = (values: Array<number | null | undefined>) => {
-  const sorted = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value)).sort((a, b) => b - a)
-  const count = sorted.length
-  if (!count) return null
-  const keep = count >= 6 ? count % 2 === 0 ? 4 : 3 : count === 5 ? 3 : count === 4 ? 2 : count === 3 ? 1 : count
-  const start = Math.floor((count - keep) / 2)
-  const middle = sorted.slice(start, start + keep)
-  const value = middle.reduce((sum, item) => sum + item, 0) / middle.length
-  return Number.isFinite(value) && Math.abs(value) <= 1000 ? value : null
-}
+
 const cagr = (start: number | null | undefined, end: number | null | undefined, years: number) => start === null || start === undefined || end === null || end === undefined || start <= 0 || end <= 0 || years <= 0 ? null : (Math.pow(end / start, 1 / years) - 1) * 100
 type GrowthMetric = 'totalRevenue' | 'netProfit' | 'equity' | 'interestEarned' | 'interestPaid' | 'otherIncome'
 type TtmGrowthMetric = Exclude<GrowthMetric, 'equity'>
@@ -146,7 +136,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
   ]
   const returnHistory = returnRows.map(row => ({
     ...row,
-    average: middleAverage(row.values),
+    average: calculateRobustWeightedAverage([...row.values].reverse()),
   }))
   const roeDecompositionRows = [
     {
@@ -155,7 +145,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         const index = data.annual.length - 1 - period.offset
         return data.annual[index]?.roe ?? null
       }),
-      format: percent2Dec,
+      format: percent,
     },
     {
       title: 'NPM',
@@ -172,7 +162,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           ? (row.netProfit / total) * 100
           : null
       }),
-      format: percent2Dec,
+      format: percent,
     },
     {
       title: 'AY',
@@ -193,7 +183,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           ? (total / avgAssets) * 100
           : null
       }),
-      format: percent2Dec,
+      format: percent,
     },
     {
       title: 'EM',
@@ -230,11 +220,11 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           ? (interest / total) * 100
           : null
       }),
-      format: percent2Dec,
+      format: percent,
     },
   ].map(row => ({
     ...row,
-    average: middleAverage(row.values),
+    average: calculateRobustWeightedAverage([...row.values].reverse()),
   }))
   const metricPoints = (key: GrowthMetric) => data.annual.map(row => ({ year: Number(row.period.match(/\d{4}/)?.[0]), value: row[key] }))
     .filter((point): point is { year: number; value: number } => Number.isFinite(point.year) && point.value !== null && Number.isFinite(point.value))
@@ -274,14 +264,14 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
             {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
-          <div className="bank-growth-note">AVG =&gt; sorts annual values from highest to lowest and then averages of the centered values</div>
+          <div className="bank-growth-note">AVG =&gt; Recency-weighted average with IQR outlier Winsorization; recent years carry higher weight.</div>
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
         </section>
         <section className="bank-summary-block">
-          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROE decomposition</h3></div><span>2 Decimals · % / Ratio</span></div>
+          <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>ROE decomposition</h3></div><span>1 Decimal (%) · Ratio</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
             {roeDecompositionRows.map(row => {
-              const formatCell = row.format ?? percent2Dec
+              const formatCell = row.format ?? percent
               return (
                 <tr key={row.title}>
                   <th>{row.title}</th>
@@ -291,7 +281,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
               )
             })}
           </tbody></table></div>
-          <div className="bank-growth-note">*** ROE = Net Profit Margin (NPM) * Asset Yield (AY)  * Equity Multiplier (EM)</div>
+          <div className="bank-growth-note">*** ROE = Net Profit Margin (NPM) * Asset Yield (AY)  * Equity Multiplier (EM) | AVG uses recency weighting with IQR outlier Winsorization</div>
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Equity Multiplier =&gt; EM</div>
         </section>
         <section className="bank-summary-block">
