@@ -31,10 +31,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 APP_DIR = Path(__file__).resolve().parents[1]
 
 CANDIDATE_MODELS = [
-    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
     "gemini-flash-lite-latest",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-flash-latest",
+    "gemini-3.5-flash",
     "gemini-3.6-flash",
+    "gemma-4-26b-a4b-it",
 ]
 
 BROWSER_HEADERS = {
@@ -782,9 +787,43 @@ def gather_company_sources(code_or_name: str, company_name_hint: str = "") -> di
         "screener_ref_id": screener_ref_id,
         "generated_at": time.strftime("%d %b %Y, %I:%M %p"),
         "prompt_context": {
-            "popup_text": (popup_data.get("text") or "")[:36000],
-            "financial_intel": (popup_data.get("financial_intel") or "")[:24000],
-            "official_content": (official_site.get("content") or "")[:3500],
+            "popup_text": (popup_data.get("text") or "")[:18000],
+            "financial_intel": (popup_data.get("financial_intel") or "")[:14000],
+            "official_content": (official_site.get("content") or "")[:3000],
+        },
+    }
+
+
+def _extract_json_object(raw_text: str) -> dict[str, Any] | None:
+    text = raw_text.strip()
+    if "```" in text:
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        text = text[start : end + 1]
+    cleaned = re.sub(r",\s*([\]}])", r"\1", text)
+    parsed = json.loads(cleaned, strict=False)
+    return parsed if isinstance(parsed, dict) and parsed else None
+
+
+def _build_model_payload(model_name: str, system_instruction: str, prompt: str) -> dict[str, Any]:
+    if model_name.startswith("gemma-"):
+        return {
+            "contents": [{"parts": [{"text": f"{system_instruction}\n\n{prompt}"}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 12288,
+            },
+        }
+    return {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "systemInstruction": {"parts": [{"text": system_instruction}]},
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 16384,
+            "responseMimeType": "application/json",
         },
     }
 
@@ -944,59 +983,76 @@ Return ONLY a valid JSON object matching this exact schema:
 }}
 """
 
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": system_instruction}]},
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 16384,
-            "responseMimeType": "application/json",
-        },
-    }
+    per_attempt_timeout = 45 if cloud_mode else 60
+    total_deadline = time.monotonic() + (175 if cloud_mode else 220)
+    attempts: list[str] = []
+    retry_queue: list[str] = []
 
-    per_attempt_timeout = 38 if cloud_mode else 55
-    total_deadline = time.monotonic() + (125 if cloud_mode else 180)
-    last_error = "Gemini synthesis did not return a valid response."
-
-    for model_name in CANDIDATE_MODELS:
-        remaining = total_deadline - time.monotonic()
-        if remaining <= 12:
-            break
-        req_timeout = min(per_attempt_timeout, max(12, int(remaining)))
+    def try_model(model_name: str, timeout_limit: int) -> tuple[dict[str, Any] | None, str]:
         endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        model_payload = _build_model_payload(model_name, system_instruction, prompt)
         try:
             resp = requests.post(
                 endpoint,
                 headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=req_timeout,
+                json=model_payload,
+                timeout=timeout_limit,
             )
             if resp.status_code == 200:
                 result_json = resp.json()
                 candidates = result_json.get("candidates", [])
                 if candidates:
                     text_content = (
-                        candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                        candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                     )
-                    if "```" in text_content:
-                        text_content = re.sub(r"^```(?:json)?\s*", "", text_content)
-                        text_content = re.sub(r"\s*```$", "", text_content)
-                    cleaned_json = re.sub(r",\s*([\]}])", r"\1", text_content.strip())
-                    parsed = json.loads(cleaned_json, strict=False)
-                    if isinstance(parsed, dict) and parsed:
-                        return parsed
-                last_error = f"{model_name} returned empty JSON payload."
-            elif resp.status_code in (400, 401, 403):
-                raise CompanyResearchError(
-                    f"Gemini API rejected the key or request (HTTP {resp.status_code}). Check GEMINI_API_KEY."
-                )
-            else:
-                last_error = f"{model_name} returned HTTP {resp.status_code}."
+                    parsed = _extract_json_object(text_content)
+                    if parsed:
+                        return parsed, "ok"
+                return None, "empty/invalid-json"
+            if resp.status_code in (400, 401, 403):
+                # Do not fail fatally if a specific fallback model rejects an optional parameter
+                try:
+                    err_msg = str(resp.json().get("error", {}).get("message", ""))
+                except Exception:
+                    err_msg = ""
+                if "API key" in err_msg or "API_KEY" in err_msg or resp.status_code == 401:
+                    raise CompanyResearchError(
+                        f"Gemini API rejected the key (HTTP {resp.status_code}). Check GEMINI_API_KEY."
+                    )
+                return None, f"HTTP {resp.status_code}"
+            return None, f"HTTP {resp.status_code}"
         except CompanyResearchError:
             raise
         except requests.exceptions.Timeout:
-            last_error = f"{model_name} timed out after {req_timeout}s."
+            return None, f"timeout({timeout_limit}s)"
         except Exception as exc:
-            last_error = f"{model_name} error ({type(exc).__name__})."
+            return None, type(exc).__name__
 
-    raise CompanyResearchError(f"All Gemini synthesis models were busy or unavailable ({last_error})")
+    # Pass 1: try diverse model families; skip quota-exhausted (429) & deprecated (404), queue transient 503/500
+    for model_name in CANDIDATE_MODELS:
+        remaining = total_deadline - time.monotonic()
+        if remaining <= 12:
+            break
+        req_timeout = min(per_attempt_timeout, max(12, int(remaining)))
+        parsed, outcome = try_model(model_name, req_timeout)
+        if parsed is not None:
+            return parsed
+        attempts.append(f"{model_name}={outcome}")
+        if outcome in ("HTTP 503", "HTTP 500") or outcome.startswith("timeout"):
+            retry_queue.append(model_name)
+
+    # Pass 2: brief cooldown and one retry on the top fast transient-503 models
+    if retry_queue and (total_deadline - time.monotonic()) > 25:
+        time.sleep(2.5)
+        for model_name in retry_queue[:4]:
+            remaining = total_deadline - time.monotonic()
+            if remaining <= 12:
+                break
+            req_timeout = min(40, max(12, int(remaining)))
+            parsed, outcome = try_model(model_name, req_timeout)
+            if parsed is not None:
+                return parsed
+            attempts.append(f"{model_name}(retry)={outcome}")
+
+    summary = ", ".join(attempts[-6:]) if attempts else "no attempts made"
+    raise CompanyResearchError(f"All Gemini synthesis models were busy or unavailable ({summary}).")

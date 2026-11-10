@@ -66,6 +66,59 @@ function App() {
     setError('')
   }
 
+  async function synthesizeAiStep(
+    cacheKey: string,
+    sourcesPayload: AboutSourcesResponse,
+    headers: Record<string, string>,
+    reqId: number,
+  ) {
+    setAbout({
+      companyKey: cacheKey,
+      status: 'loading-ai',
+      sources: sourcesPayload,
+      ai: null,
+      error: '',
+      aiError: '',
+    })
+
+    const aiResp = await fetch('/api/about-ai', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(sourcesPayload),
+    })
+    if (reqId !== aboutReqIdRef.current) return
+    if (aiResp.status === 401) {
+      setAbout({ companyKey: cacheKey, status: 'needs-key', sources: sourcesPayload, ai: null, error: '', aiError: '' })
+      return
+    }
+    if (!aiResp.ok) {
+      let msg = `AI synthesis failed (HTTP ${aiResp.status}).`
+      try { const b = await aiResp.json() as { detail?: string }; if (b.detail) msg = b.detail } catch { /* ignore */ }
+      setAbout({
+        companyKey: cacheKey,
+        status: 'error',
+        sources: sourcesPayload,
+        ai: null,
+        error: '',
+        aiError: msg,
+      })
+      return
+    }
+    const aiBody = await aiResp.json() as { ai?: AboutAiData }
+    if (reqId !== aboutReqIdRef.current) return
+
+    const finalState: AboutState = {
+      companyKey: cacheKey,
+      status: 'ready',
+      sources: sourcesPayload,
+      ai: aiBody.ai ?? null,
+      error: '',
+      aiError: '',
+    }
+    aboutCacheRef.current.set(cacheKey, finalState)
+    setAbout(finalState)
+  }
+
   async function loadAboutForCompany(
     parsedData: FinancialData,
     codeHint: string,
@@ -92,6 +145,24 @@ function App() {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (supportsCloudScreener && keyToUse) headers['X-Ledger-Key'] = keyToUse
 
+    // Fast path: if sources already arrived and only AI synthesis failed, retry only Step 2
+    if (forceRefresh && about.companyKey === cacheKey && about.sources && !about.ai && about.aiError) {
+      try {
+        await synthesizeAiStep(cacheKey, about.sources, headers, reqId)
+      } catch (cause) {
+        if (reqId !== aboutReqIdRef.current) return
+        setAbout({
+          companyKey: cacheKey,
+          status: 'error',
+          sources: about.sources,
+          ai: null,
+          error: '',
+          aiError: cause instanceof Error ? cause.message : String(cause),
+        })
+      }
+      return
+    }
+
     setAbout({ ...emptyAboutState(cacheKey), status: 'loading-sources' })
     try {
       const srcResp = await fetch('/api/about-sources', {
@@ -112,51 +183,7 @@ function App() {
       const sourcesPayload = await srcResp.json() as AboutSourcesResponse
       if (reqId !== aboutReqIdRef.current) return
 
-      setAbout({
-        companyKey: cacheKey,
-        status: 'loading-ai',
-        sources: sourcesPayload,
-        ai: null,
-        error: '',
-        aiError: '',
-      })
-
-      const aiResp = await fetch('/api/about-ai', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(sourcesPayload),
-      })
-      if (reqId !== aboutReqIdRef.current) return
-      if (aiResp.status === 401) {
-        setAbout({ companyKey: cacheKey, status: 'needs-key', sources: sourcesPayload, ai: null, error: '', aiError: '' })
-        return
-      }
-      if (!aiResp.ok) {
-        let msg = `AI synthesis failed (HTTP ${aiResp.status}).`
-        try { const b = await aiResp.json() as { detail?: string }; if (b.detail) msg = b.detail } catch { /* ignore */ }
-        setAbout({
-          companyKey: cacheKey,
-          status: 'error',
-          sources: sourcesPayload,
-          ai: null,
-          error: '',
-          aiError: msg,
-        })
-        return
-      }
-      const aiBody = await aiResp.json() as { ai?: AboutAiData }
-      if (reqId !== aboutReqIdRef.current) return
-
-      const finalState: AboutState = {
-        companyKey: cacheKey,
-        status: 'ready',
-        sources: sourcesPayload,
-        ai: aiBody.ai ?? null,
-        error: '',
-        aiError: '',
-      }
-      aboutCacheRef.current.set(cacheKey, finalState)
-      setAbout(finalState)
+      await synthesizeAiStep(cacheKey, sourcesPayload, headers, reqId)
     } catch (cause) {
       if (reqId !== aboutReqIdRef.current) return
       const msg = cause instanceof Error ? cause.message : String(cause)
