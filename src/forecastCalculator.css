@@ -42,3 +42,28 @@
 @media(max-width:760px){.forecast-table-scroll table{min-width:650px}.forecast-table-scroll th,.forecast-table-scroll td{overflow:visible;text-overflow:clip}}
 .forecast-field{grid-template-rows:30px 42px;gap:5px}.forecast-field>span{display:flex;align-items:flex-end;min-height:0;line-height:1.25}
 @media(max-width:600px){.forecast-field{grid-template-rows:28px 39px;gap:5px}}
+
+/* High-contrast Bright Mode overrides for Forecast Calculator */
+.forecast-backdrop.forecast-bright{background:rgba(15,23,42,.58)}
+.forecast-bright .forecast-modal{color:#000000;background:#f8fafc;border-color:#cbd5e1;box-shadow:0 28px 80px rgba(15,23,42,.28)}
+.forecast-bright .forecast-body{background:#f1f5f9}
+.forecast-bright .forecast-input-panel,.forecast-bright .forecast-results{color:#000000;background:#ffffff;border-color:#cbd5e1;box-shadow:0 6px 20px rgba(15,23,42,.06)}
+.forecast-bright .forecast-section-heading b,.forecast-bright .forecast-label,.forecast-bright .forecast-field,.forecast-bright .forecast-card-title b{color:#000000}
+.forecast-bright .forecast-section-heading small,.forecast-bright .forecast-card-title small,.forecast-bright .forecast-field>small,.forecast-bright .forecast-footnote{color:#334155}
+.forecast-bright .forecast-mode-switch{background:#eef2f7;border-color:#cbd5e1}
+.forecast-bright .forecast-mode-switch button{color:#334155}
+.forecast-bright .forecast-mode-switch button.selected{background:#ffffff;color:#4338ca;box-shadow:0 2px 6px rgba(15,23,42,.1)}
+.forecast-bright .forecast-input-wrap{background:#f8fafc;border-color:#cbd5e1}
+.forecast-bright .forecast-input-wrap input{color:#000000}
+.forecast-bright .forecast-input-wrap i{color:#475569}
+.forecast-bright .forecast-base-data{background:#eff6ff;border-color:#bfdbfe}
+.forecast-bright .forecast-base-data div{color:#334155}
+.forecast-bright .forecast-base-data b{color:#000000}
+.forecast-bright .forecast-table-card{background:#ffffff;border-color:#cbd5e1;box-shadow:none}
+.forecast-bright .forecast-table-scroll thead th{background:#f1f5f9;color:#0f172a}
+.forecast-bright .forecast-table-scroll tbody th,.forecast-bright .forecast-table-scroll tbody td{color:#000000;border-top-color:#e2e8f0}
+.forecast-bright .forecast-table-scroll tbody tr:nth-child(even){background:#f8fafc}
+.forecast-bright .earnings-card tbody td:nth-child(2){color:#4338ca}
+.forecast-bright .multiples-card tbody td{color:#0369a1}
+.forecast-bright .yields-card tbody td{color:#be123c}
+.forecast-bright .forecast-empty{background:#ffffff;color:#334155;border-color:#cbd5e1}

@@ -3,9 +3,9 @@ import { ChartPanel, type BankChartSpecs } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { calculateRobustWeightedAverage } from './rollingPerShare'
 import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
-import type { BankData, BankAnnualRow, BankQuarterRow } from './types'
+import type { AppTheme, BankData, BankAnnualRow, BankQuarterRow } from './types'
 
-type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
+type Section = 'about' | 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const amount = (value: number | null | undefined, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`
 const fmt2Dec = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
@@ -83,7 +83,7 @@ function curveBasedCagrAverage(metric: string, points: Array<{ year: number; val
   return { value: null, basis: `${metric}: unavailable` }
 }
 
-export function BankDashboard({ data, section, specs }: { data: BankData; section: Section; specs: BankChartSpecs }) {
+export function BankDashboard({ data, section, specs, theme }: { data: BankData; section: Section; specs: BankChartSpecs; theme: AppTheme }) {
   const newest = data.annual.at(-1)
   const ttmNetProfit = ttmSum(data.quarterly, 'netProfit', 0)
   const epsAverage = calculateRobustWeightedAverage(data.annual.map(row => row.eps))
@@ -262,7 +262,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">ANNUAL DETAIL</span><h3>Year-by-year returns</h3></div><span>ROA, ROE, NPM & dividend payout · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Ratio</th>{historyPeriods.map(period => <th key={period.label}>{period.label}</th>)}<th>AVG</th></tr></thead><tbody>
-            {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
+            {returnHistory.map(row => <tr key={row.title}><th>{row.title}</th>{row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
           <div className="bank-growth-note">AVG =&gt; Recency-weighted average with IQR outlier Winsorization; recent years carry higher weight.</div>
           <div className="bank-growth-note" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>NPM = Net profit / Sales &amp; NPM’ = Net profit / (Sales + Other Income)</div>
@@ -275,7 +275,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
               return (
                 <tr key={row.title}>
                   <th>{row.title}</th>
-                  {row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{formatCell(value)}</td>)}
+                  {row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{formatCell(value)}</td>)}
                   <td>{formatCell(row.average)}</td>
                 </tr>
               )
@@ -287,7 +287,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
           <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>
-            {cagrRows.map(row => <tr key={row.label}><th>{row.label}</th><td style={{ color: getRelativeColor(row.ttm, row.average) }}>{percent(row.ttm)}</td>{row.annual.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
+            {cagrRows.map(row => <tr key={row.label}><th>{row.label}</th><td style={{ color: getRelativeColor(row.ttm, row.average, theme) }}>{percent(row.ttm)}</td>{row.annual.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
           <div className="bank-growth-note">Annual 1Y–9Y columns use actual period endpoints. AVG uses a separate quadratic fit per metric: with 6 or more annual values and R² greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverages).map(result => result.basis).join(' · ')}. Book Value = equity share capital + reserves. Non-positive endpoints remain blank.</div>
         </section>
@@ -297,8 +297,8 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
     {section === 'yearly' && <>
       <div className="bank-plots-page">
         <div className="bank-plots-heading"><div><div className="hero-kicker">BANK PLOTBOOK</div><h2>Financial charts</h2></div><span>ANNUAL + QUARTERLY · ₹ CRORE UNLESS STATED</span></div>
-        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>01</span><h3>Annual plots</h3><i>{specs.annual.length} charts</i></div><div className="chart-grid">{specs.annual.map(spec => <ChartPanel key={spec.id} spec={spec} theme="dark"/>)}</div></div>
-        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>02</span><h3>Quarterly plots</h3><i>{specs.quarterly.length} charts</i></div><div className="chart-grid">{specs.quarterly.map(spec => <ChartPanel key={spec.id} spec={spec} theme="dark"/>)}</div></div>
+        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>01</span><h3>Annual plots</h3><i>{specs.annual.length} charts</i></div><div className="chart-grid">{specs.annual.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme}/>)}</div></div>
+        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>02</span><h3>Quarterly plots</h3><i>{specs.quarterly.length} charts</i></div><div className="chart-grid">{specs.quarterly.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme}/>)}</div></div>
       </div>
     </>}
     {section === 'tables' && <BankSourceSheet data={data}/>}
@@ -318,7 +318,7 @@ export function BankDashboard({ data, section, specs }: { data: BankData; sectio
         </ul></div></div>
       <div className="checks-card warnings-card"><h3><AlertTriangle size={18}/> Workbook notes & unavailable fields</h3><ul>{[...data.warnings, ...data.missingMetrics].map((warning, i) => <li key={i}>{warning}</li>)}</ul></div>
     </>}
-    <div className="chart-export-stage bank-chart-export-stage" aria-hidden="true">{[...specs.annual, ...specs.quarterly].map(spec => <ChartPanel key={`export-${spec.id}`} spec={spec} theme="dark" exportMode/>)}</div>
+    <div className="chart-export-stage bank-chart-export-stage" aria-hidden="true">{[...specs.annual, ...specs.quarterly].map(spec => <ChartPanel key={`export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>
   </>
 }
 

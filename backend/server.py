@@ -10,12 +10,14 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from screener_downloader import ScreenerDownloadError, download_company_workbook
+from company_research import CompanyResearchError, gather_company_sources, load_env_setting, synthesize_about_ai
 
 APP_DIR = Path(__file__).resolve().parents[1]
 DIST_DIR = APP_DIR / "dist"
 HOST = "127.0.0.1"
 PORT = 8000
 MAX_BODY_BYTES = 8_000
+MAX_AI_BODY_BYTES = 512_000
 ALLOWED_BROWSER_ORIGINS = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -42,7 +44,7 @@ class LocalAppHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlsplit(self.path)
         if parsed.path == "/api/status":
-            return self._send_json(200, {"ok": True, "mode": "local", "download": "available"})
+            return self._send_json(200, {"ok": True, "mode": "local", "download": "available", "about": "available"})
         if parsed.path.startswith("/api/"):
             return self._send_json(404, {"detail": "API route not found."})
         if not DIST_DIR.exists():
@@ -68,16 +70,57 @@ class LocalAppHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def do_POST(self):
-        if urlsplit(self.path).path != "/api/download":
+        route = urlsplit(self.path).path
+        if route not in ("/api/download", "/api/about-sources", "/api/about-ai"):
             return self._send_json(404, {"detail": "API route not found."})
         origin = self.headers.get("Origin")
-        if origin and origin not in ALLOWED_BROWSER_ORIGINS:
+        host = self.headers.get("Host", "")
+        allowed = set(ALLOWED_BROWSER_ORIGINS)
+        if host and (host.startswith("127.0.0.1:") or host.startswith("localhost:")):
+            allowed.add(f"http://{host}")
+        if origin and origin not in allowed:
             return self._send_json(403, {"detail": "Requests must come from the local Ledger app."})
+        max_len = MAX_AI_BODY_BYTES if route == "/api/about-ai" else MAX_BODY_BYTES
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if length <= 0 or length > MAX_BODY_BYTES:
+            if length <= 0 or length > max_len:
                 return self._send_json(413, {"detail": "Invalid request size."})
             body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except Exception:
+            return self._send_json(400, {"detail": "Invalid JSON request body."})
+
+        if route == "/api/about-sources":
+            code = str(body.get("code", "")).strip()
+            company_name = str(body.get("companyName", "")).strip()
+            if not code and not company_name:
+                return self._send_json(400, {"detail": "Provide a company code or company name."})
+            try:
+                payload = gather_company_sources(code or company_name, company_name)
+                return self._send_json(200, payload)
+            except CompanyResearchError as exc:
+                return self._send_json(422, {"detail": str(exc)})
+            except Exception as exc:
+                print("Local about-sources failed:", flush=True)
+                traceback.print_exc()
+                detail = f"{type(exc).__name__}: {exc}"[:600]
+                return self._send_json(500, {"detail": f"Company source fetch failed — {detail}"})
+
+        if route == "/api/about-ai":
+            api_key = load_env_setting("GEMINI_API_KEY")
+            if not api_key:
+                return self._send_json(503, {"detail": "GEMINI_API_KEY is not set in environment variables or .env."})
+            try:
+                ai_data = synthesize_about_ai(body, api_key=api_key, cloud_mode=False)
+                return self._send_json(200, {"ai": ai_data})
+            except CompanyResearchError as exc:
+                return self._send_json(422, {"detail": str(exc)})
+            except Exception as exc:
+                print("Local about-ai failed:", flush=True)
+                traceback.print_exc()
+                detail = f"{type(exc).__name__}: {exc}"[:600]
+                return self._send_json(500, {"detail": f"Company AI synthesis failed — {detail}"})
+
+        try:
             code = str(body.get("code", "")).strip()
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9&._-]{0,31}", code):
                 return self._send_json(400, {"detail": "Enter a Screener company code such as INFY, ITC, or RELIANCE."})

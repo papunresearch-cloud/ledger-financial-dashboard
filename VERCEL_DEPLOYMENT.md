@@ -17,6 +17,7 @@ This deployment keeps Ledger as a separate project. Vercel serves the Vite React
 3. In Vercel Project Settings → Environment Variables, add:
    - `VERCEL_SUPPORT_LARGE_FUNCTIONS`: `1` for Production, so the Python function can use Vercel's Large Functions beta with Fluid Compute.
    - `LEDGER_ACCESS_KEY`: a long, private random string that only you enter into the dashboard's Ledger access-key field.
+   - `GEMINI_API_KEY`: your Google Gemini API key for synthesizing the **About** tab's corporate intelligence & Summary Report.
    - `SCREENER_PROXY_SERVER`: proxy address, for example `http://proxy-host:proxy-port` or `https://proxy-host:proxy-port` as supplied by your provider.
    - `SCREENER_PROXY_USERNAME` and `SCREENER_PROXY_PASSWORD` if required by that proxy.
    - `SCREENER_EMAIL` and `SCREENER_PASSWORD` if the Screener export requires sign-in and the provider/account permits automated sign-in. These stay server-side. Do not set them as `VITE_*` variables.

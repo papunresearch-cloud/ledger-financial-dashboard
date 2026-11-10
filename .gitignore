@@ -10,4 +10,5 @@ dist/
 .env.*
 !.env.example
 backend/.browser-profile/
-backend/__pycache__/
+__pycache__/
+**/__pycache__/

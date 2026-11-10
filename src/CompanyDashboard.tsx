@@ -3,9 +3,9 @@ import { ChartPanel, type ChartSpec } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { calculateRobustWeightedAverage, calculateRollingCashRatioAverage } from './rollingPerShare'
 import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
-import type { AnnualRow, CompanyData, QuarterRow } from './types'
+import type { AnnualRow, AppTheme, CompanyData, QuarterRow } from './types'
 
-type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
+type Section = 'about' | 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 type CompanySpecs = { annual: ChartSpec[]; margins: ChartSpec[]; quarterly: ChartSpec[]; special: ChartSpec[] }
 const fmt = (value: number | null | undefined, decimals = 1) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: decimals }).format(value)
 const fmtTwoDecimals = (value: number) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
@@ -84,7 +84,7 @@ function curveBasedCagrAverage(metric: string, points: Array<{ year: number; val
   if (lastYear !== null) return { value: lastYear, basis: `${metric}: 1Y growth fallback`, rSquared: curve?.rSquared ?? null }
   return { value: null, basis: `${metric}: unavailable`, rSquared: curve?.rSquared ?? null }
 }
-export function CompanyDashboard({ data, section, specs }: { data: CompanyData; section: Section; specs: CompanySpecs }) {
+export function CompanyDashboard({ data, section, specs, theme }: { data: CompanyData; section: Section; specs: CompanySpecs; theme: AppTheme }) {
   const ttmSales = ttmSum(data.quarterly, 'sales')
   const ttmProfit = ttmSum(data.quarterly, 'netProfit')
   const epsAverage = calculateRobustWeightedAverage(data.annual.map(row => row.eps))
@@ -229,22 +229,22 @@ export function CompanyDashboard({ data, section, specs }: { data: CompanyData; 
       </div>
       <PerShareRollingSummary eps={epsAverage} dividendPerShare={dividendAverage} freeCashFlowPerShare={fcfPerShareAverage} note="Average is calculated using annual data with IQR outlier Winsorization and recency weighting (50% spread ratio). Zero and negative values are included. TTM data is excluded."/>
       <div className="company-ratio-strip">{ratios.map(item => <div className="company-ratio-chip" key={item.label}><span>{item.label} · latest</span><strong>{item.value === null || item.value === undefined || !Number.isFinite(item.value) || item.value < 0 || item.value > 1000 ? '' : `${fmt(item.suffix === '%' ? item.value * 100 : item.value, 2)}${item.suffix}`}</strong></div>)}</div>
-      <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} note="AVG => Recency-weighted average with IQR outlier Winsorization; recent years carry higher weight."/>
-      <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="Percent / Ratio" note="ROE = Net Profit Margin (NPM) * Asset turn Over (ATO) * Equity Multiplier (EM) | Equity Multiplier (EM)  = Total asset / Total equity | AVG uses recency weighting with IQR outlier Winsorization"/>
-      <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress · EBITDA = Operating Profit. OPM & NPM AVG use recency weighting with IQR outlier Winsorization. Cash conversion AVGs use 3-year rolling sums with recency weighting when >3 windows exist (loss windows skipped). Ratio cells are blank when EBITDA/net profit is not positive."/>
-      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td style={{ color: getRelativeColor(row.ttm, row.average) }}>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index} style={{ color: getRelativeColor(value, row.average) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
+      <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} theme={theme} note="AVG => Recency-weighted average with IQR outlier Winsorization; recent years carry higher weight."/>
+      <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="Percent / Ratio" theme={theme} note="ROE = Net Profit Margin (NPM) * Asset turn Over (ATO) * Equity Multiplier (EM) | Equity Multiplier (EM)  = Total asset / Total equity | AVG uses recency weighting with IQR outlier Winsorization"/>
+      <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} theme={theme} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress · EBITDA = Operating Profit. OPM & NPM AVG use recency weighting with IQR outlier Winsorization. Cash conversion AVGs use 3-year rolling sums with recency weighting when >3 windows exist (loss windows skipped). Ratio cells are blank when EBITDA/net profit is not positive."/>
+      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td style={{ color: getRelativeColor(row.ttm, row.average, theme) }}>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
       <div className="company-method-note"><Activity size={17}/><span>Interest coverage = (profit before tax + interest) ÷ interest. ROCE = EBIT ÷ average capital employed, where capital employed is equity plus borrowings. Current ratio uses Other Assets ÷ Other Liabilities; cash ratio uses Cash & Bank ÷ Other Liabilities.</span></div>
     </div>}
     {section === 'yearly' && <div className="company-plots-page">
       <div className="company-page-heading"><div><div className="hero-kicker">NON-BANK PLOTBOOK</div><h2>Yearly & quarterly plots</h2></div><span>₹ CRORE UNLESS STATED</span></div>
-      <div className="chart-grid">{[...specs.annual, ...specs.margins, ...specs.quarterly].map(spec => <ChartPanel key={spec.id} spec={spec} theme="dark" />)}</div>
-      <section className="company-chart-section company-special-chart-section"><div className="company-chart-section-heading"><h3>Special analysis</h3><i>YEARLY · NON-STANDARD RATIOS</i></div><div className="chart-grid">{specs.special.map(spec => <ChartPanel key={spec.id} spec={spec} theme="dark" />)}</div></section>
+      <div className="chart-grid">{[...specs.annual, ...specs.margins, ...specs.quarterly].map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} />)}</div>
+      <section className="company-chart-section company-special-chart-section"><div className="company-chart-section-heading"><h3>Special analysis</h3><i>YEARLY · NON-STANDARD RATIOS</i></div><div className="chart-grid">{specs.special.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} />)}</div></section>
     </div>}
     {section === 'tables' && <section className="company-data-sheet">
       <div className="company-page-heading"><div><div className="hero-kicker">ORIGINAL WORKBOOK VIEW</div><h2>Data Sheet</h2><p>{data.sourceFileName} · original row and column order</p></div><span>{displayRows.length} ROWS</span></div>
       <div className="company-sheet-frame"><div className="company-sheet-topline"><i/><i/><i/><strong>DATA SHEET</strong><small>Source values · empty cells preserved</small></div><div className="company-source-scroll"><table className="company-source-table"><tbody>{displayRows.map((cells,i)=>{const label=String(cells[0]??'').trim().toLowerCase().replace(/:$/,'');const section=['company name','meta','profit & loss','quarters','balance sheet','cash flow','price','derived'].includes(label);const date=label==='report date';return <tr key={i} className={section?'source-section':date?'source-period':''}>{cells.map((cell,j)=>{const clean=cleanSourceText(cell);return <td key={j} className={j===0?'source-label':''}>{clean instanceof Date?clean.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):typeof clean==='number'?fmt(clean,2):clean==null?'':String(clean)}</td>})}</tr>})}</tbody></table></div></div>
     </section>}
-    <div className="chart-export-stage company-chart-export-stage" aria-hidden="true">{[...specs.annual,...specs.margins,...specs.quarterly,...specs.special].map(spec=><ChartPanel key={`company-export-${spec.id}`} spec={spec} theme="dark" exportMode/>)}</div>
+    <div className="chart-export-stage company-chart-export-stage" aria-hidden="true">{[...specs.annual,...specs.margins,...specs.quarterly,...specs.special].map(spec=><ChartPanel key={`company-export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>
   </>
 }
 
@@ -254,6 +254,7 @@ function AnnualHistoryTable({
   note,
   periods,
   rows,
+  theme,
   unit = 'Percent',
 }: {
   title: string
@@ -265,6 +266,7 @@ function AnnualHistoryTable({
     average: number | null
     format?: (value: number | null | undefined) => string
   }>
+  theme: AppTheme
   unit?: string
 }) {
   return (
@@ -288,7 +290,7 @@ function AnnualHistoryTable({
               return (
                 <tr key={row.title}>
                   <th>{row.title}</th>
-                  {row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average) }}>{formatCell(value)}</td>)}
+                  {row.values.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{formatCell(value)}</td>)}
                   <td>{formatCell(row.average)}</td>
                 </tr>
               )

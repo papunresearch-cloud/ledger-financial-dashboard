@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, Calculator, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, Moon, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { AboutSection } from './AboutSection'
 import { BankDashboard } from './BankDashboard'
 import { CompanyDashboard } from './CompanyDashboard'
 import { ForecastCalculator } from './ForecastCalculator'
@@ -7,19 +8,37 @@ import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel, exportPdf } from './exportReports'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
-import type { CompanyData, FinancialData } from './types'
+import type { AboutAiData, AboutSourcesResponse, AboutState, AppTheme, CompanyData, FinancialData } from './types'
 import './cloud-download.css'
 
 type Mode = 'nonbank' | 'bank'
-type Section = 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
+type Section = 'about' | 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const compact = (n: number | null | undefined, digits = 1) => n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(n)
 const supportsLocalScreener = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
 const supportsCloudScreener = !supportsLocalScreener
+const emptyAboutState = (companyKey = ''): AboutState => ({ companyKey, status: 'idle', sources: null, ai: null, error: '', aiError: '' })
+
+function inferCompanyCode(companyName: string, fileName: string): string {
+  const cleanFile = fileName.replace(/\.xlsx$/i, '').trim().toUpperCase()
+  if (cleanFile) {
+    const bySymbol = companies.find(c => c.nse.toUpperCase() === cleanFile || c.bse.toUpperCase() === cleanFile)
+    if (bySymbol) return bySymbol.nse || bySymbol.bse
+  }
+  const cleanName = companyName.trim().toLowerCase()
+  if (cleanName) {
+    const byName = companies.find(c => c.name.toLowerCase() === cleanName)
+      ?? companies.find(c => cleanName.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(cleanName))
+    if (byName) return byName.nse || byName.bse
+  }
+  return /^[A-Z0-9][A-Z0-9&._-]{1,20}$/.test(cleanFile) ? cleanFile : ''
+}
 
 function App() {
   const [mode, setMode] = useState<Mode>('nonbank')
-  const [section, setSection] = useState<Section>('overview')
+  const [section, setSection] = useState<Section>('about')
+  const [theme, setTheme] = useState<AppTheme>('dark')
   const [data, setData] = useState<FinancialData | null>(null)
+  const [activeCode, setActiveCode] = useState('')
   const [companyCode, setCompanyCode] = useState('')
   const [companySuggestionsOpen, setCompanySuggestionsOpen] = useState(false)
   const [activeCompanySuggestion, setActiveCompanySuggestion] = useState(0)
@@ -28,6 +47,9 @@ function App() {
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [calculatorOpen, setCalculatorOpen] = useState(false)
+  const [about, setAbout] = useState<AboutState>(() => emptyAboutState())
+  const aboutCacheRef = useRef<Map<string, AboutState>>(new Map())
+  const aboutReqIdRef = useRef(0)
   const fileInput = useRef<HTMLInputElement>(null)
   const companySpecs = useMemo(() => !data || data.mode === 'bank' ? null : makeChartSpecs(data.annual, data.quarterly), [data])
   const bankSpecs = useMemo(() => !data || data.mode !== 'bank' ? null : makeBankChartSpecs(data.annual, data.quarterly), [data])
@@ -44,13 +66,125 @@ function App() {
     setError('')
   }
 
+  async function loadAboutForCompany(
+    parsedData: FinancialData,
+    codeHint: string,
+    nameHint: string,
+    overrideKey?: string,
+    forceRefresh = false,
+  ) {
+    const cacheKey = (codeHint || nameHint || parsedData.sourceFileName).trim().toUpperCase()
+    if (!forceRefresh) {
+      const cached = aboutCacheRef.current.get(cacheKey)
+      if (cached && cached.status === 'ready') {
+        setAbout(cached)
+        return
+      }
+    }
+
+    const reqId = ++aboutReqIdRef.current
+    const keyToUse = (overrideKey ?? accessKey).trim()
+    if (supportsCloudScreener && !keyToUse) {
+      setAbout({ ...emptyAboutState(cacheKey), status: 'needs-key' })
+      return
+    }
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (supportsCloudScreener && keyToUse) headers['X-Ledger-Key'] = keyToUse
+
+    setAbout({ ...emptyAboutState(cacheKey), status: 'loading-sources' })
+    try {
+      const srcResp = await fetch('/api/about-sources', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ code: codeHint, companyName: nameHint }),
+      })
+      if (reqId !== aboutReqIdRef.current) return
+      if (srcResp.status === 401) {
+        setAbout({ ...emptyAboutState(cacheKey), status: 'needs-key' })
+        return
+      }
+      if (!srcResp.ok) {
+        let msg = `Company intelligence sources unavailable (HTTP ${srcResp.status}).`
+        try { const b = await srcResp.json() as { detail?: string }; if (b.detail) msg = b.detail } catch { /* ignore */ }
+        throw new Error(msg)
+      }
+      const sourcesPayload = await srcResp.json() as AboutSourcesResponse
+      if (reqId !== aboutReqIdRef.current) return
+
+      setAbout({
+        companyKey: cacheKey,
+        status: 'loading-ai',
+        sources: sourcesPayload,
+        ai: null,
+        error: '',
+        aiError: '',
+      })
+
+      const aiResp = await fetch('/api/about-ai', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(sourcesPayload),
+      })
+      if (reqId !== aboutReqIdRef.current) return
+      if (aiResp.status === 401) {
+        setAbout({ companyKey: cacheKey, status: 'needs-key', sources: sourcesPayload, ai: null, error: '', aiError: '' })
+        return
+      }
+      if (!aiResp.ok) {
+        let msg = `AI synthesis failed (HTTP ${aiResp.status}).`
+        try { const b = await aiResp.json() as { detail?: string }; if (b.detail) msg = b.detail } catch { /* ignore */ }
+        setAbout({
+          companyKey: cacheKey,
+          status: 'error',
+          sources: sourcesPayload,
+          ai: null,
+          error: '',
+          aiError: msg,
+        })
+        return
+      }
+      const aiBody = await aiResp.json() as { ai?: AboutAiData }
+      if (reqId !== aboutReqIdRef.current) return
+
+      const finalState: AboutState = {
+        companyKey: cacheKey,
+        status: 'ready',
+        sources: sourcesPayload,
+        ai: aiBody.ai ?? null,
+        error: '',
+        aiError: '',
+      }
+      aboutCacheRef.current.set(cacheKey, finalState)
+      setAbout(finalState)
+    } catch (cause) {
+      if (reqId !== aboutReqIdRef.current) return
+      const msg = cause instanceof Error ? cause.message : String(cause)
+      setAbout({
+        companyKey: cacheKey,
+        status: 'error',
+        sources: null,
+        ai: null,
+        error: cause instanceof TypeError || /failed to fetch|networkerror/i.test(msg)
+          ? supportsLocalScreener
+            ? 'Local Python server is unreachable for About research. Start backend/server.py and click Retry.'
+            : 'Cloud intelligence endpoint could not be reached. Check Vercel deployment and click Retry.'
+          : msg,
+        aiError: '',
+      })
+    }
+  }
+
   async function processFile(file?: File) {
     if (!file) return
     if (!/\.xlsx$/i.test(file.name)) { setError('Choose an .xlsx workbook. Legacy .xls files are not supported yet.'); return }
     setBusy(true); setError('')
     try {
       const parsed = mode === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
-      setData(parsed); setSection('overview')
+      const inferred = inferCompanyCode(parsed.companyName, file.name)
+      setActiveCode(inferred)
+      setData(parsed); setSection('about')
+      void loadAboutForCompany(parsed, inferred, parsed.companyName)
     } catch (cause) { setData(null); setError(cause instanceof Error ? cause.message : 'Could not read this workbook.') }
     finally { setBusy(false); if (fileInput.current) fileInput.current.value = '' }
   }
@@ -72,28 +206,40 @@ function App() {
       const blob = await response.blob()
       const file = new File([blob], `${code}.xlsx`, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const parsed = mode === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
-      setData(parsed); setSection('overview')
+      setActiveCode(code)
+      setData(parsed); setSection('about')
+      void loadAboutForCompany(parsed, code, parsed.companyName)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(cause instanceof TypeError || /failed to fetch|networkerror/i.test(message) ? supportsLocalScreener ? 'The local Python download service is not running. Start it with the README instructions, then retry.' : 'The cloud download service could not be reached. Check its Vercel deployment and try again.' : message)
     } finally { setBusy(false) }
   }
 
-  const reset = () => { setData(null); setError(''); setSection('overview'); if (fileInput.current) fileInput.current.value = '' }
+  const reset = () => { aboutReqIdRef.current++; setData(null); setActiveCode(''); setAbout(emptyAboutState()); setError(''); setSection('about'); if (fileInput.current) fileInput.current.value = '' }
   const handleExport = (kind: 'pdf' | 'excel') => async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!data) return
-    try { if (kind === 'pdf') await exportPdf(data, event.currentTarget); else await exportExcel(data, event.currentTarget) }
+    try { if (kind === 'pdf') await exportPdf(data, event.currentTarget, about); else await exportExcel(data, event.currentTarget, about) }
     catch (cause) { setError(`Export failed: ${cause instanceof Error ? cause.message : String(cause)}`) }
   }
-  const sections: Array<{ key: Section; label: string; icon: typeof BarChart3 }> = data?.mode === 'bank' ? [
-    { key: 'overview', label: 'Overview', icon: Activity }, { key: 'yearly', label: 'Plots', icon: BarChart3 }, { key: 'tables', label: 'Data Sheet', icon: FileSpreadsheet }, { key: 'checks', label: 'Data checks', icon: CircleHelp },
-  ] : [
-    { key: 'overview', label: 'Overview', icon: Activity }, { key: 'yearly', label: 'Plots', icon: BarChart3 }, { key: 'tables', label: 'Data Sheet', icon: FileSpreadsheet }, { key: 'checks', label: 'Data checks', icon: CircleHelp },
+  const sections: Array<{ key: Section; label: string; icon: typeof BarChart3 }> = [
+    { key: 'about', label: 'About', icon: BookOpen },
+    { key: 'overview', label: 'Overview', icon: Activity },
+    { key: 'yearly', label: 'Plots', icon: BarChart3 },
+    { key: 'tables', label: 'Data Sheet', icon: FileSpreadsheet },
+    { key: 'checks', label: 'Data checks', icon: CircleHelp },
   ]
-  return <div className={`app-shell ${data?.mode === 'bank' ? 'bank-theme' : data ? 'company-theme' : ''}`}>
+  const themeClass = data ? (theme === 'bright' ? 'theme-bright' : 'theme-dark') : ''
+  return <div className={`app-shell ${data?.mode === 'bank' ? 'bank-theme' : data ? 'company-theme' : ''} ${themeClass}`}>
     <header className="topbar">
       <a className="brand" href="#top" aria-label="Ledger home"><span className="brand-mark"><Activity size={18}/></span><span>ledger<span className="brand-dot">.</span></span></a>
-      <div className="topbar-right"><span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>{data && <><button className="button forecast-ribbon-button" onClick={() => setCalculatorOpen(true)}><Calculator size={16}/> Forecast calculator</button><button className="button button-soft" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button><button className="button button-primary" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel with charts</button></>}</div>
+      <div className="topbar-right"><span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>{data && <>
+        <button className="button forecast-ribbon-button" onClick={() => setCalculatorOpen(true)}><Calculator size={16}/> Forecast calculator</button>
+        <button type="button" className="button button-soft theme-toggle-button" onClick={() => setTheme(current => current === 'dark' ? 'bright' : 'dark')} title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}>
+          {theme === 'dark' ? <><Sun size={16}/> Bright mode</> : <><Moon size={16}/> Dark mode</>}
+        </button>
+        <button className="button button-soft" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button>
+        <button className="button button-primary" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel report</button>
+      </>}</div>
     </header>
     <main id="top" className="main-wrap">
       {!data ? <section className="welcome-view">
@@ -107,12 +253,43 @@ function App() {
       </section> : <>
         <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1><p className="muted">Source: {data.sourceFileName}{data.faceValue !== null ? ` · Face value ₹${compact(data.faceValue)}` : ''}</p></div></div><div className="company-actions"><button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
         <nav className="section-nav" aria-label="Analysis sections">{sections.map(({key,label,icon:Icon})=><button key={key} className={section===key?'active':''} onClick={()=>setSection(key)}><Icon size={16}/>{label}{section===key&&<span className="nav-active-mark"/>}</button>)}</nav>
-        {data.mode === 'bank' ? <BankDashboard data={data} section={section} specs={bankSpecs!}/> : section === 'checks' ? <CompanyChecks data={data} /> : <CompanyDashboard data={data} section={section} specs={companySpecs!}/>}
+        {data.mode === 'bank' ? (
+          <>
+            {section === 'about' && (
+              <AboutSection
+                about={about}
+                fallbackCompanyName={data.companyName}
+                onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+                onUnlockWithKey={enteredKey => {
+                  setAccessKey(enteredKey)
+                  void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
+                }}
+              />
+            )}
+            <BankDashboard data={data} section={section} specs={bankSpecs!} theme={theme}/>
+          </>
+        ) : (
+          <>
+            {section === 'about' && (
+              <AboutSection
+                about={about}
+                fallbackCompanyName={data.companyName}
+                onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+                onUnlockWithKey={enteredKey => {
+                  setAccessKey(enteredKey)
+                  void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
+                }}
+              />
+            )}
+            {section === 'checks' && <CompanyChecks data={data} />}
+            <CompanyDashboard data={data} section={section} specs={companySpecs!} theme={theme}/>
+          </>
+        )}
         {error && <div className="error-box"><AlertTriangle size={16}/>{error}</div>}
         <footer className="app-footer"><span>LEDGER <b>·</b> PRIVATE BY DESIGN</span><span>Workbook is processed in browser memory only. Clearing or refreshing removes it.</span></footer>
       </>}
     </main>
-    {data && calculatorOpen && <ForecastCalculator data={data} onClose={() => setCalculatorOpen(false)}/>}
+    {data && calculatorOpen && <ForecastCalculator data={data} theme={theme} onClose={() => setCalculatorOpen(false)}/>}
   </div>
 }
 

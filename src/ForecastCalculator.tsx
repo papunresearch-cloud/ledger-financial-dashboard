@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Calculator, ChevronDown, CircleDollarSign, Landmark, X } from 'lucide-react'
-import type { BankData, CompanyData, FinancialData } from './types'
+import type { AppTheme, BankData, CompanyData, FinancialData } from './types'
 import './forecastCalculator.css'
 
 type CalculatorMode = 'nonbank' | 'bank'
@@ -141,7 +141,7 @@ function sourceInputs(data: FinancialData): { sales: number; equity: number; sha
   return { sales: n(sales), equity: n(equity), shares: n(shares), price: n(data.currentPrice), salesGrowth, npm, payout: annualPayout ?? 0, cfoSales: defaultCashFlowSalesRatio(data, 'operatingCashFlow'), fcfSales: defaultCashFlowSalesRatio(data, 'freeCashFlow') }
 }
 
-export function ForecastCalculator({ data, onClose }: { data: FinancialData; onClose: () => void }) {
+export function ForecastCalculator({ data, theme = 'dark', onClose }: { data: FinancialData; theme?: AppTheme; onClose: () => void }) {
   const source = useMemo(() => sourceInputs(data), [data])
   const [mode, setMode] = useState<CalculatorMode>(data.mode === 'bank' ? 'bank' : 'nonbank')
   const [inputs, setInputs] = useState<Inputs>({ salesGrowth: source.salesGrowth.value === null ? '' : String(Number(source.salesGrowth.value.toFixed(2))), npm: source.npm === null ? '' : String(Number(source.npm.toFixed(2))), payout: String(Number(source.payout.toFixed(2))), cfoSales: source.cfoSales === null ? '' : String(Number(source.cfoSales.toFixed(2))), fcfSales: source.fcfSales === null ? '' : String(Number(source.fcfSales.toFixed(2))), years: '5', price: String(source.price) })
@@ -197,7 +197,7 @@ export function ForecastCalculator({ data, onClose }: { data: FinancialData; onC
     { key: 'price', label: 'Market price', suffix: '₹', step: '0.01' },
   ]
 
-  return <div className="forecast-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+  return <div className={`forecast-backdrop ${theme === 'bright' ? 'forecast-bright' : ''}`} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
     <section className="forecast-modal" role="dialog" aria-modal="true" aria-labelledby="forecast-title">
       <header className="forecast-hero"><div className="forecast-hero-orb orb-one"/><div className="forecast-hero-orb orb-two"/><button className="forecast-close" onClick={onClose} aria-label="Close calculator"><X size={19}/></button>
         <div className="forecast-kicker"><Calculator size={15}/> LEDGER FORECAST STUDIO</div><h2 id="forecast-title">Forward value<br/><em>calculator</em></h2><p>Turn your assumptions into a year-by-year per-share outlook.</p>

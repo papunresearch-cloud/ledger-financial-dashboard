@@ -143,3 +143,104 @@ export type BankData = {
 }
 
 export type FinancialData = CompanyData | BankData
+
+export type AppTheme = 'dark' | 'bright'
+
+export type AboutPeerRow = {
+  company: string
+  mcap_cr: string
+  revenue_cr: string
+  opm_pct: string
+  pe: string
+  roce_pct: string
+  is_target?: boolean
+}
+
+export type AboutSummaryReport = {
+  company_name?: string
+  promoter_and_owner?: string
+  sector_and_industry?: string
+  market_position_and_peers?: string
+  peer_table?: AboutPeerRow[]
+  business_model_short?: string
+  business_model_type?: { primary_tags?: string[]; note?: string } | string
+  revenue_sources_short?: string
+  revenue_breakups?: {
+    product_wise?: string
+    geography_wise?: string
+    consolidated_vs_standalone?: string
+  } | string
+  profitability_analysis?: {
+    current_vs_avg_margin?: string
+    profitability_factors?: string
+    profit_contribution_consol_vs_standalone?: string
+  } | string
+  financial_issues?: string
+  partners_and_subsidiaries?: string
+  growth_capex_orderbook?: string
+  current_issues?: string
+  investor_risks_and_opportunities?: {
+    opportunities?: string
+    risks?: string
+  } | string
+  additional_insights?: string
+}
+
+export type AboutNewsItem = {
+  title: string
+  headline: string
+  publisher: string
+  url: string
+  date: string
+  timestamp?: number
+  within_12m?: boolean
+  ref_id?: number
+}
+
+export type AboutMasterSource = {
+  id: number
+  title: string
+  url: string
+  type: string
+  date?: string
+}
+
+export type AboutSourcesResponse = {
+  company_info: { id: number | string | null; name: string; symbol: string; url_path?: string }
+  official_site: { url: string; title: string; status: string }
+  live_intel: {
+    capex_news: AboutNewsItem[]
+    regulatory_news: AboutNewsItem[]
+    recent_news_12m: AboutNewsItem[]
+  }
+  master_sources: AboutMasterSource[]
+  official_ref_id: number | null
+  screener_ref_id: number | null
+  generated_at?: string
+  prompt_context: {
+    popup_text: string
+    financial_intel: string
+    official_content: string
+  }
+}
+
+export type AboutAiData = {
+  summary_report?: AboutSummaryReport
+  executive_summary?: string
+  quick_stats?: Array<{ label: string; value: string }>
+  revenue_breakup?: Array<{ category: string; percentage: number; details?: string }>
+  geographical_reach?: Array<{ region: string; percentage: number; details?: string }>
+  capex_and_order_book?: Array<{ headline: string; date?: string; details: string; source_num?: number }>
+  regulatory_and_litigation?: Array<{ issue: string; severity?: string; details: string; source_num?: number }>
+  official_site_highlights?: { headline?: string; core_assets?: string; source_num?: number }
+  sections?: Array<{ title: string; content: string }>
+}
+
+export type AboutState = {
+  companyKey: string
+  status: 'idle' | 'loading-sources' | 'loading-ai' | 'ready' | 'needs-key' | 'error'
+  sources: AboutSourcesResponse | null
+  ai: AboutAiData | null
+  error: string
+  aiError: string
+}

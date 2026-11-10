@@ -46,8 +46,40 @@ type BarPalette = {
   stroke: string
 }
 
-function getBarPalette(color: string): BarPalette {
+function brightSeriesColor(color: string, theme: 'light' | 'dark' | 'bright'): string {
+  if (theme !== 'bright') return color
   const c = color.toUpperCase().trim()
+  if (c === '#00F5A0' || c === '#22D3B5' || c === '#38D9B4' || c === '#168B72') return '#059669'
+  if (c === '#FFB800' || c === '#FFC857' || c === '#D7A743' || c === '#FFD000') return '#d97706'
+  if (c === '#00D2FF' || c === '#5C9FFF' || c === '#38E1FF') return '#0284c7'
+  if (c === '#FF2E93' || c === '#FF72B6' || c === '#FF3399') return '#db2777'
+  if (c === '#B75CFF' || c === '#A78BFA' || c === '#B88BFF') return '#7c3aed'
+  if (c === '#FF5353' || c === '#F97373' || c === '#E06961' || c === '#D68157') return '#dc2626'
+  return color
+}
+
+function getBarPalette(color: string, theme: 'light' | 'dark' | 'bright' = 'dark'): BarPalette {
+  const c = color.toUpperCase().trim()
+  if (theme === 'bright') {
+    if (c === '#00F5A0' || c === '#22D3B5' || c === '#38D9B4' || c === '#168B72') {
+      return { top: '#34d399', mid: '#10b981', bottom: '#047857', stroke: '#065f46' }
+    }
+    if (c === '#FFB800' || c === '#FFC857' || c === '#D7A743' || c === '#FFD000') {
+      return { top: '#fbbf24', mid: '#f59e0b', bottom: '#b45309', stroke: '#92400e' }
+    }
+    if (c === '#00D2FF' || c === '#5C9FFF' || c === '#38E1FF') {
+      return { top: '#38bdf8', mid: '#0ea5e9', bottom: '#0369a1', stroke: '#075985' }
+    }
+    if (c === '#FF2E93' || c === '#FF72B6' || c === '#FF3399') {
+      return { top: '#f472b6', mid: '#ec4899', bottom: '#be185d', stroke: '#9d174d' }
+    }
+    if (c === '#B75CFF' || c === '#A78BFA' || c === '#B88BFF') {
+      return { top: '#a78bfa', mid: '#8b5cf6', bottom: '#6d28d9', stroke: '#5b21b6' }
+    }
+    if (c === '#FF5353' || c === '#F97373' || c === '#E06961' || c === '#D68157') {
+      return { top: '#fb7185', mid: '#f43f5e', bottom: '#be123c', stroke: '#9f1239' }
+    }
+  }
   if (c === '#00F5A0' || c === '#22D3B5' || c === '#38D9B4' || c === '#168B72') {
     return { top: '#4EFFB9', mid: '#00F5A0', bottom: '#00593B', stroke: '#6BFFC9' }
   }
@@ -110,18 +142,36 @@ const legendWrapperStyle: React.CSSProperties = {
   paddingTop: 10,
 }
 
-export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec: ChartSpec; exportMode?: boolean; theme?: 'light' | 'dark' }) {
+export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec: ChartSpec; exportMode?: boolean; theme?: 'light' | 'dark' | 'bright' }) {
   const hasData = spec.data.some(point => spec.metrics.some(metric => typeof point[metric.key] === 'number' && Number.isFinite(point[metric.key] as number)))
   const allLine = spec.type === 'line'
-  const tickColor = theme === 'dark' ? '#8eb0a4' : '#74837d'
-  const gridColor = theme === 'dark' ? '#1c352e' : '#e6ece8'
+  const isDark = theme === 'dark'
+  const tickColor = isDark ? '#8eb0a4' : '#000000'
+  const gridColor = isDark ? '#1c352e' : '#cbd5e1'
+  const axisLineColor = isDark ? '#22463b' : '#94a3b8'
+  const activeTooltipContentStyle: React.CSSProperties = isDark ? tooltipContentStyle : {
+    borderRadius: 12,
+    border: '1px solid #cbd5e1',
+    background: '#ffffff',
+    color: '#000000',
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.14)',
+    padding: '10px 14px',
+  }
+  const activeTooltipLabelStyle: React.CSSProperties = isDark ? tooltipLabelStyle : {
+    ...tooltipLabelStyle,
+    color: '#0369a1',
+  }
+  const activeLegendStyle: React.CSSProperties = {
+    ...legendWrapperStyle,
+    color: isDark ? '#c5ddd3' : '#000000',
+  }
   const axisMetric = spec.metrics.find(metric => metric.kind !== 'line') ?? spec.metrics[0]
   const rightMetric = spec.metrics.find(metric => metric.axis === 'right')
   const tickFormatter = (value: number, metric?: Metric) => metric?.unit
     ? fmt(Number(value), metric.unit)
     : new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value))
 
-  return <article className={`chart-card ${theme === 'dark' ? 'chart-card-dark' : ''}`} data-chart-card={spec.id} data-export-chart-card={exportMode ? spec.id : undefined}>
+  return <article className={`chart-card ${isDark ? 'chart-card-dark' : 'chart-card-bright'}`} data-chart-card={spec.id} data-export-chart-card={exportMode ? spec.id : undefined}>
     <div className="chart-heading">
       <div><span className="eyebrow">{spec.category === 'annual' ? 'YEARLY' : 'QUARTERLY'}</span><h3>{spec.title}</h3><p>{spec.subtitle}</p></div>
       <span className="chart-spark" aria-hidden="true">✳</span>
@@ -130,28 +180,31 @@ export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec
       {hasData ? <ResponsiveContainer width="100%" height={286}>
         {allLine ? <LineChart data={spec.data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: '#22463b', strokeOpacity: 0.6 }} tickLine={false} />
+          <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
           <YAxis yAxisId="left" domain={spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined} allowDataOverflow={Boolean(spec.yAxisMax)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
-          <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={tooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} cursor={{ stroke: 'rgba(255, 255, 255, 0.15)', strokeDasharray: '3 3' }} />
-          <Legend wrapperStyle={legendWrapperStyle} />
-          {spec.metrics.map(metric => (
-            <Line
-              key={metric.key}
-              yAxisId="left"
-              type="monotone"
-              dataKey={metric.key as string}
-              name={metric.label}
-              stroke={metric.color}
-              strokeWidth={3}
-              dot={{ r: 3.5, fill: '#0a141a', stroke: metric.color, strokeWidth: 2.2 }}
-              activeDot={{ r: 5.5, fill: metric.color, stroke: '#ffffff', strokeWidth: 2 }}
-              connectNulls={false}
-            />
-          ))}
+          <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ stroke: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.18)', strokeDasharray: '3 3' }} />
+          <Legend wrapperStyle={activeLegendStyle} />
+          {spec.metrics.map(metric => {
+            const lineColor = brightSeriesColor(metric.color, theme)
+            return (
+              <Line
+                key={metric.key}
+                yAxisId="left"
+                type="monotone"
+                dataKey={metric.key as string}
+                name={metric.label}
+                stroke={lineColor}
+                strokeWidth={3}
+                dot={{ r: 3.5, fill: isDark ? '#0a141a' : '#ffffff', stroke: lineColor, strokeWidth: 2.2 }}
+                activeDot={{ r: 5.5, fill: lineColor, stroke: '#ffffff', strokeWidth: 2 }}
+                connectNulls={false}
+              />
+            )
+          })}
         </LineChart> : <ComposedChart data={spec.data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
           <defs>
             {spec.metrics.filter(m => m.kind !== 'line').map(metric => {
-              const palette = getBarPalette(metric.color)
+              const palette = getBarPalette(metric.color, theme)
               return (
                 <linearGradient
                   key={`grad-${spec.id}-${metric.key}`}
@@ -163,19 +216,20 @@ export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec
                 >
                   <stop offset="0%" stopColor={palette.top} stopOpacity={1} />
                   <stop offset="55%" stopColor={palette.mid} stopOpacity={0.88} />
-                  <stop offset="100%" stopColor={palette.bottom} stopOpacity={0.42} />
+                  <stop offset="100%" stopColor={palette.bottom} stopOpacity={isDark ? 0.42 : 0.78} />
                 </linearGradient>
               )
             })}
           </defs>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: '#22463b', strokeOpacity: 0.6 }} tickLine={false} />
+          <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
           <YAxis yAxisId="left" domain={spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined} allowDataOverflow={Boolean(spec.yAxisMax)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
           {rightMetric && <YAxis yAxisId="right" orientation="right" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
-          <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={tooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }} />
-          <Legend wrapperStyle={legendWrapperStyle} />
+          <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.05)' }} />
+          <Legend wrapperStyle={activeLegendStyle} />
           {spec.metrics.map(metric => {
             if (metric.kind === 'line') {
+              const lineColor = brightSeriesColor(metric.color, theme)
               return (
                 <Line
                   key={metric.key}
@@ -183,15 +237,15 @@ export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec
                   type="monotone"
                   dataKey={metric.key as string}
                   name={metric.label}
-                  stroke={metric.color}
+                  stroke={lineColor}
                   strokeWidth={3}
-                  dot={{ r: 3.5, fill: '#0a141a', stroke: metric.color, strokeWidth: 2.2 }}
-                  activeDot={{ r: 5.5, fill: metric.color, stroke: '#ffffff', strokeWidth: 2 }}
+                  dot={{ r: 3.5, fill: isDark ? '#0a141a' : '#ffffff', stroke: lineColor, strokeWidth: 2.2 }}
+                  activeDot={{ r: 5.5, fill: lineColor, stroke: '#ffffff', strokeWidth: 2 }}
                   connectNulls={false}
                 />
               )
             }
-            const palette = getBarPalette(metric.color)
+            const palette = getBarPalette(metric.color, theme)
             return (
               <Bar
                 key={metric.key}

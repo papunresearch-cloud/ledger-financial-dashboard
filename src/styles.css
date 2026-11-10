@@ -141,3 +141,231 @@ html,body{width:100%;min-width:320px;max-width:100%;overflow-x:hidden}
 @media(max-width:700px){.topbar{height:auto;min-height:61px;flex-wrap:wrap;gap:7px;padding:8px 12px}.topbar-right{min-width:0;flex:1 1 auto;justify-content:flex-end;flex-wrap:wrap}.topbar-right .button{white-space:nowrap}.main-wrap{width:100%;min-width:0}.company-theme .main-wrap,.bank-theme .main-wrap{padding-left:12px;padding-right:12px}.section-nav{max-width:calc(100vw - 24px)}.bank-block-title,.company-block-heading,.per-share-summary-heading{align-items:flex-start;flex-direction:column;gap:8px}.per-share-summary-heading>small{line-height:1.5}.bank-overview-heading,.bank-plots-heading,.bank-source-heading,.company-overview-heading,.company-page-heading{width:100%;min-width:0}.company-banner{min-width:0}.company-title-wrap{min-width:0;flex-wrap:wrap}.company-actions{flex-wrap:wrap}.bank-sheet-topline,.company-sheet-topline{min-width:0;flex-wrap:wrap}.bank-sheet-topline small,.company-sheet-topline small{margin-left:0}}
 @media(max-width:520px){.topbar{align-items:center}.topbar-right{flex:1 1 100%;justify-content:flex-end}.brand{font-size:19px}.topbar-right .button{padding:8px 9px;font-size:9px}.welcome-view{padding-top:20px}.welcome-copy h1{font-size:clamp(38px,12vw,50px);letter-spacing:-2px}.setup-card{padding:16px}.mode-option{min-width:0}.mode-copy small{line-height:1.4}.download-card{padding:13px}.company-overview-heading,.bank-overview-heading{gap:12px}.overview-current-price{min-width:0}.company-summary-block,.bank-summary-block{padding:15px}.company-chart-section-heading,.bank-chart-section-title{flex-wrap:wrap}.company-chart-section-heading i,.bank-chart-section-title i{margin-left:auto}.company-sheet-topline strong,.bank-sheet-topline strong{margin-left:0}}
 @media(max-width:360px){.topbar{padding-left:9px;padding-right:9px}.topbar-right{gap:4px}.topbar-right .button{padding:7px 7px;font-size:8px}.main-wrap,.company-theme .main-wrap,.bank-theme .main-wrap{padding-left:9px;padding-right:9px}.section-nav button{padding-left:8px;padding-right:8px}.setup-card{padding:13px}.mode-option{padding:9px}.company-theme .company-snapshot,.bank-theme .bank-snapshot-card{padding:14px}.company-sheet-topline i{display:none}}
+
+/* Topbar Theme Toggle Button */
+.theme-toggle-button{border:1px solid #334155!important;background:#1e293b!important;color:#fde047!important}
+.theme-toggle-button:hover{border-color:#64748b!important;background:#0f172a!important}
+.theme-bright .theme-toggle-button{border:1px solid #818cf8!important;background:#ffffff!important;color:#3730a3!important}
+.theme-bright .theme-toggle-button:hover{background:#eef2ff!important}
+
+/* Global High-Contrast Bright Mode (Entire Project) */
+.app-shell.theme-bright{
+  color:#000000;
+  background:radial-gradient(ellipse at 0% 0%,rgba(14,165,233,.13) 0,transparent 46%),
+             radial-gradient(ellipse at 100% 0%,rgba(139,92,246,.10) 0,transparent 44%),
+             radial-gradient(ellipse at 60% 100%,rgba(16,185,129,.10) 0,transparent 46%),
+             #eef2f7;
+}
+.theme-bright .topbar{
+  background:rgba(255,255,255,.94);
+  border-color:#cbd5e1;
+  color:#000000;
+}
+.theme-bright .brand,
+.theme-bright .brand-dot{color:#0f172a}
+.theme-bright .brand-dot{color:#059669}
+.theme-bright .privacy-label,
+.theme-bright .muted,
+.theme-bright .section-intro p,
+.theme-bright .bank-overview p,
+.theme-bright .bank-overview-heading p,
+.theme-bright .bank-source-heading p,
+.theme-bright .company-overview-heading p,
+.theme-bright .company-page-heading p{color:#111827}
+
+.theme-bright .section-intro h2,
+.theme-bright .bank-overview h2,
+.theme-bright .bank-plots-page h2,
+.theme-bright .bank-source-page h2,
+.theme-bright .company-overview-heading h2,
+.theme-bright .company-page-heading h2,
+.theme-bright .company-block-heading h3,
+.theme-bright .bank-block-title h3,
+.theme-bright .company-chart-section-heading h3,
+.theme-bright .bank-chart-section-title h3,
+.theme-bright .per-share-summary-heading h3,
+.theme-bright .checks-card h3{color:#000000}
+
+.theme-bright .section-nav{
+  background:#ffffff;
+  border-color:#cbd5e1;
+  box-shadow:0 6px 20px rgba(15,23,42,.06);
+  border-radius:14px;
+  padding:0 8px;
+}
+.theme-bright .section-nav button{color:#334155}
+.theme-bright .section-nav button:hover{color:#0369a1}
+.theme-bright .section-nav button.active{color:#0369a1}
+.theme-bright .section-nav .nav-active-mark{background:#0284c7;box-shadow:none}
+
+.theme-bright .company-banner{
+  background:linear-gradient(120deg,#0f766e,#1e3a8a);
+  border:1px solid #0f766e;
+  box-shadow:0 12px 30px rgba(15,23,42,.15);
+}
+.theme-bright .company-banner h1{color:#ffffff}
+.theme-bright .company-banner .hero-kicker{color:#bae6fd}
+.theme-bright .company-banner .muted{color:#e0f2fe}
+
+.theme-bright .company-overview{
+  background:rgba(255,255,255,.88);
+  border-color:#cbd5e1;
+  box-shadow:0 10px 30px rgba(15,23,42,.06);
+}
+.theme-bright .overview-current-price span{color:#111827}
+.theme-bright .overview-current-price strong{color:#000000}
+.theme-bright .overview-current-price small,
+.theme-bright .company-overview-heading>span,
+.theme-bright .company-page-heading>span,
+.theme-bright .bank-asof,
+.theme-bright .bank-plots-heading>span,
+.theme-bright .bank-source-heading>span{color:#0369a1}
+
+.theme-bright .company-snapshot,
+.theme-bright .bank-snapshot-card{
+  background:#ffffff;
+  border-color:#cbd5e1;
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
+}
+.theme-bright .company-snapshot:after,
+.theme-bright .bank-snapshot-card:after{opacity:.16}
+.theme-bright .company-snapshot>span,
+.theme-bright .bank-snapshot-card>span{color:#111827}
+.theme-bright .company-snapshot strong,
+.theme-bright .bank-snapshot-card strong{color:#000000}
+.theme-bright .bank-snapshot-card small{color:#334155}
+
+.theme-bright .per-share-summary,
+.theme-bright .company-summary-block,
+.theme-bright .bank-summary-block{
+  background:#ffffff;
+  border-color:#cbd5e1;
+  box-shadow:0 6px 20px rgba(15,23,42,.06);
+}
+.theme-bright .per-share-card,
+.theme-bright .return-card,
+.theme-bright .company-ratio-chip{
+  background:#f8fafc;
+  border-color:#cbd5e1;
+}
+.theme-bright .per-share-card>span,
+.theme-bright .per-share-card>small,
+.theme-bright .per-share-summary>p,
+.theme-bright .per-share-summary-heading>small,
+.theme-bright .return-card h4,
+.theme-bright .return-values span,
+.theme-bright .return-values small,
+.theme-bright .company-ratio-chip span{color:#111827}
+.theme-bright .per-share-card>strong,
+.theme-bright .return-values b,
+.theme-bright .company-ratio-chip strong{color:#000000}
+.theme-bright .company-block-heading>div>span,
+.theme-bright .per-share-summary-heading span,
+.theme-bright .bank-section-kicker,
+.theme-bright .company-chart-section-heading>span,
+.theme-bright .bank-chart-section-title>span{color:#0369a1}
+.theme-bright .company-block-heading>small,
+.theme-bright .bank-block-title>span,
+.theme-bright .company-chart-section-heading i,
+.theme-bright .bank-chart-section-title i{color:#334155}
+
+.theme-bright .company-growth-table th,
+.theme-bright .company-growth-table td,
+.theme-bright .bank-growth-table th,
+.theme-bright .bank-growth-table td{
+  border-bottom-color:#e2e8f0;
+  color:#000000;
+}
+.theme-bright .company-growth-table thead th,
+.theme-bright .bank-growth-table thead th{
+  color:#0f172a;
+  background:#f1f5f9;
+}
+.theme-bright .company-growth-table tbody th,
+.theme-bright .bank-growth-table tbody th{color:#000000}
+.theme-bright .company-summary-note,
+.theme-bright .bank-growth-note{color:#111827}
+
+.theme-bright .company-method-note,
+.theme-bright .bank-overview-note{
+  background:#eff6ff;
+  border-color:#bfdbfe;
+  color:#000000;
+}
+.theme-bright .company-method-note svg,
+.theme-bright .bank-overview-note svg{color:#1d4ed8}
+
+.theme-bright .chart-card-bright{
+  background:#ffffff;
+  border:1px solid #cbd5e1;
+  border-radius:18px;
+  padding:20px 20px 14px;
+  box-shadow:0 8px 24px rgba(15,23,42,.07);
+}
+.theme-bright .chart-card-bright .eyebrow{color:#0369a1;font-weight:700;font-size:10px}
+.theme-bright .chart-card-bright .chart-heading h3{color:#000000;font-size:17px}
+.theme-bright .chart-card-bright .chart-heading p{color:#111827;font-size:11.5px}
+.theme-bright .chart-card-bright .chart-snapshot{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:6px 0 0}
+.theme-bright .chart-export-stage{background:#ffffff}
+
+.theme-bright .company-sheet-frame,
+.theme-bright .bank-sheet-frame{
+  background:#ffffff;
+  border-color:#cbd5e1;
+  box-shadow:0 8px 24px rgba(15,23,42,.08);
+}
+.theme-bright .company-sheet-topline,
+.theme-bright .bank-sheet-topline{
+  background:#f1f5f9;
+  border-bottom-color:#cbd5e1;
+}
+.theme-bright .company-sheet-topline strong,
+.theme-bright .bank-sheet-topline strong{color:#0f172a}
+.theme-bright .company-sheet-topline small,
+.theme-bright .bank-sheet-topline small{color:#334155}
+.theme-bright .company-source-table td,
+.theme-bright .bank-source-table td{
+  color:#000000;
+  border-right-color:#e2e8f0;
+  border-bottom-color:#e2e8f0;
+  background:#ffffff;
+}
+.theme-bright .company-source-table .source-label,
+.theme-bright .bank-source-table .raw-label{
+  background:#f8fafc;
+  color:#000000;
+}
+.theme-bright .company-source-table tr:nth-child(even):not(.source-section):not(.source-period) td,
+.theme-bright .bank-source-table tr:nth-child(even):not(.raw-section-row):not(.raw-date-row) td{background:#f8fafc}
+.theme-bright .company-source-table tr:nth-child(even):not(.source-section):not(.source-period) .source-label,
+.theme-bright .bank-source-table tr:nth-child(even):not(.raw-section-row):not(.raw-date-row) .raw-label{background:#f1f5f9}
+.theme-bright .company-source-table .source-section td,
+.theme-bright .company-source-table .source-section .source-label,
+.theme-bright .bank-source-table .raw-section-row td,
+.theme-bright .bank-source-table .raw-section-row .raw-label{
+  background:#0f172a;
+  color:#ffffff;
+}
+.theme-bright .company-source-table .source-period td,
+.theme-bright .company-source-table .source-period .source-label,
+.theme-bright .bank-source-table .raw-date-row td,
+.theme-bright .bank-source-table .raw-date-row .raw-label{
+  background:#e0f2fe;
+  color:#0c4a6e;
+}
+
+.theme-bright .checks-card{
+  background:#ffffff;
+  border-color:#cbd5e1;
+  color:#000000;
+}
+.theme-bright .check-row{border-top-color:#e2e8f0}
+.theme-bright .check-row>span,
+.theme-bright .check-row>b,
+.theme-bright .definitions-card ul,
+.theme-bright .warnings-card ul,
+.theme-bright .definitions-card li b,
+.theme-bright .warnings-card p{color:#000000}
+.theme-bright .period-chip{background:#ffffff;border-color:#cbd5e1;color:#000000}
+.theme-bright .app-footer{border-color:#cbd5e1;color:#111827}
+.theme-bright .app-footer>span:first-child{color:#0369a1}

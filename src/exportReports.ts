@@ -1,8 +1,33 @@
 import type ExcelJS from 'exceljs'
-import type { BankData, FinancialData } from './types'
+import type { AboutState, BankData, FinancialData } from './types'
 
 type CapturedChart = { title: string; dataUrl: string }
 const safeName = (value: string) => value.toUpperCase().replace(/[^A-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'COMPANY'
+const cleanCite = (text: string | null | undefined) =>
+  (text ?? '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\[+([\d\s,]+)\]+/g, '[$1]')
+    .replace(/\s+/g, ' ')
+    .trim()
+const cleanMultilineCite = (text: string | null | undefined) =>
+  (text ?? '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\[+([\d\s,]+)\]+/g, '[$1]')
+    .trim()
+const pdfText = (text: string | null | undefined) =>
+  cleanMultilineCite(text)
+    .replace(/₹/g, 'Rs. ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[•●▪]/g, '-')
+    .replace(/—/g, '-')
+    .replace(/★/g, '*')
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '')
+    .trim()
+const estimateRowHeight = (text: string, charsPerLine = 92, base = 22) => {
+  const lines = text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
+  return Math.max(base, Math.min(409, lines * 14 + 10))
+}
 const display = (value: number | null, decimals = 2) => value === null || !Number.isFinite(value) ? '—' : Number(value.toFixed(decimals))
 const excelValue = (value: unknown): string | number | boolean | Date | null => {
   if (value === null || value === undefined) return null
@@ -125,7 +150,228 @@ function styleHeader(row: ExcelJS.Row) {
   })
 }
 
-async function exportBankExcel(data: BankData, button: HTMLButtonElement) {
+function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, about?: AboutState | null) {
+  if (!about?.ai && !about?.sources) return
+
+  const ws = book.addWorksheet('About & Summary', { views: [{ state: 'frozen', ySplit: 2 }] })
+  ws.columns = [
+    { width: 32 },
+    { width: 95 },
+    { width: 18 },
+    { width: 18 },
+    { width: 16 },
+    { width: 16 },
+  ]
+  const compInfo = about.sources?.company_info
+  ws.addRow([compInfo?.name || companyName, compInfo?.symbol ? `Symbol: ${compInfo.symbol}` : 'Corporate Intelligence & Summary Report'])
+  ws.mergeCells('A1:F1')
+  ws.getCell('A1').font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: '102D2B' } }
+  ws.addRow(['Updated / Status', about.sources?.generated_at || about.status])
+  ws.getRow(2).font = { italic: true, color: { argb: '475569' }, size: 9 }
+  ws.addRow([])
+
+  const addBanner = (title: string) => {
+    const r = ws.addRow([title])
+    ws.mergeCells(`A${r.number}:F${r.number}`)
+    styleHeader(r)
+  }
+
+  const addKV = (label: string, value: string | undefined | null) => {
+    const cleaned = cleanMultilineCite(value)
+    if (!cleaned) return
+    const r = ws.addRow([label, cleaned])
+    ws.mergeCells(`B${r.number}:F${r.number}`)
+    r.getCell(1).font = { name: 'Aptos', bold: true, size: 10, color: { argb: '102D2B' } }
+    r.getCell(2).font = { name: 'Aptos', size: 10, color: { argb: '0F172A' } }
+    r.getCell(1).alignment = { vertical: 'top', wrapText: true }
+    r.getCell(2).alignment = { vertical: 'top', wrapText: true }
+    r.height = estimateRowHeight(cleaned, 110)
+  }
+
+  const ai = about.ai
+  const sum = ai?.summary_report
+  if (sum) {
+    addBanner('SUMMARY REPORT')
+    addKV('Company Name & Listed Identity', sum.company_name || companyName)
+    addKV('Promoter Group & Ownership Profile', sum.promoter_and_owner)
+    addKV('Sector & Industry Classification', sum.sector_and_industry)
+    if (sum.business_model_type) {
+      if (typeof sum.business_model_type === 'string') {
+        addKV('Business Model Archetype', sum.business_model_type)
+      } else {
+        const tags = (sum.business_model_type.primary_tags ?? []).join(', ')
+        const note = cleanCite(sum.business_model_type.note)
+        addKV('Business Model Archetype', [tags, note].filter(Boolean).join(' — '))
+      }
+    }
+    addKV('Market Position & Peers Narrative', sum.market_position_and_peers)
+    addKV('Business Model, Products & Services', sum.business_model_short)
+    addKV('Primary Revenue Sources', sum.revenue_sources_short)
+    if (sum.revenue_breakups) {
+      if (typeof sum.revenue_breakups === 'string') {
+        addKV('Revenue Breakups', sum.revenue_breakups)
+      } else {
+        const parts = [
+          sum.revenue_breakups.product_wise ? `Product-Wise: ${cleanCite(sum.revenue_breakups.product_wise)}` : '',
+          sum.revenue_breakups.geography_wise ? `Geography-Wise: ${cleanCite(sum.revenue_breakups.geography_wise)}` : '',
+          sum.revenue_breakups.consolidated_vs_standalone ? `Consolidated vs Standalone: ${cleanCite(sum.revenue_breakups.consolidated_vs_standalone)}` : '',
+        ].filter(Boolean)
+        if (parts.length) addKV('Revenue Breakups', parts.join('\n'))
+      }
+    }
+    if (sum.profitability_analysis) {
+      if (typeof sum.profitability_analysis === 'string') {
+        addKV('Profitability Analysis', sum.profitability_analysis)
+      } else {
+        const parts = [
+          sum.profitability_analysis.current_vs_avg_margin ? `Current vs Average Margin: ${cleanCite(sum.profitability_analysis.current_vs_avg_margin)}` : '',
+          sum.profitability_analysis.profitability_factors ? `Margin Drivers: ${cleanCite(sum.profitability_analysis.profitability_factors)}` : '',
+          sum.profitability_analysis.profit_contribution_consol_vs_standalone ? `Profit Contribution (Consol vs Standalone): ${cleanCite(sum.profitability_analysis.profit_contribution_consol_vs_standalone)}` : '',
+        ].filter(Boolean)
+        if (parts.length) addKV('Profitability, Margins & Drivers', parts.join('\n'))
+      }
+    }
+    addKV('Major Financial Issues (CF, Debt & Watch)', sum.financial_issues)
+    addKV('Subsidiaries, Associates & Partners', sum.partners_and_subsidiaries)
+    addKV('Growth Probability, Order Book & Capex', sum.growth_capex_orderbook)
+    addKV('Current Legal, Regulatory & Operational Issues', sum.current_issues)
+    if (sum.investor_risks_and_opportunities) {
+      if (typeof sum.investor_risks_and_opportunities === 'string') {
+        addKV('Opportunities & Key Risks', sum.investor_risks_and_opportunities)
+      } else {
+        addKV('Investor Opportunities', sum.investor_risks_and_opportunities.opportunities)
+        addKV('Investor Key Risks', sum.investor_risks_and_opportunities.risks)
+      }
+    }
+    addKV('Additional Strategic Highlights', sum.additional_insights)
+
+    if (sum.peer_table && sum.peer_table.length > 0) {
+      ws.addRow([])
+      addBanner('PEER COMPARISON TABLE')
+      const hdr = ws.addRow(['Peer Company', 'M.Cap (Cr)', 'Revenue (Cr)', 'OPM %', 'P/E', 'ROCE %'])
+      styleHeader(hdr)
+      for (const peer of sum.peer_table) {
+        const pr = ws.addRow([
+          `${peer.company}${peer.is_target ? ' ★' : ''}`,
+          peer.mcap_cr || '-',
+          peer.revenue_cr || '-',
+          peer.opm_pct || '-',
+          peer.pe || '-',
+          peer.roce_pct || '-',
+        ])
+        if (peer.is_target) {
+          pr.eachCell(cell => { cell.fill = paleFill; cell.font = { name: 'Aptos', bold: true, size: 10, color: { argb: '102D2B' } } })
+        }
+      }
+    }
+  }
+
+  if (ai) {
+    ws.addRow([])
+    addBanner('BUSINESS OVERVIEW & OPERATING PROFILE')
+    addKV('Business Overview', ai.executive_summary)
+    for (const st of ai.quick_stats ?? []) addKV(`Key Stat — ${st.label}`, st.value)
+    if (ai.official_site_highlights) {
+      addKV('Official Website Headline', ai.official_site_highlights.headline)
+      addKV('Official Website Core Assets', ai.official_site_highlights.core_assets)
+    }
+
+    if ((ai.revenue_breakup ?? []).length > 0) {
+      ws.addRow([])
+      addBanner('BUSINESS SEGMENTS & REVENUE MIX')
+      const h = ws.addRow(['Segment', 'Details', 'Share (%)'])
+      styleHeader(h)
+      for (const seg of ai.revenue_breakup ?? []) {
+        const r = ws.addRow([seg.category, seg.details || '', `${Number(seg.percentage || 0).toFixed(1)}%`])
+        r.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+      }
+    }
+
+    if ((ai.geographical_reach ?? []).length > 0) {
+      ws.addRow([])
+      addBanner('GEOGRAPHICAL DISTRIBUTION & REACH')
+      const h = ws.addRow(['Region', 'Presence Details', 'Share (%)'])
+      styleHeader(h)
+      for (const geo of ai.geographical_reach ?? []) {
+        const r = ws.addRow([geo.region, geo.details || '', `${Number(geo.percentage || 0).toFixed(1)}%`])
+        r.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+      }
+    }
+
+    if ((ai.capex_and_order_book ?? []).length > 0) {
+      ws.addRow([])
+      addBanner('MAJOR CAPEX ANNOUNCEMENTS & ORDER BOOK')
+      const h = ws.addRow(['Headline', 'Details', 'Date / Quarter', 'Ref'])
+      styleHeader(h)
+      for (const cap of ai.capex_and_order_book ?? []) {
+        const det = cleanCite(cap.details)
+        const r = ws.addRow([cap.headline, det, cap.date || '', cap.source_num ? `[${cap.source_num}]` : ''])
+        r.getCell(1).alignment = { wrapText: true, vertical: 'top' }
+        r.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+        r.height = estimateRowHeight(det, 90)
+      }
+    }
+
+    if ((ai.regulatory_and_litigation ?? []).length > 0) {
+      ws.addRow([])
+      addBanner('REGULATORY ACTIONS, PENALTIES & LITIGATION')
+      const h = ws.addRow(['Issue', 'Details', 'Severity', 'Ref'])
+      styleHeader(h)
+      for (const reg of ai.regulatory_and_litigation ?? []) {
+        const det = cleanCite(reg.details)
+        const r = ws.addRow([reg.issue, det, reg.severity || 'Medium', reg.source_num ? `[${reg.source_num}]` : ''])
+        r.getCell(1).alignment = { wrapText: true, vertical: 'top' }
+        r.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+        r.height = estimateRowHeight(det, 90)
+      }
+    }
+  }
+
+  const newsList = about.sources?.live_intel?.recent_news_12m ?? []
+  if (newsList.length > 0) {
+    ws.addRow([])
+    addBanner('RECENT CORPORATE NEWS (LAST 12 MONTHS — NEWEST FIRST)')
+    const h = ws.addRow(['Date', 'Headline', 'Publisher', 'Ref'])
+    styleHeader(h)
+    for (const item of newsList) {
+      const r = ws.addRow([item.date || 'Recent', item.headline || item.title, item.publisher || 'News', item.ref_id ? `[${item.ref_id}]` : ''])
+      r.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+    }
+  }
+
+  if ((ai?.sections ?? []).length > 0) {
+    ws.addRow([])
+    addBanner('COMPREHENSIVE OPERATIONAL INTELLIGENCE (18 DIMENSIONS)')
+    for (const sec of ai?.sections ?? []) {
+      const cleanTitle = (sec.title || '').replace(/^\d+[\.\-\s:]+/, '').trim()
+      addKV(cleanTitle, sec.content)
+    }
+  }
+
+  const masterSources = about.sources?.master_sources ?? []
+  if (masterSources.length > 0) {
+    const srcSheet = book.addWorksheet('Verified Sources', { views: [{ state: 'frozen', ySplit: 1 }] })
+    srcSheet.columns = [
+      { width: 10 },
+      { width: 24 },
+      { width: 16 },
+      { width: 52 },
+      { width: 65 },
+    ]
+    srcSheet.addRow(['Ref #', 'Source Type', 'Date', 'Document / Article Title', 'URL'])
+    styleHeader(srcSheet.getRow(1))
+    for (const src of masterSources) {
+      const r = srcSheet.addRow([`[${src.id}]`, src.type, src.date || '', src.title || 'Reference Link', src.url])
+      r.getCell(4).alignment = { wrapText: true, vertical: 'top' }
+      if (src.url && src.url.startsWith('http')) {
+        r.getCell(5).value = { text: src.url, hyperlink: src.url }
+        r.getCell(5).font = { color: { argb: '0369A1' }, underline: true, size: 9 }
+      }
+    }
+  }
+}
+
+async function exportBankExcel(data: BankData, button: HTMLButtonElement, about?: AboutState | null) {
   button.disabled = true
   const oldText = button.textContent
   button.textContent = 'Preparing workbook…'
@@ -135,6 +381,7 @@ async function exportBankExcel(data: BankData, button: HTMLButtonElement) {
     const book = new ExcelJSRuntime.Workbook()
     book.creator = 'Ledger Financial Visualizer'
     book.created = new Date()
+    appendAboutExcelSheets(book, data.companyName, about)
     const source = book.addWorksheet('Data Sheet', { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] })
     for (const sourceRow of data.sourceMatrix) source.addRow((sourceRow ?? []).map(excelValue))
     source.columns.forEach((column, index) => { column.width = index === 0 ? 32 : 15 })
@@ -208,13 +455,13 @@ async function exportBankExcel(data: BankData, button: HTMLButtonElement) {
     })
     const buffer = await book.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${safeName(data.companyName)}_Bank_Analysis.xlsx`; link.click()
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${safeName(data.companyName)}_Complete_Report.xlsx`; link.click()
     window.setTimeout(() => URL.revokeObjectURL(link.href), 1000)
   } finally { button.disabled = false; button.textContent = oldText }
 }
 
-export async function exportExcel(data: FinancialData, button: HTMLButtonElement) {
-  if (data.mode === 'bank') return exportBankExcel(data, button)
+export async function exportExcel(data: FinancialData, button: HTMLButtonElement, about?: AboutState | null) {
+  if (data.mode === 'bank') return exportBankExcel(data, button, about)
   button.disabled = true
   const oldText = button.textContent
   button.textContent = 'Preparing workbook…'
@@ -224,6 +471,7 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
     const book = new ExcelJSRuntime.Workbook()
     book.creator = 'Ledger Financial Visualizer'
     book.created = new Date()
+    appendAboutExcelSheets(book, data.companyName, about)
     const source = book.addWorksheet('Data Sheet', { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] })
     for (const sourceRow of data.sourceMatrix) source.addRow((sourceRow ?? []).map(excelValue))
     source.columns.forEach((column, index) => { column.width = index === 0 ? 32 : 15 })
@@ -305,7 +553,7 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `${safeName(data.companyName)}_Financial_Analysis.xlsx`
+    link.download = `${safeName(data.companyName)}_Complete_Report.xlsx`
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(link.href), 1000)
   } finally {
@@ -314,7 +562,247 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
   }
 }
 
-async function exportBankPdf(data: BankData, button: HTMLButtonElement) {
+type AutoTableFn = typeof import('jspdf-autotable').default
+
+function appendAboutPdfSection(
+  doc: import('jspdf').jsPDF,
+  autoTable: AutoTableFn,
+  startY: number,
+  margin: number,
+  about?: AboutState | null,
+): void {
+  if (!about?.ai && !about?.sources) return
+  const baseTable = {
+    theme: 'grid' as const,
+    margin: { left: margin, right: margin },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2.3,
+      textColor: [15, 23, 42] as [number, number, number],
+      lineColor: [203, 213, 225] as [number, number, number],
+      overflow: 'linebreak' as const,
+    },
+    headStyles: {
+      fillColor: [16, 45, 43] as [number, number, number],
+      textColor: [255, 255, 255] as [number, number, number],
+      fontStyle: 'bold' as const,
+    },
+    alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+  }
+
+  const sectionHeading = (title: string, yPos: number) => {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11.5)
+    doc.setTextColor(16, 45, 43)
+    doc.text(pdfText(title), margin, yPos)
+  }
+
+  let y = startY
+  const ai = about.ai
+  const sum = ai?.summary_report
+
+  if (sum) {
+    sectionHeading('Summary Report — Corporate Intelligence', y)
+    const rows: Array<[string, string]> = []
+    const pushRow = (k: string, v?: string | null) => {
+      const clean = pdfText(v)
+      if (clean) rows.push([k, clean])
+    }
+    pushRow('Company Name & Identity', sum.company_name)
+    pushRow('Promoter Group & Ownership', sum.promoter_and_owner)
+    pushRow('Sector & Industry', sum.sector_and_industry)
+    if (sum.business_model_type) {
+      if (typeof sum.business_model_type === 'string') {
+        pushRow('Business Model Archetype', sum.business_model_type)
+      } else {
+        const tags = (sum.business_model_type.primary_tags ?? []).join(', ')
+        const note = sum.business_model_type.note ?? ''
+        pushRow('Business Model Archetype', [tags, note].filter(Boolean).join(' - '))
+      }
+    }
+    pushRow('Market Position & Peers', sum.market_position_and_peers)
+    pushRow('Business Model, Products & Services', sum.business_model_short)
+    pushRow('Primary Revenue Sources', sum.revenue_sources_short)
+    if (sum.revenue_breakups) {
+      if (typeof sum.revenue_breakups === 'string') pushRow('Revenue Breakups', sum.revenue_breakups)
+      else {
+        const parts = [
+          sum.revenue_breakups.product_wise ? `Product-Wise: ${sum.revenue_breakups.product_wise}` : '',
+          sum.revenue_breakups.geography_wise ? `Geography-Wise: ${sum.revenue_breakups.geography_wise}` : '',
+          sum.revenue_breakups.consolidated_vs_standalone ? `Consol vs Standalone: ${sum.revenue_breakups.consolidated_vs_standalone}` : '',
+        ].filter(Boolean)
+        if (parts.length) pushRow('Revenue Breakups', parts.join('\n'))
+      }
+    }
+    if (sum.profitability_analysis) {
+      if (typeof sum.profitability_analysis === 'string') pushRow('Profitability Analysis', sum.profitability_analysis)
+      else {
+        const parts = [
+          sum.profitability_analysis.current_vs_avg_margin ? `Current vs Avg Margin: ${sum.profitability_analysis.current_vs_avg_margin}` : '',
+          sum.profitability_analysis.profitability_factors ? `Drivers: ${sum.profitability_analysis.profitability_factors}` : '',
+          sum.profitability_analysis.profit_contribution_consol_vs_standalone ? `Profit Contribution: ${sum.profitability_analysis.profit_contribution_consol_vs_standalone}` : '',
+        ].filter(Boolean)
+        if (parts.length) pushRow('Profitability & Margins', parts.join('\n'))
+      }
+    }
+    pushRow('Major Financial Issues (CF & Debt)', sum.financial_issues)
+    pushRow('Subsidiaries, Associates & Partners', sum.partners_and_subsidiaries)
+    pushRow('Growth Probability, Order Book & Capex', sum.growth_capex_orderbook)
+    pushRow('Current Legal & Regulatory Issues', sum.current_issues)
+    if (sum.investor_risks_and_opportunities) {
+      if (typeof sum.investor_risks_and_opportunities === 'string') {
+        pushRow('Risks & Opportunities', sum.investor_risks_and_opportunities)
+      } else {
+        pushRow('Investor Opportunities', sum.investor_risks_and_opportunities.opportunities)
+        pushRow('Investor Key Risks', sum.investor_risks_and_opportunities.risks)
+      }
+    }
+    pushRow('Additional Highlights', sum.additional_insights)
+
+    autoTable(doc, {
+      ...baseTable,
+      startY: y + 4,
+      head: [['Dimension', 'Summary Intelligence']],
+      body: rows,
+      columnStyles: { 0: { cellWidth: 52, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+    })
+
+    if (sum.peer_table && sum.peer_table.length > 0) {
+      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 150
+      if (lastY > 165) { doc.addPage(); y = 18 } else { y = lastY + 8 }
+      sectionHeading('Peers Comparison & Market Position', y)
+      autoTable(doc, {
+        ...baseTable,
+        startY: y + 4,
+        head: [['Peer Company', 'M.Cap (Cr)', 'Revenue (Cr)', 'OPM %', 'P/E', 'ROCE %']],
+        body: sum.peer_table.slice(0, 6).map(pr => [
+          pdfText(`${pr.company}${pr.is_target ? ' *' : ''}`),
+          pdfText(pr.mcap_cr || '-'),
+          pdfText(pr.revenue_cr || '-'),
+          pdfText(pr.opm_pct || '-'),
+          pdfText(pr.pe || '-'),
+          pdfText(pr.roce_pct || '-'),
+        ]),
+      })
+    }
+  }
+
+  if (ai) {
+    doc.addPage()
+    y = 18
+    sectionHeading('Business Overview & Operating Infrastructure', y)
+    const ovRows: Array<[string, string]> = []
+    if (ai.executive_summary) ovRows.push(['Business Overview', pdfText(ai.executive_summary)])
+    for (const st of ai.quick_stats ?? []) ovRows.push([pdfText(st.label), pdfText(st.value)])
+    if (ai.official_site_highlights?.headline || ai.official_site_highlights?.core_assets) {
+      ovRows.push([
+        'Official Site Disclosures',
+        pdfText([ai.official_site_highlights.headline, ai.official_site_highlights.core_assets].filter(Boolean).join(' - ')),
+      ])
+    }
+    if (ovRows.length) {
+      autoTable(doc, {
+        ...baseTable,
+        startY: y + 4,
+        head: [['Topic', 'Details']],
+        body: ovRows,
+        columnStyles: { 0: { cellWidth: 52, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+      })
+    }
+
+    if ((ai.revenue_breakup ?? []).length > 0 || (ai.geographical_reach ?? []).length > 0) {
+      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60
+      if (lastY > 155) { doc.addPage(); y = 18 } else { y = lastY + 8 }
+      sectionHeading('Business Segments & Geographical Reach', y)
+      const mixRows: string[][] = [
+        ...(ai.revenue_breakup ?? []).map(r => ['Segment', pdfText(r.category), `${Number(r.percentage || 0).toFixed(1)}%`, pdfText(r.details)]),
+        ...(ai.geographical_reach ?? []).map(g => ['Geography', pdfText(g.region), `${Number(g.percentage || 0).toFixed(1)}%`, pdfText(g.details)]),
+      ]
+      autoTable(doc, {
+        ...baseTable,
+        startY: y + 4,
+        head: [['Category', 'Division / Region', 'Share %', 'Details']],
+        body: mixRows,
+        columnStyles: { 0: { cellWidth: 24, fontStyle: 'bold' }, 1: { cellWidth: 50 }, 2: { cellWidth: 20 }, 3: { cellWidth: 'auto' } },
+      })
+    }
+
+    if ((ai.capex_and_order_book ?? []).length > 0 || (ai.regulatory_and_litigation ?? []).length > 0) {
+      const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 60
+      if (lastY > 155) { doc.addPage(); y = 18 } else { y = lastY + 8 }
+      sectionHeading('Capex, Order Book & Regulatory Watch', y)
+      const feedRows: string[][] = [
+        ...(ai.capex_and_order_book ?? []).map(c => ['Capex / Order', pdfText(c.headline), pdfText(c.date || '-'), pdfText(c.details)]),
+        ...(ai.regulatory_and_litigation ?? []).map(r => ['Regulatory / Legal', pdfText(r.issue), pdfText(`${r.severity || 'Medium'} Risk`), pdfText(r.details)]),
+      ]
+      autoTable(doc, {
+        ...baseTable,
+        startY: y + 4,
+        head: [['Category', 'Headline / Issue', 'Date / Risk', 'Details']],
+        body: feedRows,
+        columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 62 }, 2: { cellWidth: 26 }, 3: { cellWidth: 'auto' } },
+      })
+    }
+  }
+
+  const newsList = about.sources?.live_intel?.recent_news_12m ?? []
+  if (newsList.length > 0) {
+    const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 150
+    if (lastY > 155) { doc.addPage(); y = 18 } else { y = lastY + 8 }
+    sectionHeading('Recent Corporate News (Last 12 Months - Newest First)', y)
+    autoTable(doc, {
+      ...baseTable,
+      startY: y + 4,
+      head: [['Date', 'Publisher', 'Headline', 'Ref']],
+      body: newsList.map(n => [
+        pdfText(n.date || 'Recent'),
+        pdfText(n.publisher || 'News'),
+        pdfText(n.headline || n.title),
+        n.ref_id ? `[${n.ref_id}]` : '-',
+      ]),
+      columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 38 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 14 } },
+    })
+  }
+
+  if ((ai?.sections ?? []).length > 0) {
+    doc.addPage()
+    sectionHeading('Comprehensive Business & Operational Analysis (18 Dimensions)', 18)
+    autoTable(doc, {
+      ...baseTable,
+      startY: 22,
+      head: [['Operational Dimension', 'Verified Analysis']],
+      body: (ai?.sections ?? []).map(sec => [
+        pdfText((sec.title || '').replace(/^\d+[\.\-\s:]+/, '')),
+        pdfText(sec.content),
+      ]),
+      columnStyles: { 0: { cellWidth: 64, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+    })
+  }
+
+  const masterSources = about.sources?.master_sources ?? []
+  if (masterSources.length > 0) {
+    doc.addPage()
+    sectionHeading(`Verified Corporate Intelligence Sources & Footnotes (${masterSources.length} References)`, 18)
+    autoTable(doc, {
+      ...baseTable,
+      startY: 22,
+      styles: { ...baseTable.styles, fontSize: 6.8 },
+      head: [['Ref #', 'Type', 'Date', 'Title', 'URL']],
+      body: masterSources.map(s => [
+        `[${s.id}]`,
+        pdfText(s.type),
+        pdfText(s.date || '-'),
+        pdfText(s.title),
+        s.url,
+      ]),
+      columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 30 }, 2: { cellWidth: 24 }, 3: { cellWidth: 72 }, 4: { cellWidth: 'auto' } },
+    })
+  }
+
+  doc.addPage()
+}
+
+async function exportBankPdf(data: BankData, button: HTMLButtonElement, about?: AboutState | null) {
   button.disabled = true
   const oldText = button.textContent
   button.textContent = 'Building report…'
@@ -329,10 +817,12 @@ async function exportBankPdf(data: BankData, button: HTMLButtonElement) {
     const tableOptions = { theme: 'grid' as const, styles: { fontSize: 6.8, cellPadding: 2, textColor: [39,56,48] as [number,number,number], lineColor: [222,231,225] as [number,number,number] }, headStyles: { fillColor: [16,45,43] as [number,number,number], textColor: [255,255,255] as [number,number,number], fontStyle: 'bold' as const }, alternateRowStyles: { fillColor: [244,248,245] as [number,number,number] }, margin: { left: margin, right: margin } }
     doc.setFillColor(16,45,43); doc.rect(0,0,pageWidth,42,'F')
     doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(23); doc.text(data.companyName,margin,20)
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text('Bank Financial Visual Report',margin,30)
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text('Complete Corporate Intelligence & Bank Financial Report',margin,30)
     doc.text(`Source: ${data.sourceFileName}   •   ${data.annual[0]?.period ?? ''} to ${data.annual.at(-1)?.period ?? ''}`,margin,37)
-    title('Annual earnings, income & returns', 53)
-    autoTable(doc, { ...tableOptions, startY: 58, head: [['Year','Interest earned','Interest paid','Gap %','Other income','Total revenue','Total expense','PBT','Net profit','OPM %','NPM %','ROE %','ROA %']], body: data.annual.map(r => [r.period,display(r.interestEarned,0),display(r.interestPaid,0),display(r.interestGap,1),display(r.otherIncome,0),display(r.totalRevenue,0),display(r.totalExpense,0),display(r.profitBeforeTax,0),display(r.netProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1),display(r.roe,1),display(r.roa,1)]), ...tableOptions })
+    appendAboutPdfSection(doc, autoTable, 50, margin, about)
+    const finStartY = about?.ai || about?.sources ? 23 : 58
+    title('Annual earnings, income & returns', finStartY - 5)
+    autoTable(doc, { ...tableOptions, startY: finStartY, head: [['Year','Interest earned','Interest paid','Gap %','Other income','Total revenue','Total expense','PBT','Net profit','OPM %','NPM %','ROE %','ROA %']], body: data.annual.map(r => [r.period,display(r.interestEarned,0),display(r.interestPaid,0),display(r.interestGap,1),display(r.otherIncome,0),display(r.totalRevenue,0),display(r.totalExpense,0),display(r.profitBeforeTax,0),display(r.netProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1),display(r.roe,1),display(r.roa,1)]), ...tableOptions })
     doc.addPage(); title('Annual balance sheet & shareholder metrics', 18)
     autoTable(doc, { ...tableOptions, startY: 23, head: [['Year','Dividend','DPS ₹','Payout %','EPS ₹','Equity','Borrowings','Borrowings/equity ×','Cash & Bank','Other liabilities','Liquidity %','Total assets','Other assets']], body: data.annual.map(r => [r.period,display(r.dividend,0),display(r.dividendPerShare),display(r.dividendPayout,1),display(r.eps),display(r.equity,0),display(r.borrowings,0),display(r.debtToEquity),display(r.cashBank,0),display(r.otherLiabilities,0),display(r.liquidity,1),display(r.totalAssets,0),display(r.otherAssets,0)]), ...tableOptions })
     let qY = ((doc as unknown as {lastAutoTable?:{finalY:number}}).lastAutoTable?.finalY ?? 160) + 12
@@ -362,12 +852,12 @@ async function exportBankPdf(data: BankData, button: HTMLButtonElement) {
     }
     const pages = doc.getNumberOfPages()
     for (let page = 1; page <= pages; page++) { doc.setPage(page); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(119,132,124); doc.text(`${data.companyName} · Ledger Bank Analysis`,margin,doc.internal.pageSize.getHeight()-5); doc.text(`${page} / ${pages}`,pageWidth-margin,doc.internal.pageSize.getHeight()-5,{align:'right'}) }
-    doc.save(`${safeName(data.companyName)}_Bank_Analysis.pdf`)
+    doc.save(`${safeName(data.companyName)}_Complete_Report.pdf`)
   } finally { button.disabled = false; button.textContent = oldText }
 }
 
-export async function exportPdf(data: FinancialData, button: HTMLButtonElement) {
-  if (data.mode === 'bank') return exportBankPdf(data, button)
+export async function exportPdf(data: FinancialData, button: HTMLButtonElement, about?: AboutState | null) {
+  if (data.mode === 'bank') return exportBankPdf(data, button, about)
   button.disabled = true
   const oldText = button.textContent
   button.textContent = 'Building report…'
@@ -386,14 +876,16 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement) 
     doc.text(data.companyName, margin, 20)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.text('Financial Statement Visual Report · Non-bank analysis', margin, 30)
+    doc.text('Complete Corporate Intelligence & Financial Report · Non-bank analysis', margin, 30)
     doc.text(`Source: ${data.sourceFileName}   •   ${data.annual[0]?.period ?? ''} to ${data.annual.at(-1)?.period ?? ''}`, margin, 37)
+    appendAboutPdfSection(doc, autoTable, 50, margin, about)
+    const finStartY = about?.ai || about?.sources ? 23 : 58
     doc.setTextColor(31, 55, 47)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
-    doc.text('Annual analysis table', margin, 53)
+    doc.text('Annual analysis table', margin, finStartY - 5)
     const annualBody = data.annual.map(r => [r.period,display(r.sales,0),display(r.netProfit,0),display(r.operatingProfit,0),display(r.grossProfitMargin,1),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1),display(r.operatingCashFlow,0),display(r.freeCashFlow,0),display(r.eps),display(r.dividendPerShare),display(r.dividendPayout,1),display(r.debtToEquity),display(r.roe,1),display(r.roa,1)])
-    autoTable(doc, { startY: 58, head: [['Year','Sales','Net profit','Op. profit','GPM %','OPM %','NPM %','CFO','FCF*','EPS ₹','DPS ₹','Payout %','D/E ×','ROE %','ROA %']], body: annualBody, theme: 'grid', styles: { fontSize: 6.7, cellPadding: 2.1, textColor: [39,56,48], lineColor: [222,231,225] }, headStyles: { fillColor: [16,45,43], textColor: [255,255,255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [244,248,245] }, margin: { left: margin, right: margin } })
+    autoTable(doc, { startY: finStartY, head: [['Year','Sales','Net profit','Op. profit','GPM %','OPM %','NPM %','CFO','FCF*','EPS ₹','DPS ₹','Payout %','D/E ×','ROE %','ROA %']], body: annualBody, theme: 'grid', styles: { fontSize: 6.7, cellPadding: 2.1, textColor: [39,56,48], lineColor: [222,231,225] }, headStyles: { fillColor: [16,45,43], textColor: [255,255,255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [244,248,245] }, margin: { left: margin, right: margin } })
     let y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 140
     y += 8
     if (y > 180) { doc.addPage(); y = 18 }
@@ -438,7 +930,7 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement) 
       doc.text(`${data.companyName}  ·  Ledger Financial Visualizer`, margin, doc.internal.pageSize.getHeight() - 5)
       doc.text(`${page} / ${pages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 5, { align: 'right' })
     }
-    doc.save(`${safeName(data.companyName)}_Financial_Analysis.pdf`)
+    doc.save(`${safeName(data.companyName)}_Complete_Report.pdf`)
   } finally {
     button.disabled = false
     button.textContent = oldText

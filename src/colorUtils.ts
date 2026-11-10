@@ -17,7 +17,8 @@
  */
 export function getRelativeColor(
   value: number | null | undefined,
-  avg: number | null | undefined
+  avg: number | null | undefined,
+  theme: 'dark' | 'bright' = 'dark'
 ): string {
   if (
     value === null ||
@@ -28,10 +29,24 @@ export function getRelativeColor(
     !Number.isFinite(avg) ||
     avg <= 0
   ) {
-    return '#808080'
+    return theme === 'bright' ? '#475569' : '#808080'
   }
 
   const ratio = value / avg
+
+  if (theme === 'bright') {
+    if (ratio > 2.0) return '#047857'
+    if (ratio > 1.75) return '#059669'
+    if (ratio > 1.50) return '#0d9488'
+    if (ratio > 1.25) return '#0f766e'
+    if (ratio > 1.10) return '#0369a1'
+    if (ratio >= 0.90) return '#000000'
+    if (ratio >= 0.80) return '#7e22ce'
+    if (ratio >= 0.70) return '#a21caf'
+    if (ratio >= 0.60) return '#be185d'
+    if (ratio >= 0.50) return '#be123c'
+    return '#b91c1c'
+  }
 
   if (ratio > 2.0) return '#3DFF1F'
   if (ratio > 1.75) return '#1FFF39'
