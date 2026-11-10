@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { Component, useState, type ReactNode } from 'react'
 import { AlertTriangle, ExternalLink, KeyRound, LoaderCircle, RefreshCw } from 'lucide-react'
-import type { AboutMasterSource, AboutState } from './types'
+import type { AboutMasterSource, AboutNewsItem, AboutState } from './types'
 import './aboutSection.css'
 
 type Props = {
@@ -8,6 +8,33 @@ type Props = {
   fallbackCompanyName: string
   onRetry: () => void
   onUnlockWithKey: (key: string) => void
+}
+
+function asText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return value.map(asText).filter(Boolean).join('\n')
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => {
+        const sub = asText(v)
+        return sub ? `${k.replace(/_/g, ' ')}: ${sub}` : ''
+      })
+      .filter(Boolean)
+      .join('; ')
+  }
+  return ''
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : []
+}
+
+function asPercent(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  const parsed = Number(asText(value).replace(/[^0-9.-]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function jumpToSource(id: string) {
@@ -18,24 +45,25 @@ function jumpToSource(id: string) {
   window.setTimeout(() => el.classList.remove('about-source-highlight'), 2000)
 }
 
-function CitationBadge({ num }: { num?: number | string | null }) {
-  if (num === undefined || num === null || num === '') return null
-  const label = String(num)
+function CitationBadge({ num }: { num?: unknown }) {
+  const raw = asText(num).match(/\d+/)?.[0] ?? ''
+  if (!raw) return null
   return (
     <button
       type="button"
       className="about-citation-badge"
-      title={`Jump to Source [${label}]`}
-      onClick={() => jumpToSource(label)}
+      title={`Jump to Source [${raw}]`}
+      onClick={() => jumpToSource(raw)}
     >
-      [{label}]
+      [{raw}]
     </button>
   )
 }
 
-function CitationText({ text }: { text?: string | null }) {
-  if (!text) return null
-  const sanitized = text.replace(/https?:\/\/\S+/g, '').trim()
+function CitationText({ text }: { text?: unknown }) {
+  const safe = asText(text)
+  if (!safe) return null
+  const sanitized = safe.replace(/https?:\/\/\S+/g, '').trim()
   const parts = sanitized.split(/(\[+[\d\s,]+\]+)/g)
   return (
     <>
@@ -71,23 +99,74 @@ function SummarySubcard({
   )
 }
 
-function sourceTypeClass(stype: string): string {
-  if (stype.includes('Official')) return 'tag-indigo'
-  if (stype.includes('Capex')) return 'tag-emerald'
-  if (stype.includes('Regulatory')) return 'risk-high'
-  if (stype.includes('Dossier')) return 'tag-amber'
-  if (stype.includes('Corporate News')) return 'tag-blue'
+function sourceTypeClass(stype: unknown): string {
+  const safe = asText(stype)
+  if (safe.includes('Official')) return 'tag-indigo'
+  if (safe.includes('Capex')) return 'tag-emerald'
+  if (safe.includes('Regulatory')) return 'risk-high'
+  if (safe.includes('Dossier')) return 'tag-amber'
+  if (safe.includes('Corporate News')) return 'tag-blue'
   return 'tag-cyan'
 }
 
-export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWithKey }: Props) {
+type BoundaryState = { hasError: boolean; errorMsg: string }
+
+class AboutErrorBoundary extends Component<{ onRetry: () => void; children: ReactNode }, BoundaryState> {
+  state: BoundaryState = { hasError: false, errorMsg: '' }
+
+  static getDerivedStateFromError(error: Error): BoundaryState {
+    return { hasError: true, errorMsg: error?.message || 'Unexpected rendering error in About report.' }
+  }
+
+  componentDidUpdate(prevProps: { onRetry: () => void; children: ReactNode }) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false, errorMsg: '' })
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <section className="about-wrap">
+          <div className="error-box">
+            <AlertTriangle size={16} />
+            <div style={{ flex: 1 }}>
+              About section hit a formatting issue ({this.state.errorMsg}). Overview, Plots, Data Sheet, and Data checks remain ready.
+            </div>
+            <button
+              type="button"
+              className="button button-soft"
+              onClick={() => {
+                this.setState({ hasError: false, errorMsg: '' })
+                this.props.onRetry()
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </section>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export function AboutSection(props: Props) {
+  return (
+    <AboutErrorBoundary onRetry={props.onRetry}>
+      <AboutSectionInner {...props} />
+    </AboutErrorBoundary>
+  )
+}
+
+function AboutSectionInner({ about, fallbackCompanyName, onRetry, onUnlockWithKey }: Props) {
   const [inlineKey, setInlineKey] = useState('')
   const sources = about.sources
   const ai = about.ai
-  const compName = sources?.company_info?.name || fallbackCompanyName
-  const compSymbol = sources?.company_info?.symbol || ''
-  const sum = ai?.summary_report
-  const masterSources: AboutMasterSource[] = sources?.master_sources ?? []
+  const compName = asText(sources?.company_info?.name) || asText(fallbackCompanyName) || 'Company'
+  const compSymbol = asText(sources?.company_info?.symbol)
+  const sum = ai?.summary_report && typeof ai.summary_report === 'object' ? ai.summary_report : null
+  const masterSources = asArray<AboutMasterSource>(sources?.master_sources)
 
   if (about.status === 'needs-key') {
     return (
@@ -124,16 +203,23 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
 
   const sectionColors = ['cyan', 'emerald', 'blue', 'indigo', 'violet', 'purple', 'amber', 'orange', 'rose'] as const
   const barGrads = ['grad-1', 'grad-2', 'grad-3', 'grad-4', 'grad-5'] as const
-  const recentNews = sources?.live_intel?.recent_news_12m ?? []
+  const recentNews = asArray<AboutNewsItem>(sources?.live_intel?.recent_news_12m)
+  const aiSections = asArray<{ title?: unknown; content?: unknown }>(ai?.sections)
+  const quickStats = asArray<{ label?: unknown; value?: unknown }>(ai?.quick_stats)
+  const capexList = asArray<{ headline?: unknown; date?: unknown; details?: unknown; source_num?: unknown }>(ai?.capex_and_order_book)
+  const regList = asArray<{ issue?: unknown; severity?: unknown; details?: unknown; source_num?: unknown }>(ai?.regulatory_and_litigation)
+  const revBreakupBars = asArray<{ category?: unknown; percentage?: unknown; details?: unknown }>(ai?.revenue_breakup)
+  const geoReachBars = asArray<{ region?: unknown; percentage?: unknown; details?: unknown }>(ai?.geographical_reach)
+  const peerRows = asArray<{ company?: unknown; mcap_cr?: unknown; revenue_cr?: unknown; opm_pct?: unknown; pe?: unknown; roce_pct?: unknown; is_target?: boolean }>(sum?.peer_table)
 
   return (
     <section className="about-wrap">
-      {(compSymbol || sources?.generated_at || about.status === 'ready' || about.status === 'error') && (
+      {(compSymbol || asText(sources?.generated_at) || about.status === 'ready' || about.status === 'error') && (
         <div className="about-status-strip">
           <div className="about-status-left">
             {compSymbol && <span className="about-symbol-pill">{compSymbol}</span>}
             <span className="about-gen-time">
-              {sources?.generated_at ? `Updated: ${sources.generated_at}` : compName}
+              {asText(sources?.generated_at) ? `Updated: ${asText(sources?.generated_at)}` : compName}
             </span>
           </div>
           <button
@@ -172,7 +258,7 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
         <div className="error-box">
           <AlertTriangle size={16} />
           <div style={{ flex: 1 }}>
-            {about.error || about.aiError}
+            {asText(about.error || about.aiError)}
           </div>
           <button type="button" className="button button-soft" onClick={onRetry}>
             Retry
@@ -189,19 +275,19 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
           </div>
 
           <div className="about-grid-2">
-            {(sum.company_name || compName) && (
+            {(asText(sum.company_name) || compName) && (
               <SummarySubcard heading="Company Name & Listed Identity" accent="cyan">
-                <p><strong><CitationText text={sum.company_name || `${compName}${compSymbol ? ` (${compSymbol})` : ''}`} /></strong></p>
+                <p><strong><CitationText text={asText(sum.company_name) || `${compName}${compSymbol ? ` (${compSymbol})` : ''}`} /></strong></p>
               </SummarySubcard>
             )}
 
-            {sum.promoter_and_owner?.trim() && (
+            {asText(sum.promoter_and_owner) && (
               <SummarySubcard heading="Promoter Group & Ownership Profile" accent="violet">
                 <p><CitationText text={sum.promoter_and_owner} /></p>
               </SummarySubcard>
             )}
 
-            {sum.sector_and_industry?.trim() && (
+            {asText(sum.sector_and_industry) && (
               <SummarySubcard heading="Sector & Industry Classification" accent="indigo">
                 <p><CitationText text={sum.sector_and_industry} /></p>
               </SummarySubcard>
@@ -209,29 +295,32 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
 
             {sum.business_model_type && (
               (() => {
-                const isObj = typeof sum.business_model_type === 'object'
-                const tags = isObj ? (sum.business_model_type as { primary_tags?: string[] }).primary_tags ?? [] : []
-                const note = isObj ? (sum.business_model_type as { note?: string }).note ?? '' : String(sum.business_model_type)
-                if (!tags.length && !note.trim()) return null
+                const isObj = typeof sum.business_model_type === 'object' && !Array.isArray(sum.business_model_type)
+                const rawTags = isObj ? (sum.business_model_type as { primary_tags?: unknown }).primary_tags : []
+                const tags = Array.isArray(rawTags)
+                  ? rawTags.map(asText).filter(Boolean)
+                  : asText(rawTags).split(',').map(t => t.trim()).filter(Boolean)
+                const note = isObj ? asText((sum.business_model_type as { note?: unknown }).note) : asText(sum.business_model_type)
+                if (!tags.length && !note) return null
                 return (
                   <SummarySubcard heading="Business Model Archetype" accent="fuchsia">
                     {tags.length > 0 && (
                       <div className="about-pill-row">
-                        {tags.map((t, i) => t.trim() && <span key={i} className="about-archetype-pill">{t}</span>)}
+                        {tags.map((t, i) => <span key={i} className="about-archetype-pill">{t}</span>)}
                       </div>
                     )}
-                    {note.trim() && <p><CitationText text={note} /></p>}
+                    {note && <p><CitationText text={note} /></p>}
                   </SummarySubcard>
                 )
               })()
             )}
 
-            {(sum.market_position_and_peers?.trim() || (sum.peer_table && sum.peer_table.length > 0)) && (
+            {(asText(sum.market_position_and_peers) || peerRows.length > 0) && (
               <SummarySubcard heading="Peers Comparison & Market Position" accent="cyan" span2>
-                {sum.market_position_and_peers?.trim() && (
+                {asText(sum.market_position_and_peers) && (
                   <p><CitationText text={sum.market_position_and_peers} /></p>
                 )}
-                {sum.peer_table && sum.peer_table.length > 0 && (
+                {peerRows.length > 0 && (
                   <div className="about-peer-wrap">
                     <table className="about-peer-table">
                       <thead>
@@ -245,14 +334,14 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                         </tr>
                       </thead>
                       <tbody>
-                        {sum.peer_table.slice(0, 6).map((pr, idx) => (
-                          <tr key={idx} className={pr.is_target ? 'about-peer-row-target' : 'about-peer-row-normal'}>
-                            <td>{pr.company}{pr.is_target ? ' ★' : ''}</td>
-                            <td>{pr.mcap_cr || '-'}</td>
-                            <td>{pr.revenue_cr || '-'}</td>
-                            <td>{pr.opm_pct || '-'}</td>
-                            <td>{pr.pe || '-'}</td>
-                            <td>{pr.roce_pct || '-'}</td>
+                        {peerRows.slice(0, 6).map((pr, idx) => (
+                          <tr key={idx} className={pr?.is_target ? 'about-peer-row-target' : 'about-peer-row-normal'}>
+                            <td>{asText(pr?.company)}{pr?.is_target ? ' ★' : ''}</td>
+                            <td>{asText(pr?.mcap_cr) || '-'}</td>
+                            <td>{asText(pr?.revenue_cr) || '-'}</td>
+                            <td>{asText(pr?.opm_pct) || '-'}</td>
+                            <td>{asText(pr?.pe) || '-'}</td>
+                            <td>{asText(pr?.roce_pct) || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -262,13 +351,13 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
               </SummarySubcard>
             )}
 
-            {sum.business_model_short?.trim() && (
+            {asText(sum.business_model_short) && (
               <SummarySubcard heading="Business Model, Products & Services" accent="emerald">
                 <p><CitationText text={sum.business_model_short} /></p>
               </SummarySubcard>
             )}
 
-            {sum.revenue_sources_short?.trim() && (
+            {asText(sum.revenue_sources_short) && (
               <SummarySubcard heading="Primary Revenue Sources" accent="blue">
                 <p><CitationText text={sum.revenue_sources_short} /></p>
               </SummarySubcard>
@@ -276,21 +365,24 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
 
             {sum.revenue_breakups && (
               (() => {
-                if (typeof sum.revenue_breakups === 'string') {
-                  if (!sum.revenue_breakups.trim()) return null
+                if (typeof sum.revenue_breakups !== 'object' || Array.isArray(sum.revenue_breakups)) {
+                  const flat = asText(sum.revenue_breakups)
+                  if (!flat) return null
                   return (
                     <SummarySubcard heading="Revenue Breakups (Product, Geography & Consol vs Standalone)" accent="purple">
-                      <p><CitationText text={sum.revenue_breakups} /></p>
+                      <p><CitationText text={flat} /></p>
                     </SummarySubcard>
                   )
                 }
-                const { product_wise, geography_wise, consolidated_vs_standalone } = sum.revenue_breakups
-                if (!product_wise?.trim() && !geography_wise?.trim() && !consolidated_vs_standalone?.trim()) return null
+                const pw = asText(sum.revenue_breakups.product_wise)
+                const gw = asText(sum.revenue_breakups.geography_wise)
+                const cs = asText(sum.revenue_breakups.consolidated_vs_standalone)
+                if (!pw && !gw && !cs) return null
                 return (
                   <SummarySubcard heading="Revenue Breakups (Product, Geography & Consol vs Standalone)" accent="purple">
-                    {product_wise?.trim() && <p><strong className="sum-title-purple">Product-Wise: </strong><CitationText text={product_wise} /></p>}
-                    {geography_wise?.trim() && <p><strong className="sum-title-purple">Geography-Wise: </strong><CitationText text={geography_wise} /></p>}
-                    {consolidated_vs_standalone?.trim() && <p><strong className="sum-title-purple">Consolidated vs Standalone: </strong><CitationText text={consolidated_vs_standalone} /></p>}
+                    {pw && <p><strong className="sum-title-purple">Product-Wise: </strong><CitationText text={pw} /></p>}
+                    {gw && <p><strong className="sum-title-purple">Geography-Wise: </strong><CitationText text={gw} /></p>}
+                    {cs && <p><strong className="sum-title-purple">Consolidated vs Standalone: </strong><CitationText text={cs} /></p>}
                   </SummarySubcard>
                 )
               })()
@@ -298,45 +390,48 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
 
             {sum.profitability_analysis && (
               (() => {
-                if (typeof sum.profitability_analysis === 'string') {
-                  if (!sum.profitability_analysis.trim()) return null
+                if (typeof sum.profitability_analysis !== 'object' || Array.isArray(sum.profitability_analysis)) {
+                  const flat = asText(sum.profitability_analysis)
+                  if (!flat) return null
                   return (
                     <SummarySubcard heading="Profitability, Margins & Contribution Drivers" accent="emerald">
-                      <p><CitationText text={sum.profitability_analysis} /></p>
+                      <p><CitationText text={flat} /></p>
                     </SummarySubcard>
                   )
                 }
-                const { current_vs_avg_margin, profitability_factors, profit_contribution_consol_vs_standalone } = sum.profitability_analysis
-                if (!current_vs_avg_margin?.trim() && !profitability_factors?.trim() && !profit_contribution_consol_vs_standalone?.trim()) return null
+                const cm = asText(sum.profitability_analysis.current_vs_avg_margin)
+                const pf = asText(sum.profitability_analysis.profitability_factors)
+                const pc = asText(sum.profitability_analysis.profit_contribution_consol_vs_standalone)
+                if (!cm && !pf && !pc) return null
                 return (
                   <SummarySubcard heading="Profitability, Margins & Contribution Drivers" accent="emerald">
-                    {current_vs_avg_margin?.trim() && <p><strong className="sum-title-emerald">Current vs Average Margin: </strong><CitationText text={current_vs_avg_margin} /></p>}
-                    {profitability_factors?.trim() && <p><strong className="sum-title-emerald">Margin Drivers: </strong><CitationText text={profitability_factors} /></p>}
-                    {profit_contribution_consol_vs_standalone?.trim() && <p><strong className="sum-title-emerald">Profit Contribution (Consol vs Standalone): </strong><CitationText text={profit_contribution_consol_vs_standalone} /></p>}
+                    {cm && <p><strong className="sum-title-emerald">Current vs Average Margin: </strong><CitationText text={cm} /></p>}
+                    {pf && <p><strong className="sum-title-emerald">Margin Drivers: </strong><CitationText text={pf} /></p>}
+                    {pc && <p><strong className="sum-title-emerald">Profit Contribution (Consol vs Standalone): </strong><CitationText text={pc} /></p>}
                   </SummarySubcard>
                 )
               })()
             )}
 
-            {sum.financial_issues?.trim() && (
+            {asText(sum.financial_issues) && (
               <SummarySubcard heading="Major Financial Issues: Cash Flow, Debt & Statement Watch" accent="amber">
                 <p><CitationText text={sum.financial_issues} /></p>
               </SummarySubcard>
             )}
 
-            {sum.partners_and_subsidiaries?.trim() && (
+            {asText(sum.partners_and_subsidiaries) && (
               <SummarySubcard heading="Subsidiaries, Associates & Partners" accent="indigo">
                 <p><CitationText text={sum.partners_and_subsidiaries} /></p>
               </SummarySubcard>
             )}
 
-            {sum.growth_capex_orderbook?.trim() && (
+            {asText(sum.growth_capex_orderbook) && (
               <SummarySubcard heading="Growth Probability, Order Book & Capex" accent="emerald">
                 <p><CitationText text={sum.growth_capex_orderbook} /></p>
               </SummarySubcard>
             )}
 
-            {sum.current_issues?.trim() && (
+            {asText(sum.current_issues) && (
               <SummarySubcard heading="Current Legal, Regulatory & Operational Issues" accent="rose">
                 <p><CitationText text={sum.current_issues} /></p>
               </SummarySubcard>
@@ -344,29 +439,31 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
 
             {sum.investor_risks_and_opportunities && (
               (() => {
-                if (typeof sum.investor_risks_and_opportunities === 'string') {
-                  if (!sum.investor_risks_and_opportunities.trim()) return null
+                if (typeof sum.investor_risks_and_opportunities !== 'object' || Array.isArray(sum.investor_risks_and_opportunities)) {
+                  const flat = asText(sum.investor_risks_and_opportunities)
+                  if (!flat) return null
                   return (
                     <SummarySubcard heading="Investor Opportunities & Key Risks" accent="amber" span2>
-                      <p><CitationText text={sum.investor_risks_and_opportunities} /></p>
+                      <p><CitationText text={flat} /></p>
                     </SummarySubcard>
                   )
                 }
-                const { opportunities, risks } = sum.investor_risks_and_opportunities
-                if (!opportunities?.trim() && !risks?.trim()) return null
+                const oppText = asText(sum.investor_risks_and_opportunities.opportunities)
+                const riskText = asText(sum.investor_risks_and_opportunities.risks)
+                if (!oppText && !riskText) return null
                 return (
                   <SummarySubcard heading="Investor Opportunities & Key Risks" accent="amber" span2>
                     <div className="about-grid-2">
-                      {opportunities?.trim() && (
+                      {oppText && (
                         <div className="about-opp-box">
                           <div className="about-sub-label sum-title-emerald">Opportunities</div>
-                          <p><CitationText text={opportunities} /></p>
+                          <p><CitationText text={oppText} /></p>
                         </div>
                       )}
-                      {risks?.trim() && (
+                      {riskText && (
                         <div className="about-risk-box">
                           <div className="about-sub-label sum-title-rose">Key Risks</div>
-                          <p><CitationText text={risks} /></p>
+                          <p><CitationText text={riskText} /></p>
                         </div>
                       )}
                     </div>
@@ -375,7 +472,7 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
               })()
             )}
 
-            {sum.additional_insights?.trim() && (
+            {asText(sum.additional_insights) && (
               <SummarySubcard heading="Additional Strategic Highlights" accent="fuchsia" span2>
                 <p><CitationText text={sum.additional_insights} /></p>
               </SummarySubcard>
@@ -394,24 +491,24 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                 Business Overview
               </h2>
             </div>
-            {ai.executive_summary && (
+            {asText(ai.executive_summary) && (
               <div className="about-body-text">
                 <p><CitationText text={ai.executive_summary} /></p>
               </div>
             )}
-            {ai.quick_stats && ai.quick_stats.length > 0 && (
+            {quickStats.length > 0 && (
               <div className="about-quick-stats">
-                {ai.quick_stats.slice(0, 3).map((st, idx) => (
+                {quickStats.slice(0, 3).map((st, idx) => (
                   <div key={idx} className={`about-stat-box stat-tone-${(idx % 3) + 1}`}>
-                    <div className="about-stat-lbl">{st.label}</div>
-                    <div className="about-stat-val">{st.value}</div>
+                    <div className="about-stat-lbl">{asText(st?.label)}</div>
+                    <div className="about-stat-val">{asText(st?.value)}</div>
                   </div>
                 ))}
               </div>
             )}
           </section>
 
-          {ai.official_site_highlights && (ai.official_site_highlights.headline || ai.official_site_highlights.core_assets) && (
+          {ai.official_site_highlights && (asText(ai.official_site_highlights.headline) || asText(ai.official_site_highlights.core_assets)) && (
             <section className="about-card">
               <div className="about-top-bar bar-blue-teal" />
               <div className="about-card-header">
@@ -421,12 +518,12 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                 </h3>
                 <span className="about-tag-badge tag-blue">Official Domain</span>
               </div>
-              {ai.official_site_highlights.headline && (
+              {asText(ai.official_site_highlights.headline) && (
                 <p className="about-body-text" style={{ fontStyle: 'italic', fontWeight: 600, marginBottom: 8 }}>
-                  {ai.official_site_highlights.headline}
+                  {asText(ai.official_site_highlights.headline)}
                 </p>
               )}
-              {ai.official_site_highlights.core_assets && (
+              {asText(ai.official_site_highlights.core_assets) && (
                 <div className="about-body-text">
                   <p><CitationText text={ai.official_site_highlights.core_assets} /></p>
                 </div>
@@ -442,18 +539,18 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                 <span className="about-tag-badge tag-emerald">Live Feed</span>
               </div>
               <div className="about-feed-stack">
-                {ai.capex_and_order_book && ai.capex_and_order_book.length > 0 ? (
-                  ai.capex_and_order_book.map((item, idx) => (
+                {capexList.length > 0 ? (
+                  capexList.map((item, idx) => (
                     <div key={idx} className="about-item-card about-capex-card">
                       <div className="about-item-top">
                         <div className="about-item-title">
-                          {item.headline}
-                          <CitationBadge num={item.source_num} />
+                          {asText(item?.headline)}
+                          <CitationBadge num={item?.source_num} />
                         </div>
-                        {item.date && <span className="about-tag-badge tag-emerald">{item.date}</span>}
+                        {asText(item?.date) && <span className="about-tag-badge tag-emerald">{asText(item?.date)}</span>}
                       </div>
                       <div className="about-body-text">
-                        <p><CitationText text={item.details} /></p>
+                        <p><CitationText text={item?.details} /></p>
                       </div>
                     </div>
                   ))
@@ -470,22 +567,22 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                 <span className="about-tag-badge tag-amber">Risk &amp; Legal</span>
               </div>
               <div className="about-feed-stack">
-                {ai.regulatory_and_litigation && ai.regulatory_and_litigation.length > 0 ? (
-                  ai.regulatory_and_litigation.map((item, idx) => {
-                    const sev = item.severity || 'Medium'
+                {regList.length > 0 ? (
+                  regList.map((item, idx) => {
+                    const sev = asText(item?.severity) || 'Medium'
                     const sevLow = sev.toLowerCase()
                     const sevCls = sevLow.includes('high') ? 'risk-high' : sevLow.includes('medium') ? 'risk-med' : 'risk-low'
                     return (
                       <div key={idx} className="about-item-card about-reg-card">
                         <div className="about-item-top">
                           <div className="about-item-title">
-                            {item.issue}
-                            <CitationBadge num={item.source_num} />
+                            {asText(item?.issue)}
+                            <CitationBadge num={item?.source_num} />
                           </div>
                           <span className={`about-tag-badge ${sevCls}`}>{sev} Risk</span>
                         </div>
                         <div className="about-body-text">
-                          <p><CitationText text={item.details} /></p>
+                          <p><CitationText text={item?.details} /></p>
                         </div>
                       </div>
                     )
@@ -503,19 +600,20 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                 <h3>Business Segments &amp; Revenue Mix</h3>
                 <span className="about-tag-badge tag-cyan">Divisions</span>
               </div>
-              {ai.revenue_breakup && ai.revenue_breakup.length > 0 ? (
-                ai.revenue_breakup.map((item, idx) => {
-                  const pct = Number(item.percentage) || 0
+              {revBreakupBars.length > 0 ? (
+                revBreakupBars.map((item, idx) => {
+                  const pct = asPercent(item?.percentage)
+                  const det = asText(item?.details)
                   return (
                     <div key={idx} className="about-bar-item">
                       <div className="about-bar-meta">
-                        <span className="about-bar-label">{item.category}</span>
+                        <span className="about-bar-label">{asText(item?.category)}</span>
                         <span className="about-bar-pct-cyan">{pct.toFixed(1)}%</span>
                       </div>
                       <div className="about-bar-track">
                         <div className={`about-bar-fill ${barGrads[idx % barGrads.length]}`} style={{ width: `${Math.min(100, Math.max(6, pct))}%` }} />
                       </div>
-                      {item.details && <div className="about-bar-desc">{item.details}</div>}
+                      {det && <div className="about-bar-desc">{det}</div>}
                     </div>
                   )
                 })
@@ -529,19 +627,20 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
                 <h3>Geographical Distribution &amp; Reach</h3>
                 <span className="about-tag-badge tag-indigo">Markets</span>
               </div>
-              {ai.geographical_reach && ai.geographical_reach.length > 0 ? (
-                ai.geographical_reach.map((item, idx) => {
-                  const pct = Number(item.percentage) || 0
+              {geoReachBars.length > 0 ? (
+                geoReachBars.map((item, idx) => {
+                  const pct = asPercent(item?.percentage)
+                  const det = asText(item?.details)
                   return (
                     <div key={idx} className="about-bar-item">
                       <div className="about-bar-meta">
-                        <span className="about-bar-label">{item.region}</span>
+                        <span className="about-bar-label">{asText(item?.region)}</span>
                         <span className="about-bar-pct-indigo">{pct.toFixed(1)}%</span>
                       </div>
                       <div className="about-bar-track">
                         <div className={`about-bar-fill ${barGrads[(idx + 2) % barGrads.length]}`} style={{ width: `${Math.min(100, Math.max(6, pct))}%` }} />
                       </div>
-                      {item.details && <div className="about-bar-desc">{item.details}</div>}
+                      {det && <div className="about-bar-desc">{det}</div>}
                     </div>
                   )
                 })
@@ -564,12 +663,12 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
             {recentNews.map((item, idx) => (
               <div key={idx} className="about-item-card about-news-card">
                 <div className="about-item-top" style={{ marginBottom: 0 }}>
-                  <span className="about-tag-badge tag-cyan">{item.date || 'Recent'}</span>
-                  <span className="about-news-pub">{item.publisher || 'News'}</span>
+                  <span className="about-tag-badge tag-cyan">{asText(item?.date) || 'Recent'}</span>
+                  <span className="about-news-pub">{asText(item?.publisher) || 'News'}</span>
                 </div>
                 <div className="about-body-text" style={{ fontWeight: 500 }}>
-                  <span>{item.headline || item.title}</span>
-                  <CitationBadge num={item.ref_id} />
+                  <span>{asText(item?.headline) || asText(item?.title)}</span>
+                  <CitationBadge num={item?.ref_id} />
                 </div>
               </div>
             ))}
@@ -577,19 +676,19 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
         </section>
       )}
 
-      {ai?.sections && ai.sections.length > 0 && (
+      {aiSections.length > 0 && (
         <>
           <div className="about-dimensions-header">
             <h2>
               <span className="about-summary-dot" />
               Comprehensive Business &amp; Operational Analysis
             </h2>
-            <span className="about-tag-badge tag-cyan">{ai.sections.length} Specialized Dimensions</span>
+            <span className="about-tag-badge tag-cyan">{aiSections.length} Specialized Dimensions</span>
           </div>
           <div className="about-grid-2">
-            {ai.sections.map((sec, idx) => {
-              const cleanTitle = (sec.title || '').replace(/^\d+[\.\-\s:]+/, '').trim()
-              const lines = (sec.content || '').split('\n').map(l => l.trim()).filter(Boolean)
+            {aiSections.map((sec, idx) => {
+              const cleanTitle = asText(sec?.title).replace(/^\d+[\.\-\s:]+/, '').trim()
+              const lines = asText(sec?.content).split('\n').map(l => l.trim()).filter(Boolean)
               const colorName = sectionColors[idx % sectionColors.length]
               return (
                 <article key={idx} className={`about-card about-section-card sec-${colorName}`}>
@@ -620,18 +719,18 @@ export function AboutSection({ about, fallbackCompanyName, onRetry, onUnlockWith
             <span className="about-tag-badge tag-cyan">Primary Audit Trail</span>
           </div>
           <div className="about-grid-2">
-            {masterSources.map(src => (
-              <div key={src.id} id={`about-source-${src.id}`} className="about-source-item">
+            {masterSources.map((src, sIdx) => (
+              <div key={src?.id ?? sIdx} id={`about-source-${asText(src?.id)}`} className="about-source-item">
                 <div className="about-source-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="about-source-id">[{src.id}]</span>
-                    <span className={`about-tag-badge ${sourceTypeClass(src.type)}`}>{src.type}</span>
+                    <span className="about-source-id">[{asText(src?.id)}]</span>
+                    <span className={`about-tag-badge ${sourceTypeClass(src?.type)}`}>{asText(src?.type) || 'Source'}</span>
                   </div>
-                  {src.date && <span className="about-bar-desc">{src.date}</span>}
+                  {asText(src?.date) && <span className="about-bar-desc">{asText(src?.date)}</span>}
                 </div>
-                <div className="about-source-title">{src.title || 'Reference Link'}</div>
-                <a className="about-source-link" href={src.url} target="_blank" rel="noopener noreferrer">
-                  <span>{src.url}</span>
+                <div className="about-source-title">{asText(src?.title) || 'Reference Link'}</div>
+                <a className="about-source-link" href={asText(src?.url) || '#'} target="_blank" rel="noopener noreferrer">
+                  <span>{asText(src?.url)}</span>
                   <ExternalLink size={12} style={{ flex: 'none' }} />
                 </a>
               </div>

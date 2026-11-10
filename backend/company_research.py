@@ -805,7 +805,215 @@ def _extract_json_object(raw_text: str) -> dict[str, Any] | None:
         text = text[start : end + 1]
     cleaned = re.sub(r",\s*([\]}])", r"\1", text)
     parsed = json.loads(cleaned, strict=False)
+    if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+        parsed = parsed[0]
     return parsed if isinstance(parsed, dict) and parsed else None
+
+
+def _as_text(val: Any) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, str):
+        return val.strip()
+    if isinstance(val, (int, float, bool)):
+        return str(val)
+    if isinstance(val, list):
+        parts = [_as_text(item) for item in val]
+        return "\n".join(p for p in parts if p)
+    if isinstance(val, dict):
+        parts = []
+        for k, v in val.items():
+            sub = _as_text(v)
+            if sub:
+                parts.append(f"{str(k).replace('_', ' ').title()}: {sub}")
+        return "; ".join(parts)
+    return str(val).strip()
+
+
+def _as_float(val: Any) -> float:
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return float(val)
+    if isinstance(val, str):
+        cleaned = re.sub(r"[^0-9.\-]", "", val)
+        try:
+            return float(cleaned) if cleaned else 0.0
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _as_int_or_none(val: Any) -> int | None:
+    if isinstance(val, int) and not isinstance(val, bool):
+        return val
+    if isinstance(val, (float, str)):
+        digits = re.findall(r"\d+", str(val))
+        if digits:
+            return int(digits[0])
+    return None
+
+
+def _normalize_ai_payload(raw: dict[str, Any], comp_name: str, comp_symbol: str) -> dict[str, Any]:
+    """Strictly normalize all AI response fields to prevent inconsistent frontend shapes."""
+    sr_raw = raw.get("summary_report")
+    sr_in = sr_raw if isinstance(sr_raw, dict) else {}
+
+    bm_raw = sr_in.get("business_model_type")
+    if isinstance(bm_raw, dict):
+        tags_raw = bm_raw.get("primary_tags")
+        if isinstance(tags_raw, list):
+            bm_tags = [_as_text(t) for t in tags_raw if _as_text(t)]
+        else:
+            bm_tags = [t.strip() for t in _as_text(tags_raw).split(",") if t.strip()]
+        bm_type = {"primary_tags": bm_tags, "note": _as_text(bm_raw.get("note"))}
+    else:
+        bm_type = {"primary_tags": [], "note": _as_text(bm_raw)}
+
+    peers_raw = sr_in.get("peer_table")
+    peer_table = []
+    if isinstance(peers_raw, list):
+        for pr in peers_raw:
+            if not isinstance(pr, dict):
+                continue
+            cname = _as_text(pr.get("company"))
+            if not cname:
+                continue
+            peer_table.append({
+                "company": cname,
+                "mcap_cr": _as_text(pr.get("mcap_cr")) or "-",
+                "revenue_cr": _as_text(pr.get("revenue_cr")) or "-",
+                "opm_pct": _as_text(pr.get("opm_pct")) or "-",
+                "pe": _as_text(pr.get("pe")) or "-",
+                "roce_pct": _as_text(pr.get("roce_pct")) or "-",
+                "is_target": bool(pr.get("is_target")),
+            })
+
+    rb_raw = sr_in.get("revenue_breakups")
+    if isinstance(rb_raw, dict):
+        rev_breakups: dict[str, str] | str = {
+            "product_wise": _as_text(rb_raw.get("product_wise")),
+            "geography_wise": _as_text(rb_raw.get("geography_wise")),
+            "consolidated_vs_standalone": _as_text(rb_raw.get("consolidated_vs_standalone")),
+        }
+    else:
+        rev_breakups = _as_text(rb_raw)
+
+    pa_raw = sr_in.get("profitability_analysis")
+    if isinstance(pa_raw, dict):
+        prof_analysis: dict[str, str] | str = {
+            "current_vs_avg_margin": _as_text(pa_raw.get("current_vs_avg_margin")),
+            "profitability_factors": _as_text(pa_raw.get("profitability_factors")),
+            "profit_contribution_consol_vs_standalone": _as_text(
+                pa_raw.get("profit_contribution_consol_vs_standalone")
+            ),
+        }
+    else:
+        prof_analysis = _as_text(pa_raw)
+
+    ro_raw = sr_in.get("investor_risks_and_opportunities")
+    if isinstance(ro_raw, dict):
+        risks_opps: dict[str, str] | str = {
+            "opportunities": _as_text(ro_raw.get("opportunities")),
+            "risks": _as_text(ro_raw.get("risks")),
+        }
+    else:
+        risks_opps = _as_text(ro_raw)
+
+    summary_report = {
+        "company_name": _as_text(sr_in.get("company_name")) or f"{comp_name} ({comp_symbol})",
+        "promoter_and_owner": _as_text(sr_in.get("promoter_and_owner")),
+        "sector_and_industry": _as_text(sr_in.get("sector_and_industry")),
+        "market_position_and_peers": _as_text(sr_in.get("market_position_and_peers")),
+        "peer_table": peer_table,
+        "business_model_short": _as_text(sr_in.get("business_model_short")),
+        "business_model_type": bm_type,
+        "revenue_sources_short": _as_text(sr_in.get("revenue_sources_short")),
+        "revenue_breakups": rev_breakups,
+        "profitability_analysis": prof_analysis,
+        "financial_issues": _as_text(sr_in.get("financial_issues")),
+        "partners_and_subsidiaries": _as_text(sr_in.get("partners_and_subsidiaries")),
+        "growth_capex_orderbook": _as_text(sr_in.get("growth_capex_orderbook")),
+        "current_issues": _as_text(sr_in.get("current_issues")),
+        "investor_risks_and_opportunities": risks_opps,
+        "additional_insights": _as_text(sr_in.get("additional_insights")),
+    }
+
+    quick_stats = []
+    if isinstance(raw.get("quick_stats"), list):
+        for st in raw["quick_stats"]:
+            if isinstance(st, dict) and (_as_text(st.get("label")) or _as_text(st.get("value"))):
+                quick_stats.append({"label": _as_text(st.get("label")), "value": _as_text(st.get("value"))})
+
+    rev_breakup = []
+    if isinstance(raw.get("revenue_breakup"), list):
+        for item in raw["revenue_breakup"]:
+            if isinstance(item, dict) and _as_text(item.get("category")):
+                rev_breakup.append({
+                    "category": _as_text(item.get("category")),
+                    "percentage": _as_float(item.get("percentage")),
+                    "details": _as_text(item.get("details")),
+                })
+
+    geo_reach = []
+    if isinstance(raw.get("geographical_reach"), list):
+        for item in raw["geographical_reach"]:
+            if isinstance(item, dict) and _as_text(item.get("region")):
+                geo_reach.append({
+                    "region": _as_text(item.get("region")),
+                    "percentage": _as_float(item.get("percentage")),
+                    "details": _as_text(item.get("details")),
+                })
+
+    capex_list = []
+    if isinstance(raw.get("capex_and_order_book"), list):
+        for item in raw["capex_and_order_book"]:
+            if isinstance(item, dict) and (_as_text(item.get("headline")) or _as_text(item.get("details"))):
+                capex_list.append({
+                    "headline": _as_text(item.get("headline")) or "Capital Project",
+                    "date": _as_text(item.get("date")),
+                    "details": _as_text(item.get("details")),
+                    "source_num": _as_int_or_none(item.get("source_num")),
+                })
+
+    reg_list = []
+    if isinstance(raw.get("regulatory_and_litigation"), list):
+        for item in raw["regulatory_and_litigation"]:
+            if isinstance(item, dict) and (_as_text(item.get("issue")) or _as_text(item.get("details"))):
+                reg_list.append({
+                    "issue": _as_text(item.get("issue")) or "Regulatory Notice",
+                    "severity": _as_text(item.get("severity")) or "Medium",
+                    "details": _as_text(item.get("details")),
+                    "source_num": _as_int_or_none(item.get("source_num")),
+                })
+
+    off_raw = raw.get("official_site_highlights")
+    off_in = off_raw if isinstance(off_raw, dict) else {}
+    official_highlights = {
+        "headline": _as_text(off_in.get("headline")),
+        "core_assets": _as_text(off_in.get("core_assets")),
+        "source_num": _as_int_or_none(off_in.get("source_num")),
+    }
+
+    sections = []
+    if isinstance(raw.get("sections"), list):
+        for sec in raw["sections"]:
+            if not isinstance(sec, dict):
+                continue
+            title = _as_text(sec.get("title"))
+            content = _as_text(sec.get("content") or sec.get("points") or sec.get("bullets") or sec.get("details"))
+            if title or content:
+                sections.append({"title": title, "content": content})
+
+    return {
+        "summary_report": summary_report,
+        "executive_summary": _as_text(raw.get("executive_summary")),
+        "quick_stats": quick_stats,
+        "revenue_breakup": rev_breakup,
+        "geographical_reach": geo_reach,
+        "capex_and_order_book": capex_list,
+        "regulatory_and_litigation": reg_list,
+        "official_site_highlights": official_highlights,
+        "sections": sections,
+    }
 
 
 def _build_model_payload(model_name: str, system_instruction: str, prompt: str) -> dict[str, Any]:
@@ -1001,13 +1209,22 @@ Return ONLY a valid JSON object matching this exact schema:
             if resp.status_code == 200:
                 result_json = resp.json()
                 candidates = result_json.get("candidates", [])
-                if candidates:
-                    text_content = (
-                        candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                    )
-                    parsed = _extract_json_object(text_content)
-                    if parsed:
-                        return parsed, "ok"
+                if candidates and isinstance(candidates[0], dict):
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    non_thought_texts = [
+                        p.get("text", "")
+                        for p in parts
+                        if isinstance(p, dict) and not p.get("thought") and isinstance(p.get("text"), str) and p.get("text").strip()
+                    ]
+                    fallback_texts = [
+                        p.get("text", "")
+                        for p in parts
+                        if isinstance(p, dict) and isinstance(p.get("text"), str) and p.get("text").strip()
+                    ]
+                    text_content = "\n".join(non_thought_texts or fallback_texts)
+                    parsed = _extract_json_object(text_content) if text_content else None
+                    if parsed and (parsed.get("summary_report") or parsed.get("executive_summary") or parsed.get("sections")):
+                        return _normalize_ai_payload(parsed, comp_name, comp_symbol), "ok"
                 return None, "empty/invalid-json"
             if resp.status_code in (400, 401, 403):
                 # Do not fail fatally if a specific fallback model rejects an optional parameter

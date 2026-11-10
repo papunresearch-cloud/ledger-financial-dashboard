@@ -3,18 +3,34 @@ import type { AboutState, BankData, FinancialData } from './types'
 
 type CapturedChart = { title: string; dataUrl: string }
 const safeName = (value: string) => value.toUpperCase().replace(/[^A-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'COMPANY'
-const cleanCite = (text: string | null | undefined) =>
-  (text ?? '')
+const safeTextVal = (value: unknown): string => {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return value.map(safeTextVal).filter(Boolean).join('\n')
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => {
+        const sub = safeTextVal(v)
+        return sub ? `${k}: ${sub}` : ''
+      })
+      .filter(Boolean)
+      .join('; ')
+  }
+  return ''
+}
+const cleanCite = (text: unknown) =>
+  safeTextVal(text)
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\[+([\d\s,]+)\]+/g, '[$1]')
     .replace(/\s+/g, ' ')
     .trim()
-const cleanMultilineCite = (text: string | null | undefined) =>
-  (text ?? '')
+const cleanMultilineCite = (text: unknown) =>
+  safeTextVal(text)
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\[+([\d\s,]+)\]+/g, '[$1]')
     .trim()
-const pdfText = (text: string | null | undefined) =>
+const pdfText = (text: unknown) =>
   cleanMultilineCite(text)
     .replace(/₹/g, 'Rs. ')
     .replace(/[“”]/g, '"')
@@ -343,7 +359,7 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
     ws.addRow([])
     addBanner('COMPREHENSIVE OPERATIONAL INTELLIGENCE (18 DIMENSIONS)')
     for (const sec of ai?.sections ?? []) {
-      const cleanTitle = (sec.title || '').replace(/^\d+[\.\-\s:]+/, '').trim()
+      const cleanTitle = cleanCite(sec.title).replace(/^\d+[\.\-\s:]+/, '').trim()
       addKV(cleanTitle, sec.content)
     }
   }
@@ -772,7 +788,7 @@ function appendAboutPdfSection(
       startY: 22,
       head: [['Operational Dimension', 'Verified Analysis']],
       body: (ai?.sections ?? []).map(sec => [
-        pdfText((sec.title || '').replace(/^\d+[\.\-\s:]+/, '')),
+        pdfText(sec.title).replace(/^\d+[\.\-\s:]+/, '').trim(),
         pdfText(sec.content),
       ]),
       columnStyles: { 0: { cellWidth: 64, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
