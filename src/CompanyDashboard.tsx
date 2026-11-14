@@ -3,9 +3,8 @@ import { ChartPanel, type ChartSpec } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { calculateRobustWeightedAverage, calculateRollingCashRatioAverage } from './rollingPerShare'
 import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
-import type { AnnualRow, AppTheme, CompanyData, QuarterRow } from './types'
+import type { AnnualRow, AppTheme, CompanyData, QuarterRow, Section } from './types'
 
-type Section = 'about' | 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 type CompanySpecs = { annual: ChartSpec[]; margins: ChartSpec[]; quarterly: ChartSpec[]; special: ChartSpec[] }
 const fmt = (value: number | null | undefined, decimals = 1) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: decimals }).format(value)
 const fmtTwoDecimals = (value: number) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)

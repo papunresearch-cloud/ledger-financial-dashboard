@@ -3,19 +3,39 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
+import socket
+import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+BACKEND_DIR = Path(__file__).resolve().parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from screener_downloader import ScreenerDownloadError, download_company_workbook
-from company_research import CompanyResearchError, gather_company_sources, load_env_setting, synthesize_about_ai
+from company_research import CompanyResearchError, gather_company_about, load_env_setting
 
 APP_DIR = Path(__file__).resolve().parents[1]
 DIST_DIR = APP_DIR / "dist"
 HOST = "127.0.0.1"
-PORT = 8000
+
+
+def get_available_port(host: str = "127.0.0.1", preferred: int = 8000) -> int:
+    env_port = os.environ.get("PORT")
+    if env_port and env_port.isdigit():
+        return int(env_port)
+    for p in (preferred, 8001, 8002):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex((host, p)) != 0:
+                return p
+    return preferred
+
+
+PORT = get_available_port(HOST, 8000)
 MAX_BODY_BYTES = 8_000
 MAX_AI_BODY_BYTES = 512_000
 ALLOWED_BROWSER_ORIGINS = {
@@ -23,6 +43,10 @@ ALLOWED_BROWSER_ORIGINS = {
     "http://127.0.0.1:5173",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
+    "http://localhost:8002",
+    "http://127.0.0.1:8002",
 }
 
 
@@ -38,8 +62,22 @@ class LocalAppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
+        origin = self.headers.get("Origin")
+        if origin and origin in ALLOWED_BROWSER_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(payload)
+
+    def do_OPTIONS(self):
+        origin = self.headers.get("Origin")
+        self.send_response(204)
+        if origin and origin in ALLOWED_BROWSER_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def do_GET(self):
         parsed = urlsplit(self.path)
@@ -85,40 +123,30 @@ class LocalAppHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0 or length > max_len:
                 return self._send_json(413, {"detail": "Invalid request size."})
-            body = json.loads(self.rfile.read(length).decode("utf-8"))
-        except Exception:
-            return self._send_json(400, {"detail": "Invalid JSON request body."})
+            raw_body = self.rfile.read(length).decode("utf-8")
+            body = json.loads(raw_body)
+        except Exception as exc:
+            print(f"JSON parse error: {exc!r}", flush=True)
+            return self._send_json(400, {"detail": f"Invalid JSON request body: {exc}"})
 
-        if route == "/api/about-sources":
+        if route in ("/api/about-sources", "/api/about"):
             code = str(body.get("code", "")).strip()
             company_name = str(body.get("companyName", "")).strip()
             if not code and not company_name:
                 return self._send_json(400, {"detail": "Provide a company code or company name."})
             try:
-                payload = gather_company_sources(code or company_name, company_name)
+                payload = gather_company_about(code or company_name, company_name)
                 return self._send_json(200, payload)
             except CompanyResearchError as exc:
                 return self._send_json(422, {"detail": str(exc)})
             except Exception as exc:
-                print("Local about-sources failed:", flush=True)
+                print("Local about fetch failed:", flush=True)
                 traceback.print_exc()
                 detail = f"{type(exc).__name__}: {exc}"[:600]
-                return self._send_json(500, {"detail": f"Company source fetch failed — {detail}"})
+                return self._send_json(500, {"detail": f"Company About fetch failed — {detail}"})
 
         if route == "/api/about-ai":
-            api_key = load_env_setting("GEMINI_API_KEY")
-            if not api_key:
-                return self._send_json(503, {"detail": "GEMINI_API_KEY is not set in environment variables or .env."})
-            try:
-                ai_data = synthesize_about_ai(body, api_key=api_key, cloud_mode=False)
-                return self._send_json(200, {"ai": ai_data})
-            except CompanyResearchError as exc:
-                return self._send_json(422, {"detail": str(exc)})
-            except Exception as exc:
-                print("Local about-ai failed:", flush=True)
-                traceback.print_exc()
-                detail = f"{type(exc).__name__}: {exc}"[:600]
-                return self._send_json(500, {"detail": f"Company AI synthesis failed — {detail}"})
+            return self._send_json(200, {"disabled": True, "detail": "AI synthesis disabled."})
 
         try:
             code = str(body.get("code", "")).strip()

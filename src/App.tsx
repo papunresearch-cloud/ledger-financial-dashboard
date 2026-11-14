@@ -1,22 +1,22 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, Moon, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { BankDashboard } from './BankDashboard'
 import { CompanyDashboard } from './CompanyDashboard'
 import { ForecastCalculator } from './ForecastCalculator'
+import { HoldingSection } from './HoldingSection'
 import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel, exportPdf } from './exportReports'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
-import type { AboutAiData, AboutSourcesResponse, AboutState, AppTheme, CompanyData, FinancialData } from './types'
+import type { AboutState, AppTheme, CompanyData, FinancialData, ScreenerAboutData, Section } from './types'
 import './cloud-download.css'
 
 type Mode = 'nonbank' | 'bank'
-type Section = 'about' | 'overview' | 'yearly' | 'quarterly' | 'tables' | 'checks'
 const compact = (n: number | null | undefined, digits = 1) => n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(n)
 const supportsLocalScreener = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
 const supportsCloudScreener = !supportsLocalScreener
-const emptyAboutState = (companyKey = ''): AboutState => ({ companyKey, status: 'idle', sources: null, ai: null, error: '', aiError: '' })
+const emptyAboutState = (companyKey = ''): AboutState => ({ companyKey, status: 'idle', data: null, error: '' })
 
 function inferCompanyCode(companyName: string, fileName: string): string {
   const cleanFile = fileName.replace(/\.xlsx$/i, '').trim().toUpperCase()
@@ -66,59 +66,6 @@ function App() {
     setError('')
   }
 
-  async function synthesizeAiStep(
-    cacheKey: string,
-    sourcesPayload: AboutSourcesResponse,
-    headers: Record<string, string>,
-    reqId: number,
-  ) {
-    setAbout({
-      companyKey: cacheKey,
-      status: 'loading-ai',
-      sources: sourcesPayload,
-      ai: null,
-      error: '',
-      aiError: '',
-    })
-
-    const aiResp = await fetch('/api/about-ai', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(sourcesPayload),
-    })
-    if (reqId !== aboutReqIdRef.current) return
-    if (aiResp.status === 401) {
-      setAbout({ companyKey: cacheKey, status: 'needs-key', sources: sourcesPayload, ai: null, error: '', aiError: '' })
-      return
-    }
-    if (!aiResp.ok) {
-      let msg = `AI synthesis failed (HTTP ${aiResp.status}).`
-      try { const b = await aiResp.json() as { detail?: string }; if (b.detail) msg = b.detail } catch { /* ignore */ }
-      setAbout({
-        companyKey: cacheKey,
-        status: 'error',
-        sources: sourcesPayload,
-        ai: null,
-        error: '',
-        aiError: msg,
-      })
-      return
-    }
-    const aiBody = await aiResp.json() as { ai?: AboutAiData }
-    if (reqId !== aboutReqIdRef.current) return
-
-    const finalState: AboutState = {
-      companyKey: cacheKey,
-      status: 'ready',
-      sources: sourcesPayload,
-      ai: aiBody.ai ?? null,
-      error: '',
-      aiError: '',
-    }
-    aboutCacheRef.current.set(cacheKey, finalState)
-    setAbout(finalState)
-  }
-
   async function loadAboutForCompany(
     parsedData: FinancialData,
     codeHint: string,
@@ -137,33 +84,11 @@ function App() {
 
     const reqId = ++aboutReqIdRef.current
     const keyToUse = (overrideKey ?? accessKey).trim()
-    if (supportsCloudScreener && !keyToUse) {
-      setAbout({ ...emptyAboutState(cacheKey), status: 'needs-key' })
-      return
-    }
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (supportsCloudScreener && keyToUse) headers['X-Ledger-Key'] = keyToUse
 
-    // Fast path: if sources already arrived and only AI synthesis failed, retry only Step 2
-    if (forceRefresh && about.companyKey === cacheKey && about.sources && !about.ai && about.aiError) {
-      try {
-        await synthesizeAiStep(cacheKey, about.sources, headers, reqId)
-      } catch (cause) {
-        if (reqId !== aboutReqIdRef.current) return
-        setAbout({
-          companyKey: cacheKey,
-          status: 'error',
-          sources: about.sources,
-          ai: null,
-          error: '',
-          aiError: cause instanceof Error ? cause.message : String(cause),
-        })
-      }
-      return
-    }
-
-    setAbout({ ...emptyAboutState(cacheKey), status: 'loading-sources' })
+    setAbout({ companyKey: cacheKey, status: 'loading', data: null, error: '' })
     try {
       const srcResp = await fetch('/api/about-sources', {
         method: 'POST',
@@ -171,33 +96,35 @@ function App() {
         body: JSON.stringify({ code: codeHint, companyName: nameHint }),
       })
       if (reqId !== aboutReqIdRef.current) return
-      if (srcResp.status === 401) {
-        setAbout({ ...emptyAboutState(cacheKey), status: 'needs-key' })
-        return
-      }
       if (!srcResp.ok) {
-        let msg = `Company intelligence sources unavailable (HTTP ${srcResp.status}).`
+        let msg = `Company About unavailable from Screener (HTTP ${srcResp.status}).`
         try { const b = await srcResp.json() as { detail?: string }; if (b.detail) msg = b.detail } catch { /* ignore */ }
         throw new Error(msg)
       }
-      const sourcesPayload = await srcResp.json() as AboutSourcesResponse
+      const dataPayload = await srcResp.json() as ScreenerAboutData
       if (reqId !== aboutReqIdRef.current) return
 
-      await synthesizeAiStep(cacheKey, sourcesPayload, headers, reqId)
+      const finalState: AboutState = {
+        companyKey: cacheKey,
+        status: 'ready',
+        data: dataPayload,
+        error: '',
+        sources: dataPayload,
+      }
+      aboutCacheRef.current.set(cacheKey, finalState)
+      setAbout(finalState)
     } catch (cause) {
       if (reqId !== aboutReqIdRef.current) return
       const msg = cause instanceof Error ? cause.message : String(cause)
       setAbout({
         companyKey: cacheKey,
         status: 'error',
-        sources: null,
-        ai: null,
+        data: null,
         error: cause instanceof TypeError || /failed to fetch|networkerror/i.test(msg)
           ? supportsLocalScreener
             ? 'Local Python server is unreachable for About research. Start backend/server.py and click Retry.'
             : 'Cloud intelligence endpoint could not be reached. Check Vercel deployment and click Retry.'
           : msg,
-        aiError: '',
       })
     }
   }
@@ -252,6 +179,7 @@ function App() {
     { key: 'about', label: 'About', icon: BookOpen },
     { key: 'overview', label: 'Overview', icon: Activity },
     { key: 'yearly', label: 'Plots', icon: BarChart3 },
+    { key: 'holding', label: 'Holding-%', icon: PieChart },
     { key: 'tables', label: 'Data Sheet', icon: FileSpreadsheet },
     { key: 'checks', label: 'Data checks', icon: CircleHelp },
   ]
@@ -293,6 +221,14 @@ function App() {
                 }}
               />
             )}
+            {section === 'holding' && (
+              <HoldingSection
+                about={about}
+                companyName={data.companyName}
+                symbol={activeCode}
+                onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+              />
+            )}
             <BankDashboard data={data} section={section} specs={bankSpecs!} theme={theme}/>
           </>
         ) : (
@@ -306,6 +242,14 @@ function App() {
                   setAccessKey(enteredKey)
                   void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
                 }}
+              />
+            )}
+            {section === 'holding' && (
+              <HoldingSection
+                about={about}
+                companyName={data.companyName}
+                symbol={activeCode}
+                onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
               />
             )}
             {section === 'checks' && <CompanyChecks data={data} />}
