@@ -72,6 +72,36 @@
   transition: background 0.15s ease;
 }
 
+/* PE / PB Multiple & Diff Styling */
+.peer-diff-cell {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.peer-diff-base {
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+}
+
+.peer-diff-neg {
+  color: #f87171 !important;
+  font-family: 'DM Mono', monospace;
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.1px;
+}
+
+.peer-diff-pos {
+  color: #4ade80 !important;
+  font-family: 'DM Mono', monospace;
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.1px;
+}
+
 /* Sticky First Column (Company Name) */
 .about-peer-table th:first-child,
 .about-peer-table td:first-child {
@@ -394,4 +424,14 @@
   background: #ffffff;
   border-color: #cbd5e1;
   color: #64748b;
+}
+
+.theme-bright .peer-diff-neg {
+  color: #b91c1c !important;
+  font-weight: 850;
+}
+
+.theme-bright .peer-diff-pos {
+  color: #15803d !important;
+  font-weight: 850;
 }

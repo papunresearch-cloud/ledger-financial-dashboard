@@ -4,7 +4,7 @@ export const DEFAULT_NON_BANK_FOOTNOTE =
   'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data; 52WH => Correction from 52w High [100*(52w High - CMP)/(52w High - 52w Low)]'
 
 export const DEFAULT_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, BV Growth, D.Payout, Debt/Equity, ROE, ROA, PE, PB => 3 years average data; 52WH => Correction from 52w High [100*(52w High - CMP)/(52w High - 52w Low)]'
+  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data; 52WH => Correction from 52w High [100*(52w High - CMP)/(52w High - 52w Low)]'
 
 export const DEFAULT_PEER_FOOTNOTE = DEFAULT_NON_BANK_FOOTNOTE
 
@@ -56,9 +56,9 @@ export const BANK_PEER_COLUMNS: ReadonlyArray<{
   { key: 'ttm_sales', label: 'TTM sales', tooltip: 'Trailing 12-Month Total Revenue / Sales (₹ Cr)' },
   { key: 'sales_growth', label: 'Sales growth', tooltip: '3-Year Sales Growth (%)' },
   { key: 'profit_growth', label: 'Profit growth', tooltip: '3-Year Profit Growth (%)' },
-  { key: 'bv_growth', label: 'BV Growth %', tooltip: 'Book Value CAGR % (BV Growth 3Y)' },
+  { key: 'bv_growth', label: 'BV Growth', tooltip: 'Book Value CAGR (BV Growth 3Y)' },
   { key: 'payout', label: 'Payout', tooltip: '3-Year Average Dividend Payout (%)' },
-  { key: 'debt_to_equity', label: 'Debt to Equity (DE)', tooltip: 'Debt to Equity (DE)' },
+  { key: 'debt_to_equity', label: 'DE', tooltip: 'Debt to Equity (DE)' },
   { key: 'roe', label: 'ROE', tooltip: '3-Year Average Return on Equity (%)' },
   { key: 'roa', label: 'ROA', tooltip: '3-Year Average Return on Assets (%)' },
   { key: 'pe', label: 'PE', tooltip: 'Current PE [3-Year Historical PE]' },
@@ -145,6 +145,35 @@ function compute52WH(cmpRaw: unknown, highRaw: unknown, lowRaw: unknown, fallbac
   return '-'
 }
 
+export function formatPePbDiff(val: unknown): string {
+  if (val === null || val === undefined) return '-'
+  const s = String(val).trim()
+  if (!s || s === '-') return '-'
+
+  // Check if it already has (diff%): e.g. "15.94 [25.69] (-37.95%)"
+  const withDiffMatch = s.match(/^([\d.,]+)\s*\[([\d.,]+)\]\s*\(([+-]?[\d.,]+%?)\)$/)
+  if (withDiffMatch) {
+    return s
+  }
+
+  // Check if it has "X [Y]": e.g. "15.94 [25.69]"
+  const pairMatch = s.match(/^([\d.,]+)\s*\[([\d.,]+)\]$/)
+  if (pairMatch) {
+    const cStr = pairMatch[1]
+    const aStr = pairMatch[2]
+    const c = parseFloat(cStr.replace(/,/g, ''))
+    const a = parseFloat(aStr.replace(/,/g, ''))
+    if (!isNaN(c) && !isNaN(a) && a > 0) {
+      const diff = (100.0 * (c - a)) / a
+      const sign = diff > 0 ? '+' : ''
+      return `${cStr} [${aStr}] (${sign}${diff.toFixed(2)}%)`
+    }
+    return `${cStr} [${aStr}]`
+  }
+
+  return s
+}
+
 function normalizePeerRow(raw: AboutPeerRow | Record<string, unknown>, isMedian = false): NormalizedPeerRow | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
@@ -171,8 +200,8 @@ function normalizePeerRow(raw: AboutPeerRow | Record<string, unknown>, isMedian 
     roa: cleanStr(r.roa),
     payout: cleanStr(r.payout),
     cfo_ebit_pct: cleanStr(r.cfo_ebit_pct),
-    pe: cleanStr(r.pe),
-    pb: cleanStr(r.pb),
+    pe: formatPePbDiff(cleanStr(r.pe)),
+    pb: formatPePbDiff(cleanStr(r.pb)),
     ps: cleanStr(r.ps),
     d_yield: cleanStr(r.d_yield),
     cmp,

@@ -44,14 +44,16 @@ function parsePercent(val: string): number | null {
   return Number.isFinite(num) ? num : null
 }
 
-function calcDelta(curr: string, prev: string): { diff: number; text: string } | null {
+function calcDelta(curr: string, prev: string): { diff: number; text: string; isZero: boolean } | null {
   const c = parsePercent(curr)
   const p = parsePercent(prev)
   if (c === null || p === null) return null
   const diff = c - p
-  if (Math.abs(diff) < 0.005) return null
+  if (Math.abs(diff) < 0.005) {
+    return { diff: 0, text: '0.00 %', isZero: true }
+  }
   const sign = diff > 0 ? '+' : ''
-  return { diff, text: `${sign}${diff.toFixed(2)}%` }
+  return { diff, text: `${sign}${diff.toFixed(2)}%`, isZero: false }
 }
 
 function CategoryBadge({ category }: { category: string }) {
@@ -153,10 +155,10 @@ function ShareholdingTableView({
                           <span className="sh-cell-value">{val}</span>
                           {delta && (
                             <span
-                              className={`sh-delta-chip ${delta.diff > 0 ? 'delta-up' : 'delta-down'}`}
-                              title={`Change vs previous period: ${delta.text}`}
+                              className={`sh-delta-chip ${delta.isZero ? 'delta-zero' : delta.diff > 0 ? 'delta-up' : 'delta-down'}`}
+                              title={delta.isZero ? 'No change vs previous period (0.00 %)' : `Change vs previous period: ${delta.text}`}
                             >
-                              {delta.diff > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                              {!delta.isZero && (delta.diff > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />)}
                               {delta.text}
                             </span>
                           )}

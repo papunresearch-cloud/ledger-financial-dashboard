@@ -603,6 +603,12 @@
   border: 1px solid rgba(248, 113, 113, 0.45);
 }
 
+.delta-zero {
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
 /* Distinct Row Styling */
 .sh-tr-shareholders {
   border-top: 2px solid rgba(255, 255, 255, 0.12);
@@ -879,6 +885,13 @@
   color: #991b1b;
   background: #fecaca;
   border: 1px solid #fca5a5;
+  font-weight: 850;
+}
+
+.theme-bright .delta-zero {
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
   font-weight: 850;
 }
 

@@ -310,6 +310,15 @@ def _fmt_peer_pair(curr_raw: str, avg3_raw: str) -> str:
     curr = _fmt_peer_mult(curr_raw)
     avg3 = _fmt_peer_mult(avg3_raw)
     if curr != "-" and avg3 != "-":
+        try:
+            c = float(str(curr).replace(",", ""))
+            a = float(str(avg3).replace(",", ""))
+            if a > 0:
+                diff = 100.0 * (c - a) / a
+                sign = "+" if diff > 0 else ""
+                return f"{curr} [{avg3}] ({sign}{diff:.2f}%)"
+        except Exception:
+            pass
         return f"{curr} [{avg3}]"
     if curr != "-":
         return curr

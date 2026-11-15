@@ -17,6 +17,48 @@ import {
 import type { AboutState } from './types'
 import './comparisonSection.css'
 
+function renderPePbCell(val: string) {
+  if (!val || val === '-') return '-'
+
+  // Match pattern: "15.94 [25.69] (-37.95%)" or "15.94 [25.69] (+12.30%)"
+  const withDiffMatch = val.match(/^([\d.,]+\s*\[[\d.,]+\])\s*\(([+-]?[\d.,]+%?)\)$/)
+  if (withDiffMatch) {
+    const base = withDiffMatch[1]
+    const diffStr = withDiffMatch[2]
+    const num = parseFloat(diffStr.replace(/,/g, '').replace(/%/g, ''))
+    const isNeg = !isNaN(num) && num < 0
+    return (
+      <span className="peer-diff-cell">
+        <span className="peer-diff-base">{base}</span>{' '}
+        <span className={isNeg ? 'peer-diff-neg' : 'peer-diff-pos'}>({diffStr})</span>
+      </span>
+    )
+  }
+
+  // Fallback: If string is "X [Y]" without diff, compute it dynamically
+  const pairMatch = val.match(/^([\d.,]+)\s*\[([\d.,]+)\]$/)
+  if (pairMatch) {
+    const cStr = pairMatch[1]
+    const aStr = pairMatch[2]
+    const c = parseFloat(cStr.replace(/,/g, ''))
+    const a = parseFloat(aStr.replace(/,/g, ''))
+    if (!isNaN(c) && !isNaN(a) && a > 0) {
+      const diff = (100.0 * (c - a)) / a
+      const sign = diff > 0 ? '+' : ''
+      const diffStr = `${sign}${diff.toFixed(2)}%`
+      const isNeg = diff < 0
+      return (
+        <span className="peer-diff-cell">
+          <span className="peer-diff-base">{cStr} [{aStr}]</span>{' '}
+          <span className={isNeg ? 'peer-diff-neg' : 'peer-diff-pos'}>({diffStr})</span>
+        </span>
+      )
+    }
+  }
+
+  return val
+}
+
 function PeerTableRow({
   row,
   columns,
@@ -47,9 +89,11 @@ function PeerTableRow({
           <span className="about-peer-name-text">{row.company}</span>
         )}
       </td>
-      {columns.map(col => (
-        <td key={col.key}>{row[col.key] || '-'}</td>
-      ))}
+      {columns.map(col => {
+        const rawVal = row[col.key] || '-'
+        const content = (col.key === 'pe' || col.key === 'pb') ? renderPePbCell(rawVal) : rawVal
+        return <td key={col.key}>{content}</td>
+      })}
     </tr>
   )
 }

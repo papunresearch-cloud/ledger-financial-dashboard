@@ -310,6 +310,21 @@ export function buildStandaloneWebReportHtml(
       color: #0f172a !important;
     }
 
+    .peer-diff-neg {
+      color: #b91c1c !important;
+      font-weight: 850 !important;
+    }
+    .peer-diff-pos {
+      color: #15803d !important;
+      font-weight: 850 !important;
+    }
+    .delta-zero {
+      color: #0369a1 !important;
+      background: #e0f2fe !important;
+      border: 1px solid #7dd3fc !important;
+      font-weight: 850 !important;
+    }
+
     /* Recharts Chart Grid & Card Styling */
     .chart-grid {
       display: grid !important;
