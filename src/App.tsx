@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Check, ChevronRight, CircleHelp, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { BankDashboard } from './BankDashboard'
 import { CompanyDashboard } from './CompanyDashboard'
 import { ForecastCalculator } from './ForecastCalculator'
 import { HoldingSection } from './HoldingSection'
+import { QuarterlyRatioSection } from './QuarterlyRatioSection'
+import { YearlyRatioSection } from './YearlyRatioSection'
 import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel, exportPdf } from './exportReports'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
@@ -178,6 +180,8 @@ function App() {
   const sections: Array<{ key: Section; label: string; icon: typeof BarChart3 }> = [
     { key: 'about', label: 'About', icon: BookOpen },
     { key: 'overview', label: 'Overview', icon: Activity },
+    { key: 'quarterly-ratio', label: 'Quarterly-Ratio', icon: Clock },
+    { key: 'yearly-ratio', label: 'Yearly-ratio', icon: Calendar },
     { key: 'yearly', label: 'Plots', icon: BarChart3 },
     { key: 'holding', label: 'Holding-%', icon: PieChart },
     { key: 'tables', label: 'Data Sheet', icon: FileSpreadsheet },
@@ -221,6 +225,8 @@ function App() {
                 }}
               />
             )}
+            {section === 'quarterly-ratio' && <QuarterlyRatioSection data={data} />}
+            {section === 'yearly-ratio' && <YearlyRatioSection data={data} />}
             {section === 'holding' && (
               <HoldingSection
                 about={about}
@@ -244,6 +250,8 @@ function App() {
                 }}
               />
             )}
+            {section === 'quarterly-ratio' && <QuarterlyRatioSection data={data} />}
+            {section === 'yearly-ratio' && <YearlyRatioSection data={data} />}
             {section === 'holding' && (
               <HoldingSection
                 about={about}

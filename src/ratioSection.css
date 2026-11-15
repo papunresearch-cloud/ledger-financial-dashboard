@@ -1,0 +1,748 @@
+/* =========================================================
+   RATIO SECTION STYLES (Exotic, Colorful & High-Contrast)
+   Used for both Quarterly-Ratio and Yearly-ratio Pages
+   ========================================================= */
+
+.ratio-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px clamp(12px, 2.5vw, 36px) 48px clamp(12px, 2.5vw, 36px);
+  box-sizing: border-box;
+}
+
+/* 1. TOP BANNER */
+.ratio-top-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 22px;
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.95) 0%, rgba(10, 15, 29, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ratio-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ratio-avatar-chip {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.avatar-quarterly {
+  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4);
+}
+
+.avatar-yearly {
+  background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+}
+
+.ratio-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ratio-company-name {
+  font-size: 18.5px;
+  font-weight: 850;
+  color: #f8fafc;
+  letter-spacing: -0.2px;
+  font-family: Manrope, sans-serif;
+}
+
+.ratio-symbol-badge {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 2.5px 8px;
+  border-radius: 5px;
+  letter-spacing: 0.5px;
+  font-family: 'DM Mono', monospace;
+}
+
+.ratio-scope-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 3px 9px;
+  border-radius: 14px;
+}
+
+.ratio-page-subtitle {
+  margin: 3px 0 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.ratio-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ratio-btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+  transition: all 0.15s ease;
+}
+
+.ratio-btn-copy:hover {
+  background: rgba(99, 102, 241, 0.28);
+  color: #ffffff;
+}
+
+/* 2. EXOTIC KPI SUMMARY STRIP */
+.ratio-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.ratio-kpi-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 15px 18px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #111827 0%, #0b1120 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.ratio-kpi-card:hover {
+  transform: translateY(-2px);
+}
+
+.ratio-kpi-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.ratio-kpi-value {
+  font-size: 24px;
+  font-weight: 850;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.ratio-kpi-sub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* KPI Card Accents */
+.kpi-accent-cyan {
+  border-color: rgba(6, 182, 212, 0.35);
+}
+.kpi-accent-cyan .ratio-kpi-head { color: #38bdf8; }
+.kpi-accent-cyan .ratio-kpi-value { color: #e0f2fe; }
+
+.kpi-accent-emerald {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.kpi-accent-emerald .ratio-kpi-head { color: #34d399; }
+.kpi-accent-emerald .ratio-kpi-value { color: #d1fae5; }
+
+.kpi-accent-purple {
+  border-color: rgba(168, 85, 247, 0.35);
+}
+.kpi-accent-purple .ratio-kpi-head { color: #c084fc; }
+.kpi-accent-purple .ratio-kpi-value { color: #f3e8ff; }
+
+.kpi-accent-indigo {
+  border-color: rgba(99, 102, 241, 0.35);
+}
+.kpi-accent-indigo .ratio-kpi-head { color: #818cf8; }
+.kpi-accent-indigo .ratio-kpi-value { color: #e0e7ff; }
+
+.kpi-accent-rose {
+  border-color: rgba(244, 63, 94, 0.35);
+}
+.kpi-accent-rose .ratio-kpi-head { color: #fb7185; }
+.kpi-accent-rose .ratio-kpi-value { color: #ffe4e6; }
+
+.kpi-accent-amber {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.kpi-accent-amber .ratio-kpi-head { color: #fbbf24; }
+.kpi-accent-amber .ratio-kpi-value { color: #fef3c7; }
+
+/* 3. MAIN RATIO TABLES STACK */
+.ratio-tables-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.ratio-table-card {
+  background: linear-gradient(180deg, #131926 0%, #0d121c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+.ratio-table-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.4) 100%);
+  flex-wrap: wrap;
+}
+
+.ratio-kicker {
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  font-family: 'DM Mono', monospace;
+}
+
+.ratio-table-title {
+  margin: 3px 0 2px 0;
+  font-size: 20px;
+  font-weight: 850;
+  color: #f8fafc;
+  letter-spacing: -0.3px;
+  font-family: Manrope, sans-serif;
+}
+
+.ratio-table-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.ratio-count-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Horizontal Scroll Container */
+.ratio-table-scroll-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.ratio-table-scroll-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.ratio-table-scroll-wrap::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Table */
+.ratio-data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 800px;
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+}
+
+.ratio-data-table thead tr {
+  background: #0f172a;
+}
+
+.ratio-th-label {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: #0f172a;
+  text-align: left;
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  min-width: 250px;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
+}
+
+.ratio-th-period {
+  padding: 12px 14px;
+  text-align: right;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-weight: 750;
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 95px;
+}
+
+.ratio-th-ttm {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border-bottom-color: rgba(245, 158, 11, 0.4);
+}
+
+.ratio-ttm-pill {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fbbf24;
+  letter-spacing: 0.8px;
+}
+
+/* Category Group Divider Row */
+.ratio-group-header-row td {
+  padding: 10px 18px 8px 18px;
+  background: linear-gradient(90deg, #162032 0%, #0d1522 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ratio-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-family: Manrope, sans-serif;
+}
+
+/* Category Badge Jewel Colors */
+.cat-badge-growth {
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  color: #d8b4fe;
+}
+
+.cat-badge-margins {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+}
+
+.cat-badge-quality {
+  background: rgba(6, 182, 212, 0.18);
+  border: 1px solid rgba(6, 182, 212, 0.45);
+  color: #67e8f9;
+}
+
+.cat-badge-liquidity {
+  background: rgba(20, 184, 166, 0.18);
+  border: 1px solid rgba(20, 184, 166, 0.45);
+  color: #5eead4;
+}
+
+.cat-badge-returns {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  color: #a5b4fc;
+}
+
+.cat-badge-cashflow {
+  background: rgba(244, 63, 94, 0.18);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  color: #fda4af;
+}
+
+.cat-badge-workingcap {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fde047;
+}
+
+.cat-badge-pershare {
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  color: #93c5fd;
+}
+
+.cat-badge-default {
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #cbd5e1;
+}
+
+/* Normal Data Rows */
+.ratio-data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.ratio-data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.ratio-td-label {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  background: #111827;
+  padding: 11px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.35);
+  min-width: 250px;
+}
+
+.ratio-data-table tbody tr:hover .ratio-td-label {
+  background: #162032;
+}
+
+.ratio-label-text {
+  font-weight: 750;
+  color: #f1f5f9;
+  font-size: 13.5px;
+  font-family: Manrope, sans-serif;
+  display: block;
+}
+
+.ratio-formula-subtext {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.ratio-td-val {
+  padding: 10px 14px;
+  text-align: right;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-weight: 750;
+  font-size: 13px;
+  white-space: nowrap;
+  color: #f1f5f9;
+}
+
+.val-ttm {
+  background: rgba(245, 158, 11, 0.06);
+  color: #fde047;
+}
+
+/* Value Tone Colors */
+.val-pos {
+  color: #34d399;
+}
+
+.val-neg {
+  color: #fb7185;
+}
+
+.ratio-page-footer {
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
+}
+
+/* =========================================================
+   4. LIGHT THEME COMPATIBILITY (High-Contrast, Rich & Deep Colors)
+   NO LIGHT YELLOW - Uses deep bronze/rust, royal blue, emerald, crimson
+   ========================================================= */
+
+.theme-bright .ratio-top-banner {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+.theme-bright .ratio-company-name {
+  color: #0f172a;
+}
+
+.theme-bright .ratio-page-subtitle {
+  color: #475569;
+}
+
+.theme-bright .ratio-btn-copy {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.theme-bright .ratio-btn-copy:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* KPI Cards in Bright Mode */
+.theme-bright .ratio-kpi-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.theme-bright .kpi-accent-cyan {
+  border-color: #7dd3fc;
+  background: linear-gradient(145deg, #ffffff 0%, #f0f9ff 100%);
+}
+.theme-bright .kpi-accent-cyan .ratio-kpi-head { color: #0284c7; }
+.theme-bright .kpi-accent-cyan .ratio-kpi-value { color: #0369a1; }
+
+.theme-bright .kpi-accent-emerald {
+  border-color: #6ee7b7;
+  background: linear-gradient(145deg, #ffffff 0%, #ecfdf5 100%);
+}
+.theme-bright .kpi-accent-emerald .ratio-kpi-head { color: #047857; }
+.theme-bright .kpi-accent-emerald .ratio-kpi-value { color: #064e3b; }
+
+.theme-bright .kpi-accent-purple {
+  border-color: #d8b4fe;
+  background: linear-gradient(145deg, #ffffff 0%, #faf5ff 100%);
+}
+.theme-bright .kpi-accent-purple .ratio-kpi-head { color: #6b21a8; }
+.theme-bright .kpi-accent-purple .ratio-kpi-value { color: #581c87; }
+
+.theme-bright .kpi-accent-indigo {
+  border-color: #93c5fd;
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
+}
+.theme-bright .kpi-accent-indigo .ratio-kpi-head { color: #1e40af; }
+.theme-bright .kpi-accent-indigo .ratio-kpi-value { color: #1e3a8a; }
+
+.theme-bright .kpi-accent-rose {
+  border-color: #fda4af;
+  background: linear-gradient(145deg, #ffffff 0%, #fff1f2 100%);
+}
+.theme-bright .kpi-accent-rose .ratio-kpi-head { color: #be123c; }
+.theme-bright .kpi-accent-rose .ratio-kpi-value { color: #881337; }
+
+/* Deep Rust/Amber for Amber Cards - NO LIGHT YELLOW */
+.theme-bright .kpi-accent-amber {
+  border-color: #fdba74;
+  background: linear-gradient(145deg, #ffffff 0%, #fff7ed 100%);
+}
+.theme-bright .kpi-accent-amber .ratio-kpi-head { color: #9a3412; }
+.theme-bright .kpi-accent-amber .ratio-kpi-value { color: #7c2d12; }
+
+/* Table in Bright Mode */
+.theme-bright .ratio-table-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+}
+
+.theme-bright .ratio-table-header {
+  background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom-color: #e2e8f0;
+}
+
+.theme-bright .ratio-table-title {
+  color: #0f172a;
+}
+
+.theme-bright .ratio-table-subtitle {
+  color: #475569;
+}
+
+.theme-bright .ratio-kicker {
+  color: #0284c7;
+}
+
+.theme-bright .ratio-count-pill {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.theme-bright .ratio-data-table thead tr {
+  background: #f1f5f9;
+}
+
+.theme-bright .ratio-th-label {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-bottom-color: #cbd5e1;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06);
+}
+
+.theme-bright .ratio-th-period {
+  border-bottom-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.theme-bright .ratio-th-ttm {
+  background: #ffedd5;
+  color: #9a3412;
+  border-bottom-color: #fdba74;
+}
+
+.theme-bright .ratio-ttm-pill {
+  color: #9a3412;
+}
+
+.theme-bright .ratio-group-header-row td {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+  border-bottom-color: #e2e8f0;
+}
+
+/* Category Badge Jewel Colors in Bright Mode - High-Contrast Saturated */
+.theme-bright .cat-badge-growth {
+  background: #faf5ff;
+  border-color: #d8b4fe;
+  color: #6b21a8;
+}
+
+.theme-bright .cat-badge-margins {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.theme-bright .cat-badge-quality {
+  background: #f0f9ff;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+.theme-bright .cat-badge-liquidity {
+  background: #f0fdfa;
+  border-color: #5eead4;
+  color: #0f766e;
+}
+
+.theme-bright .cat-badge-returns {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.theme-bright .cat-badge-cashflow {
+  background: #fff1f2;
+  border-color: #fda4af;
+  color: #be123c;
+}
+
+/* Deep rust for working capital badge in Bright Mode - NO LIGHT YELLOW */
+.theme-bright .cat-badge-workingcap {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.theme-bright .cat-badge-pershare {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.theme-bright .cat-badge-default {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.theme-bright .ratio-td-label {
+  background: #ffffff;
+  border-bottom-color: #e2e8f0;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
+}
+
+.theme-bright .ratio-data-table tbody tr:hover .ratio-td-label {
+  background: #f8fafc;
+}
+
+.theme-bright .ratio-data-table tbody tr:hover {
+  background: rgba(2, 132, 199, 0.03);
+}
+
+.theme-bright .ratio-label-text {
+  color: #0f172a;
+}
+
+.theme-bright .ratio-formula-subtext {
+  color: #64748b;
+}
+
+.theme-bright .ratio-td-val {
+  color: #0f172a;
+  border-bottom-color: #e2e8f0;
+}
+
+.theme-bright .val-ttm {
+  background: rgba(249, 115, 22, 0.06);
+  color: #9a3412;
+}
+
+.theme-bright .val-pos {
+  color: #047857;
+}
+
+.theme-bright .val-neg {
+  color: #be123c;
+}
+
+.theme-bright .ratio-page-footer {
+  border-top-color: #e2e8f0;
+  color: #64748b;
+}

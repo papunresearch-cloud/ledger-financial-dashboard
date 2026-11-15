@@ -45,6 +45,11 @@ export type AnnualRow = {
   cashToTotalAssets: number | null
   cashBank: number | null
   sharesCr: number | null
+  profitBeforeTax: number | null
+  depreciation: number | null
+  pbtLessDepreciation: number | null
+  otherIncome: number | null
+  interest: number | null
 }
 
 export type QuarterRow = {
@@ -53,6 +58,10 @@ export type QuarterRow = {
   totalIncome: number | null
   netProfit: number | null
   operatingProfit: number | null
+  profitBeforeTax: number | null
+  depreciation: number | null
+  pbtLessDepreciation: number | null
+  otherIncome: number | null
   operatingProfitMargin: number | null
   netProfitMargin: number | null
 }
@@ -107,6 +116,13 @@ export type BankAnnualRow = {
   operatingCashFlow: number | null
   cwip: number | null
   freeCashFlow: number | null
+  depreciation: number | null
+  pbtLessDepreciation: number | null
+  deposits: number | null
+  loansAdvances: number | null
+  ldr: number | null
+  borrowingsToDeposits: number | null
+  equityToTotalAssets: number | null
 }
 
 export type BankQuarterRow = {
@@ -122,6 +138,9 @@ export type BankQuarterRow = {
   expenses: number | null
   totalExpense: number | null
   operatingProfit: number | null
+  profitBeforeTax: number | null
+  depreciation: number | null
+  pbtLessDepreciation: number | null
   netProfit: number | null
   operatingProfitMargin: number | null
   netProfitMargin: number | null
@@ -146,7 +165,21 @@ export type FinancialData = CompanyData | BankData
 
 export type AppTheme = 'dark' | 'bright'
 
-export type Section = 'about' | 'overview' | 'yearly' | 'holding' | 'quarterly' | 'tables' | 'checks'
+export type Section = 'about' | 'overview' | 'quarterly-ratio' | 'yearly-ratio' | 'yearly' | 'holding' | 'quarterly' | 'tables' | 'checks'
+
+export type RatioTableRow = {
+  label: string
+  category: string
+  formula?: string
+  values: string[]
+}
+
+export type RatioTable = {
+  headers: string[]
+  rows: RatioTableRow[]
+  is_bank?: boolean
+  scope?: string
+}
 
 export type ScreenerFootnote = {
   num: string

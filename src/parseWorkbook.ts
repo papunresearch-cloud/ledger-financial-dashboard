@@ -189,6 +189,8 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
       const cashBank = get(balance, 'Cash & Bank', i, ['Cash and Bank'])
       const interest = get(pnl, 'Interest', i)
       const profitBeforeTax = get(pnl, 'Profit before tax', i, ['Profit Before Tax'])
+      const depreciation = get(pnl, 'Depreciation', i)
+      const pbtLessDepreciation = profitBeforeTax !== null ? profitBeforeTax - (depreciation ?? 0) : null
       const sharesAdjusted = shareRow ? numberOrNull(shareRow[i + 1]) : null
       const sharesRaw = get(balance, 'No. of Equity Shares', i, ['Number of Equity Shares'])
       const sharesCr = sharesAdjusted ?? (sharesRaw === null ? null : sharesRaw / 10_000_000)
@@ -242,7 +244,8 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
         netBlockToTotalAssets: netBlock === null || totalAssets === null || totalAssets <= 0 ? null : 100 * netBlock / totalAssets,
         investmentsToTotalAssets: investments === null || totalAssets === null || totalAssets <= 0 ? null : 100 * investments / totalAssets,
         cashToTotalAssets: cashBank === null || totalAssets === null || totalAssets <= 0 ? null : 100 * cashBank / totalAssets,
-        cashBank, sharesCr,
+        cashBank, sharesCr, profitBeforeTax, depreciation, pbtLessDepreciation,
+        otherIncome, interest,
       }
       return row
     })
@@ -252,7 +255,11 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
       const totalIncome = sales === null || otherIncome === null ? null : sales + otherIncome
       const netProfit = get(quarterly, 'Net profit', i, ['Net Profit'])
       const operatingProfit = get(quarterly, 'Operating Profit', i)
+      const profitBeforeTax = get(quarterly, 'Profit before tax', i, ['Profit Before Tax'])
+      const depreciation = get(quarterly, 'Depreciation', i)
+      const pbtLessDepreciation = profitBeforeTax !== null ? profitBeforeTax - (depreciation ?? 0) : null
       return { period, sales, totalIncome, netProfit, operatingProfit,
+        profitBeforeTax, depreciation, pbtLessDepreciation, otherIncome,
         operatingProfitMargin: safeMargin(sales, operatingProfit),
         netProfitMargin: safeMargin(sales, netProfit) }
     })
@@ -301,6 +308,8 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
     const otherIncome = get(pnl, 'Other Income', i)
     const totalRevenue = interestEarned === null || otherIncome === null ? null : interestEarned + otherIncome
     const profitBeforeTax = get(pnl, 'Profit before tax', i, ['Profit Before Tax'])
+    const depreciation = get(pnl, 'Depreciation', i)
+    const pbtLessDepreciation = profitBeforeTax !== null ? profitBeforeTax - (depreciation ?? 0) : null
     const netProfit = get(pnl, 'Net profit', i, ['Net Profit'])
     const provisionOtherExpense = get(pnl, 'Other Expenses', i)
     const expenseInputs = [
@@ -357,6 +366,11 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
       ? null : 100 * netProfit / ((priorEquity + equity) / 2)
     const roa = i === 0 || totalAssets === null || priorAssets === null || netProfit === null || priorAssets + totalAssets === 0
       ? null : 100 * netProfit / ((priorAssets + totalAssets) / 2)
+    const deposits = get(balance, 'Deposits', i, ['Deposit'])
+    const loansAdvances = get(balance, 'Loans & Advances', i, ['Loans and Advances', 'Advances', 'Loans n Advances']) ?? otherAssets
+    const ldr = loansAdvances !== null && deposits !== null && deposits > 0 ? 100 * loansAdvances / deposits : null
+    const borrowingsToDeposits = borrowings !== null && deposits !== null && deposits > 0 ? 100 * borrowings / deposits : null
+    const equityToTotalAssets = equity !== null && totalAssets !== null && totalAssets > 0 ? 100 * equity / totalAssets : null
     return {
       period, interestEarned, interestPaid, interestGap, interestRatio, otherIncome, otherIncomeToInterestEarned, interestIncomeContribution, totalRevenue, basicExpense, provisionOtherExpense,
       totalExpense, expenseMethod, profitBeforeTax, netProfit, operatingProfitMargin, netProfitMargin, dividend,
@@ -367,6 +381,7 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
       liquidity: cashBank === null || denominatorLiquidity === null || denominatorLiquidity === 0
         ? null : 100 * cashBank / denominatorLiquidity,
       totalAssets, otherAssets, sharesCr, operatingCashFlow, cwip, freeCashFlow,
+      depreciation, pbtLessDepreciation, deposits, loansAdvances, ldr, borrowingsToDeposits, equityToTotalAssets,
     }
   })
 
@@ -378,6 +393,9 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
     const expenses = get(quarters, 'Expenses', i)
     const totalExpense = expenses === null || interestPaid === null ? null : expenses + interestPaid
     const operatingProfit = get(quarters, 'Operating Profit', i)
+    const profitBeforeTax = get(quarters, 'Profit before tax', i, ['Profit Before Tax'])
+    const depreciation = get(quarters, 'Depreciation', i)
+    const pbtLessDepreciation = profitBeforeTax !== null ? profitBeforeTax - (depreciation ?? 0) : null
     const netProfit = get(quarters, 'Net profit', i, ['Net Profit'])
     const otherIncomeToInterestEarned = interestEarned === null || otherIncome === null || interestEarned === 0
       ? null : 100 * otherIncome / interestEarned
@@ -387,7 +405,9 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
       period, interestEarned, interestPaid,
       interestGap: interestEarned === null || interestPaid === null || interestEarned === 0 ? null : 100 * (interestEarned - interestPaid) / interestEarned,
       interestRatio,
-      otherIncome, otherIncomeToInterestEarned, interestIncomeContribution, totalRevenue, expenses, totalExpense, operatingProfit, netProfit,
+      otherIncome, otherIncomeToInterestEarned, interestIncomeContribution, totalRevenue, expenses, totalExpense, operatingProfit,
+      profitBeforeTax, depreciation, pbtLessDepreciation,
+      netProfit,
       operatingProfitMargin: totalRevenue === null || totalExpense === null || totalRevenue === 0 ? null : 100 * (totalRevenue - totalExpense) / totalRevenue,
       netProfitMargin: totalRevenue === null || netProfit === null || totalRevenue === 0 ? null : 100 * netProfit / totalRevenue,
     }

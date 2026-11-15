@@ -142,7 +142,8 @@ const legendWrapperStyle: React.CSSProperties = {
   paddingTop: 10,
 }
 
-export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec: ChartSpec; exportMode?: boolean; theme?: 'light' | 'dark' | 'bright' }) {
+export function ChartPanel({ spec, exportMode = false, staticRender = false, gradientPrefix, theme = 'light' }: { spec: ChartSpec; exportMode?: boolean; staticRender?: boolean; gradientPrefix?: string; theme?: 'light' | 'dark' | 'bright' }) {
+  const gradPrefix = gradientPrefix ?? (exportMode ? 'export-' : '')
   const hasData = spec.data.some(point => spec.metrics.some(metric => typeof point[metric.key] === 'number' && Number.isFinite(point[metric.key] as number)))
   const allLine = spec.type === 'line'
   const isDark = theme === 'dark'
@@ -195,20 +196,21 @@ export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec
                 name={metric.label}
                 stroke={lineColor}
                 strokeWidth={3}
+                isAnimationActive={!staticRender && !exportMode}
                 dot={{ r: 3.5, fill: isDark ? '#0a141a' : '#ffffff', stroke: lineColor, strokeWidth: 2.2 }}
                 activeDot={{ r: 5.5, fill: lineColor, stroke: '#ffffff', strokeWidth: 2 }}
                 connectNulls={false}
               />
             )
           })}
-        </LineChart> : <ComposedChart data={spec.data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
+        </LineChart> : <ComposedChart data={spec.data} margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}>
           <defs>
             {spec.metrics.filter(m => m.kind !== 'line').map(metric => {
               const palette = getBarPalette(metric.color, theme)
               return (
                 <linearGradient
-                  key={`grad-${spec.id}-${metric.key}`}
-                  id={`grad-${spec.id}-${metric.key}`}
+                  key={`${gradPrefix}grad-${spec.id}-${metric.key}`}
+                  id={`${gradPrefix}grad-${spec.id}-${metric.key}`}
                   x1="0"
                   y1="0"
                   x2="0"
@@ -239,6 +241,7 @@ export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec
                   name={metric.label}
                   stroke={lineColor}
                   strokeWidth={3}
+                  isAnimationActive={!staticRender && !exportMode}
                   dot={{ r: 3.5, fill: isDark ? '#0a141a' : '#ffffff', stroke: lineColor, strokeWidth: 2.2 }}
                   activeDot={{ r: 5.5, fill: lineColor, stroke: '#ffffff', strokeWidth: 2 }}
                   connectNulls={false}
@@ -252,11 +255,12 @@ export function ChartPanel({ spec, exportMode = false, theme = 'light' }: { spec
                 yAxisId="left"
                 dataKey={metric.key as string}
                 name={metric.label}
-                fill={`url(#grad-${spec.id}-${metric.key})`}
+                fill={`url(#${gradPrefix}grad-${spec.id}-${metric.key})`}
                 stroke={palette.stroke}
                 strokeWidth={1.8}
                 radius={[6, 6, 1, 1]}
                 maxBarSize={38}
+                isAnimationActive={!staticRender && !exportMode}
               />
             )
           })}
@@ -278,9 +282,9 @@ export function makeChartSpecs(annual: AnnualRow[], quarterly: QuarterRow[]): { 
   const Q = (key: keyof QuarterRow, label: string, color: string, kind?: 'line', axis?: 'right', unit?: Metric['unit']): Metric => ({ key, label, color, kind, axis, unit })
   const annualWithRoaOverlay = annual.map(row => ({ ...row, roaOverlay: row.roa }))
   const suppressGpm = annual.length > 0 && annual.every(row => row.grossProfitMargin !== null && row.grossProfitMargin > 95)
-  const ttmValue = (key: 'sales' | 'netProfit' | 'operatingProfit'): number | null => {
+  const ttmValue = (key: 'sales' | 'netProfit' | 'operatingProfit' | 'profitBeforeTax' | 'depreciation' | 'pbtLessDepreciation'): number | null => {
     const slice = quarterly.slice(-4)
-    if (slice.length < 4 || slice.some(row => row[key] === null)) return null
+    if (slice.length < 4 || slice.some(row => row[key] === null || row[key] === undefined)) return null
     return slice.reduce((sum, row) => sum + (row[key] as number), 0)
   }
   const ttmSales = ttmValue('sales')
@@ -288,10 +292,16 @@ export function makeChartSpecs(annual: AnnualRow[], quarterly: QuarterRow[]): { 
   const ttmNetProfit = ttmValue('netProfit')
   const ttmOperatingMargin = ttmSales === null || ttmSales === 0 || ttmOperatingProfit === null ? null : 100 * ttmOperatingProfit / ttmSales
   const ttmNetMargin = ttmSales === null || ttmSales === 0 || ttmNetProfit === null ? null : 100 * ttmNetProfit / ttmSales
+  const ttmProfitBeforeTax = ttmValue('profitBeforeTax')
+  const ttmDepreciation = ttmValue('depreciation')
+  const ttmPbtLessDepreciation = ttmProfitBeforeTax !== null ? ttmProfitBeforeTax - (ttmDepreciation ?? 0) : null
   const annualTtm: AnnualRow[] = [...annual, {
     ...(annual.at(-1) ?? {} as AnnualRow), period: 'TTM', sales: ttmSales, netProfit: ttmNetProfit,
     operatingProfit: ttmOperatingProfit, operatingProfitMargin: ttmOperatingMargin, netProfitMargin: ttmNetMargin,
     grossProfitMargin: null,
+    profitBeforeTax: ttmProfitBeforeTax,
+    depreciation: ttmDepreciation,
+    pbtLessDepreciation: ttmPbtLessDepreciation,
   }]
   const ratio = (numerator: number | null, denominator: number | null, percent = false): number | null =>
     numerator === null || denominator === null || denominator <= 0 ? null : (percent ? 100 : 1) * numerator / denominator
@@ -335,6 +345,8 @@ export function makeChartSpecs(annual: AnnualRow[], quarterly: QuarterRow[]): { 
     annual: [
       annualSpec(annualTtm, 'annual-sales', 'Sales', 'Annual and TTM sales · ₹ crore', [A('sales', 'Sales', '#00F5A0')]),
       quarterSpec(quarterly, 'quarter-sales', 'Quarterly sales', 'Quarterly revenue · ₹ crore', [Q('sales', 'Sales', '#00F5A0')]),
+      annualSpec(annualTtm, 'annual-pbt', 'Profit before tax (PBT) & [PBT - Depreciation]', 'Annual and TTM PBT & PBT less depreciation · ₹ crore', [A('profitBeforeTax', 'PBT', '#00D2FF'), A('pbtLessDepreciation', 'PBT - Depreciation', '#FFB800')]),
+      quarterSpec(quarterly, 'quarter-pbt', 'Quarterly Profit before tax (PBT) & [PBT - Depreciation]', 'Quarterly PBT & PBT less depreciation · ₹ crore', [Q('profitBeforeTax', 'PBT', '#00D2FF'), Q('pbtLessDepreciation', 'PBT - Depreciation', '#FFB800')]),
       annualSpec(annualTtm, 'annual-profit', 'Net profit', 'Annual and TTM net profit · ₹ crore', [A('netProfit', 'Net profit', '#FFB800')]),
       quarterSpec(quarterly, 'quarter-profit', 'Quarterly net profit', 'Quarterly bottom-line earnings · ₹ crore', [Q('netProfit', 'Net profit', '#FFB800')]),
       annualSpec(annualTtm, 'annual-margins', 'Profit margins', 'Annual GPM, OPM and NPM · TTM OPM and NPM · %', marginOnlyLines, 'line'),
@@ -378,36 +390,57 @@ export function makeBankChartSpecs(annual: BankAnnualRow[], quarterly: BankQuart
   const A = (key: keyof BankAnnualRow, label: string, color: string, kind?: 'line', axis?: 'right', unit?: Metric['unit']): Metric => ({ key, label, color, kind, axis, unit })
   const Q = (key: keyof BankQuarterRow, label: string, color: string, kind?: 'line', axis?: 'right', unit?: Metric['unit']): Metric => ({ key, label, color, kind, axis, unit })
   const shortPeriod = (period: string) => period.replace(/FY(?:20)?(\d{2})/g, 'FY$1')
-  const annualRows = annual.map(row => ({
-    ...row,
-    period: shortPeriod(row.period),
-    roaOverlay: row.roa,
-    interestRatio: row.interestRatio ?? (row.interestEarned && row.interestPaid !== null ? (row.interestPaid / row.interestEarned) * 100 : null),
-    interestIncomeContribution: row.interestIncomeContribution ?? (row.totalRevenue && row.interestEarned !== null ? (row.interestEarned / row.totalRevenue) * 100 : null),
-  }))
+  const annualRows = annual.map(row => {
+    const loansAdv = row.loansAdvances ?? row.otherAssets
+    const dep = row.deposits
+    const borr = row.borrowings
+    const eq = row.equity
+    const totAssets = row.totalAssets
+    const pbt = row.profitBeforeTax
+    const depr = row.depreciation
+    return {
+      ...row,
+      period: shortPeriod(row.period),
+      roaOverlay: row.roa,
+      interestRatio: row.interestRatio ?? (row.interestEarned && row.interestPaid !== null ? (row.interestPaid / row.interestEarned) * 100 : null),
+      interestIncomeContribution: row.interestIncomeContribution ?? (row.totalRevenue && row.interestEarned !== null ? (row.interestEarned / row.totalRevenue) * 100 : null),
+      loansAdvances: loansAdv,
+      deposits: dep,
+      pbtLessDepreciation: row.pbtLessDepreciation ?? (pbt !== null ? pbt - (depr ?? 0) : null),
+      ldr: row.ldr ?? (loansAdv !== null && dep !== null && dep > 0 ? 100 * loansAdv / dep : null),
+      borrowingsToDeposits: row.borrowingsToDeposits ?? (borr !== null && dep !== null && dep > 0 ? 100 * borr / dep : null),
+      equityToTotalAssets: row.equityToTotalAssets ?? (eq !== null && totAssets !== null && totAssets > 0 ? 100 * eq / totAssets : null),
+    }
+  })
   const quarterRows = quarterly.map(row => ({
     ...row,
     period: shortPeriod(row.period),
     interestRatio: row.interestRatio ?? (row.interestEarned && row.interestPaid !== null ? (row.interestPaid / row.interestEarned) * 100 : null),
     interestIncomeContribution: row.interestIncomeContribution ?? (row.totalRevenue && row.interestEarned !== null ? (row.interestEarned / row.totalRevenue) * 100 : null),
+    pbtLessDepreciation: row.pbtLessDepreciation ?? (row.profitBeforeTax !== null ? row.profitBeforeTax - (row.depreciation ?? 0) : null),
   }))
   return {
     annual: [
       annualSpec(annualRows, 'bank-interest-gap', 'Interest earned & interest paid', '₹ crore · Interest Ratio = Interest Paid / Interest Earned (%)', [A('interestEarned','Interest earned','#00F5A0'), A('interestPaid','Interest paid','#FFB800'), A('interestRatio','Interest Ratio','#B75CFF','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-interest-other-income', 'Interest earned & other income', '₹ crore · Interest income contribution = Interest income \\ Total income (%)', [A('interestEarned','Interest earned','#00F5A0'), A('otherIncome','Other income','#00D2FF'), A('interestIncomeContribution','Interest income contribution','#FF2E93','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-revenue-expense-opm', 'Total revenue & total expense', '₹ crore · OPM = [(total revenue − total expense) ÷ total revenue] % | Total revenue = Sales (Interest Earned) + Other Income | Total Expense=Operating Expenses+Other Expenses (Provisions)+Interest Paid', [A('totalRevenue','Total revenue','#00F5A0'), A('totalExpense','Total expense','#FF5353'), A('operatingProfitMargin','OPM','#00D2FF','line','right','percent')], 'combo'),
+      annualSpec(annualRows, 'bank-pbt', 'Profit before tax (PBT) & [PBT - Depreciation]', 'Annual PBT & PBT less depreciation · ₹ crore', [A('profitBeforeTax','PBT','#00D2FF'), A('pbtLessDepreciation','PBT - Depreciation','#FFB800')]),
       annualSpec(annualRows, 'bank-profit-npm', 'Net profit & NPM', 'Net profit · ₹ crore; NPM = net profit ÷ total revenue · %', [A('netProfit','Net profit','#FFB800'), A('netProfitMargin','NPM','#FF2E93','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-dividend', 'Dividend & payout', 'Dividend amount · ₹ crore; payout ratio · %', [A('dividend','Dividend amount','#FFB800'), A('dividendPayout','Dividend payout','#B75CFF','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-eps-dps', 'EPS, dividend per share & payout', 'Per-share values · ₹; payout ratio · %', [A('eps','EPS','#00F5A0',undefined,undefined,'rupee'), A('dividendPerShare','Dividend per share','#FFB800',undefined,undefined,'rupee'), A('dividendPayout','Dividend payout','#FF2E93','line','right','percent')], 'combo'),
       annualSpec(annualRows, 'bank-returns', 'ROE & ROA', 'ROE and ROA columns share one scale; ROA is overlaid as a line on the right scale', [A('roe','ROE','#00F5A0',undefined,undefined,'percent'), A('roa','ROA','#00D2FF',undefined,undefined,'percent'), { key: 'roaOverlay', label: 'ROA line', color: '#FF2E93', kind: 'line', axis: 'right', unit: 'percent' }], 'combo'),
       annualSpec(annualRows, 'bank-equity-de', 'Equity & borrowings/equity', 'Equity and borrowings columns · ₹ crore; ratio line · ×', [A('equity','Equity','#00F5A0'), A('borrowings','Borrowings','#FFB800'), A('debtToEquity','Borrowings / equity','#FF5353','line','right','ratio')], 'combo'),
       annualSpec(annualRows, 'bank-liquidity', 'Cash & liquidity', 'Cash & Bank · ₹ crore; liquidity = cash ÷ (borrowings + other liabilities) · %', [A('cashBank','Cash & Bank','#00D2FF'), A('liquidity','Liquidity','#B75CFF','line','right','percent')], 'combo'),
-      annualSpec(annualRows, 'bank-assets', 'Total assets, other assets & borrowings', '₹ crore · source labels retained', [A('totalAssets','Total assets','#00F5A0'), A('otherAssets','Other assets','#00D2FF'), A('borrowings','Borrowings','#FFB800')]),
+      annualSpec(annualRows, 'bank-assets', 'Total assets, Loans- Advances & borrowings', '₹ crore · Total assets, Loans & Advances & borrowings', [A('totalAssets','Total assets','#00F5A0'), A('loansAdvances','Loans & Advances','#00D2FF'), A('borrowings','Borrowings','#FFB800')]),
+      annualSpec(annualRows, 'bank-ldr', 'LDR (%) [Credit-to-Deposit Ratio]', 'Loans & Advances & Deposits · ₹ crore (left axis) · LDR · % (right axis)', [A('loansAdvances', 'Loans & Advances', '#00D2FF'), A('deposits', 'Deposits', '#00F5A0'), A('ldr', 'LDR', '#FFB800', 'line', 'right', 'percent')], 'combo'),
+      annualSpec(annualRows, 'bank-borrowings-deposits', 'Borrowings / Deposits (%)', 'Wholesale Borrowings & Deposits · ₹ crore (left axis) · Borrowings / Deposits · % (right axis)', [A('borrowings', 'Borrowings', '#FFB800'), A('deposits', 'Deposits', '#00F5A0'), A('borrowingsToDeposits', 'Borrowings / Deposits', '#FF5353', 'line', 'right', 'percent')], 'combo'),
+      annualSpec(annualRows, 'bank-equity-assets', 'Equity / Total Assets (%)', 'Equity & Total Assets · ₹ crore (left axis) · Equity / Total Assets · % (right axis)', [A('equity', 'Equity', '#00F5A0'), A('totalAssets', 'Total assets', '#00D2FF'), A('equityToTotalAssets', 'Equity / Total Assets', '#B75CFF', 'line', 'right', 'percent')], 'combo'),
     ],
     quarterly: [
       quarterSpec(quarterRows, 'bank-quarter-interest-gap', 'Interest earned & interest paid', '₹ crore · Interest Ratio = Interest Paid / Interest Earned (%)', [Q('interestEarned','Interest earned','#00F5A0'), Q('interestPaid','Interest paid','#FFB800'), Q('interestRatio','Interest Ratio','#B75CFF','line','right','percent')], 'combo'),
       quarterSpec(quarterRows, 'bank-quarter-income', 'Interest earned & other income', '₹ crore · Interest income contribution = Interest income \\ Total income (%)', [Q('interestEarned','Interest earned','#00F5A0'), Q('otherIncome','Other income','#00D2FF'), Q('interestIncomeContribution','Interest income contribution','#FF2E93','line','right','percent')], 'combo'),
       quarterSpec(quarterRows, 'bank-quarter-revenue-expense', 'Total revenue & total expense', '₹ crore · OPM = [(total revenue − total expense) ÷ total revenue] % | Total revenue = Sales (Interest Earned) + Other Income | Total Expense=Operating Expenses+Other Expenses (Provisions)+Interest Paid', [Q('totalRevenue','Total revenue','#00F5A0'), Q('totalExpense','Total expense','#FF5353'), Q('operatingProfitMargin','OPM','#00D2FF','line','right','percent')], 'combo'),
+      quarterSpec(quarterRows, 'bank-quarter-pbt', 'Profit before tax (PBT) & [PBT - Depreciation]', 'Quarterly PBT & PBT less depreciation · ₹ crore', [Q('profitBeforeTax','PBT','#00D2FF'), Q('pbtLessDepreciation','PBT - Depreciation','#FFB800')]),
       quarterSpec(quarterRows, 'bank-quarter-profit', 'Net profit & NPM', 'Net profit · ₹ crore; NPM = net profit ÷ total revenue · %', [Q('netProfit','Net profit','#FFB800'), Q('netProfitMargin','NPM','#FF2E93','line','right','percent')], 'combo'),
     ],
   }
