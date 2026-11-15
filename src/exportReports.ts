@@ -333,7 +333,7 @@ function appendPeerComparisonExcelSheet(book: ExcelJS.Workbook, companyName: str
   for (const peer of peerRowsAll) {
     const prefix = peer.s_no && !peer.is_median ? `${peer.s_no} ` : ''
     const pr = peerSheet.addRow([
-      `${prefix}${peer.company}${peer.is_target ? ' ★' : ''}`,
+      `${prefix}${peer.company}`,
       ...PEER_METRIC_COLUMNS.map(col => peer[col.key] || '-'),
     ])
     pr.eachCell((cell, colIdx) => {
@@ -855,7 +855,7 @@ function appendPeerComparisonPdfSection(
     headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.2, halign: 'right' },
     head: [PEER_TABLE_HEADERS],
     body: peerRowsAll.map(pr => [
-      pdfText(`${pr.s_no && !pr.is_median ? `${pr.s_no} ` : ''}${pr.company}${pr.is_target ? ' *' : ''}`),
+      pdfText(`${pr.s_no && !pr.is_median ? `${pr.s_no} ` : ''}${pr.company}`),
       ...PEER_METRIC_COLUMNS.map(col => pdfText(pr[col.key] || '-')),
     ]),
     columnStyles: {

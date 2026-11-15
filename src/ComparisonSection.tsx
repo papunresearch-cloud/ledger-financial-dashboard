@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import {
   AlertTriangle,
-  GitCompare,
   LoaderCircle,
   RefreshCw,
   Building2,
@@ -38,9 +37,8 @@ function PeerTableRow({ row }: { row: NormalizedPeerRow }) {
             {row.company}
           </a>
         ) : (
-          <span>{row.company}</span>
+          <span className="about-peer-name-text">{row.company}</span>
         )}
-        {row.is_target && <span className="about-peer-target-star">★ TARGET</span>}
       </td>
       {PEER_METRIC_COLUMNS.map(col => (
         <td key={col.key}>{row[col.key] || '-'}</td>
@@ -53,7 +51,7 @@ function PeerComparisonBlock({ comp }: { comp: ResolvedPeerComparison }) {
   if (comp.rows.length === 0) return null
 
   return (
-    <>
+    <div className="comparison-table-only-container">
       {!comp.authenticated && (
         <div className="about-peer-auth-note">
           Screener returned public peer columns only (custom 3Y metrics show <code>-</code>). Sign in once in Ledger
@@ -82,14 +80,12 @@ function PeerComparisonBlock({ comp }: { comp: ResolvedPeerComparison }) {
         </table>
       </div>
       <p className="about-peer-footnote">{comp.footnote}</p>
-    </>
+    </div>
   )
 }
 
 export function ComparisonSection({
   about,
-  companyName,
-  symbol,
   onRetry,
 }: {
   about: AboutState
@@ -98,56 +94,12 @@ export function ComparisonSection({
   onRetry?: () => void
 }) {
   const comp = useMemo(() => resolvePeerComparison(about), [about])
-  const targetRow = useMemo(() => comp.rows.find(r => r.is_target) || comp.rows[0], [comp])
-  const medianRow = comp.median
-
-  const sectorText = useMemo(() => {
-    if (comp.sectorPath && comp.sectorPath.length > 0) {
-      return comp.sectorPath.join(' › ')
-    }
-    const infoSector = about.data?.company_info?.sector
-    if (infoSector) return infoSector
-    return ''
-  }, [comp.sectorPath, about.data])
-
   const isLoading = about.status === 'loading'
   const isError = about.status === 'error' && !comp.rows.length
 
   return (
-    <div className="comparison-page-container">
-      {/* 1. TOP BANNER */}
-      <header className="comparison-top-banner">
-        <div className="comparison-banner-left">
-          <div className="comparison-avatar-chip">
-            <GitCompare size={24} />
-          </div>
-          <div>
-            <div className="comparison-title-row">
-              <span className="comparison-company-name">{companyName || symbol}</span>
-              {symbol && <span className="comparison-symbol-badge">{symbol}</span>}
-              {sectorText && <span className="comparison-sector-badge">{sectorText}</span>}
-            </div>
-            <p className="comparison-page-subtitle">
-              Peer comparison and industry positioning from Screener.in · {comp.rows.length} peer companies tracked
-            </p>
-          </div>
-        </div>
-        <div>
-          {onRetry && (
-            <button
-              className="comparison-btn-refresh"
-              onClick={onRetry}
-              disabled={isLoading}
-              title="Refresh peer comparison from Screener"
-            >
-              {isLoading ? <LoaderCircle size={15} className="spin" /> : <RefreshCw size={15} />}
-              <span>{isLoading ? 'Updating...' : 'Refresh Peers'}</span>
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* 2. LOADING OR ERROR STATES */}
+    <div className="comparison-page-container only-table-view">
+      {/* LOADING OR ERROR STATES */}
       {isLoading && comp.rows.length === 0 && (
         <div className="comparison-status-strip loading">
           <LoaderCircle size={18} className="spin" />
@@ -159,55 +111,15 @@ export function ComparisonSection({
         <div className="comparison-status-strip error">
           <AlertTriangle size={18} />
           <span>{about.error || 'Unable to fetch peer comparison for this company.'}</span>
+          {onRetry && (
+            <button className="comparison-btn-retry" onClick={onRetry}>
+              <RefreshCw size={14} /> Retry
+            </button>
+          )}
         </div>
       )}
 
-      {/* 3. SUMMARY KPI CARDS (TARGET VS MEDIAN) */}
-      {targetRow && (
-        <section className="comparison-kpi-grid" aria-label="Peer comparison highlights">
-          <article className="comparison-kpi-card target-accent">
-            <span className="comp-kpi-label">Market Cap (₹ Cr)</span>
-            <div className="comp-kpi-values">
-              <span className="comp-kpi-target-val">{targetRow.mcap || '-'}</span>
-              {medianRow?.mcap && (
-                <span className="comp-kpi-median-val">med: {medianRow.mcap}</span>
-              )}
-            </div>
-          </article>
-
-          <article className="comparison-kpi-card">
-            <span className="comp-kpi-label">P/E [3Y Historical]</span>
-            <div className="comp-kpi-values">
-              <span className="comp-kpi-target-val">{targetRow.pe || '-'}</span>
-              {medianRow?.pe && (
-                <span className="comp-kpi-median-val">med: {medianRow.pe}</span>
-              )}
-            </div>
-          </article>
-
-          <article className="comparison-kpi-card">
-            <span className="comp-kpi-label">OPM (3Y Avg)</span>
-            <div className="comp-kpi-values">
-              <span className="comp-kpi-target-val">{targetRow.opm || '-'}</span>
-              {medianRow?.opm && (
-                <span className="comp-kpi-median-val">med: {medianRow.opm}</span>
-              )}
-            </div>
-          </article>
-
-          <article className="comparison-kpi-card">
-            <span className="comp-kpi-label">ROE (3Y Avg)</span>
-            <div className="comp-kpi-values">
-              <span className="comp-kpi-target-val">{targetRow.roe || '-'}</span>
-              {medianRow?.roe && (
-                <span className="comp-kpi-median-val">med: {medianRow.roe}</span>
-              )}
-            </div>
-          </article>
-        </section>
-      )}
-
-      {/* 4. MAIN PEER TABLE */}
+      {/* ONLY COMPARISON TABLE */}
       {comp.rows.length > 0 ? (
         <PeerComparisonBlock comp={comp} />
       ) : (

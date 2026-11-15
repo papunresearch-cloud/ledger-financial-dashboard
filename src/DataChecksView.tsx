@@ -256,6 +256,17 @@ export const RATIO_DEFINITIONS: RatioDefinition[] = [
     applicableTo: 'nonbank',
   },
   {
+    id: 'quick-ratio',
+    name: 'Quick Ratio / Acid Test (×)',
+    abbr: 'QR / Acid Test',
+    category: 'liquidity',
+    formula: 'Quick Ratio (×) = (Other Assets − Inventory) ÷ Other Liabilities',
+    meaning: 'Measures immediate short-term liquidity by evaluating quick assets (excluding inventory which takes time to liquidate) against current obligations.',
+    benchmark: 'Healthy: > 1.0x. A quick ratio above 1.0x indicates that liquid assets exceed current liabilities without requiring inventory liquidation.',
+    notes: 'In Screener balance sheet structure, Other Assets less Inventories is used as the quick assets proxy over Other Liabilities.',
+    applicableTo: 'nonbank',
+  },
+  {
     id: 'cash-ratio',
     name: 'Cash Ratio (×)',
     abbr: 'Cash Ratio',

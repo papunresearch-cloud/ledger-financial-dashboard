@@ -256,16 +256,6 @@ function computeCorporateQuarterlyRatios(data: CompanyData): RatioTable {
     }
   )
   add(
-    'Other Income / PBT (%)',
-    'EARNINGS QUALITY & TAX',
-    'Other Income / Profit before tax × 100',
-    q =>
-      q.profitBeforeTax && q.profitBeforeTax > 0 && q.otherIncome !== null
-        ? (q.otherIncome / q.profitBeforeTax) * 100
-        : null,
-    () => (ttmPbt && ttmPbt > 0 && ttmOi !== null ? (ttmOi / ttmPbt) * 100 : null)
-  )
-  add(
     'Effective Tax Rate (%)',
     'EARNINGS QUALITY & TAX',
     '(PBT − Net Profit) / PBT × 100',

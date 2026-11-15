@@ -217,8 +217,12 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
       const averageCapitalEmployed = (capitalEmployed + priorCapitalEmployed) / 2
       const roce = averageCapitalEmployed <= 0 ? null : 100 * roceEbit / averageCapitalEmployed
       const interestCoverage = ebit === null || interest === null || interest <= 0 ? null : ebit / interest
-      const currentRatio = otherAssets === null || otherLiabilities === null || otherLiabilities <= 0 ? null : otherAssets / otherLiabilities
-      const quickRatio = currentAssets === null || inventory === null || currentLiabilities === null || currentLiabilities <= 0 || currentAssets < inventory ? null : (currentAssets - inventory) / currentLiabilities
+      const effCurrentAssets = currentAssets ?? otherAssets
+      const effCurrentLiabilities = currentLiabilities ?? otherLiabilities
+      const currentRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0 ? null : effCurrentAssets / effCurrentLiabilities
+      const quickRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0
+        ? null
+        : Math.max(0, effCurrentAssets - (inventory ?? 0)) / effCurrentLiabilities
       const cashRatio = cashBank === null || otherLiabilities === null || otherLiabilities <= 0 ? null : cashBank / otherLiabilities
       const row: AnnualRow = {
         period, sales, totalIncome, netProfit, operatingProfit,
