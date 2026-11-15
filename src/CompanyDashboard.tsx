@@ -98,13 +98,20 @@ export function CompanyDashboard({ data, section, specs, theme }: { data: Compan
     { label: 'Current ratio', value: latest(data.annual, 'currentRatio'), suffix: '×' },
     { label: 'Cash ratio', value: latest(data.annual, 'cashRatio'), suffix: '%' },
   ]
-  const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: formatFiscalYearHeader(data.annual[data.annual.length - 1 - i]?.period, i === 0 ? 'LY' : `${i + 1}Y`), offset: i }))
+  const historyLength = Math.min(9, data.annual.length)
+  const historyPeriods = Array.from({ length: historyLength }, (_, i) => {
+    const offset = historyLength - 1 - i
+    return {
+      label: formatFiscalYearHeader(data.annual[data.annual.length - 1 - offset]?.period, offset === 0 ? 'LY' : `${offset + 1}Y`),
+      offset,
+    }
+  })
   const historyMetricRows = (metrics: Array<{ title: string; getValue: (row: AnnualRow) => number | null; useWeightedAvg?: boolean; customAverage?: number | null }>) => metrics.map(metric => {
     const values = historyPeriods.map(period => metric.getValue(data.annual[data.annual.length - 1 - period.offset]))
     const average = metric.customAverage !== undefined
       ? metric.customAverage
       : metric.useWeightedAvg
-        ? calculateRobustWeightedAverage([...values].reverse())
+        ? calculateRobustWeightedAverage(values)
         : middleAverage(values)
     return { title: metric.title, values, average }
   })
@@ -189,7 +196,7 @@ export function CompanyDashboard({ data, section, specs, theme }: { data: Compan
       const priorRow = index > 0 ? data.annual[index - 1] : null
       return metric.getValue(row, priorRow)
     })
-    return { title: metric.title, values, average: calculateRobustWeightedAverage([...values].reverse()), format: metric.format }
+    return { title: metric.title, values, average: calculateRobustWeightedAverage(values), format: metric.format }
   })
   const ttmOtherIncome = (offset = 0) => {
     const income = ttmSum(data.quarterly, 'totalIncome', offset)
@@ -205,7 +212,7 @@ export function CompanyDashboard({ data, section, specs, theme }: { data: Compan
     'Net Profit': curveBasedCagrAverage('Net Profit', metricPoints(row => row.netProfit), cagr(ttmSum(data.quarterly, 'netProfit', 4), ttmProfit, 1)),
     'Book Value': curveBasedCagrAverage('Book Value', metricPoints(row => row.equity), null),
   }
-  const cagrPeriods = Array.from({ length: 9 }, (_, i) => i + 1)
+  const cagrPeriods = Array.from({ length: 9 }, (_, i) => 9 - i)
   const cagrRows = [
     { title: 'Sales', ttm: cagr(ttmSum(data.quarterly, 'sales', 4), ttmSales, 1), annual: cagrPeriods.map(years => annualCagr(data.annual, 'sales', years)) },
     { title: 'Other Income', ttm: cagr(ttmOtherIncome(4), ttmOtherIncome(), 1), annual: cagrPeriods.map(years => {
@@ -231,7 +238,7 @@ export function CompanyDashboard({ data, section, specs, theme }: { data: Compan
       <AnnualHistoryTable title="Year-by-year returns" rows={returnHistory} periods={historyPeriods.map(period => period.label)} theme={theme} note="AVG => Recency-weighted average with IQR outlier Winsorization; recent years carry higher weight."/>
       <AnnualHistoryTable title="Decomposition of ROE" rows={dupontHistory} periods={historyPeriods.map(period => period.label)} unit="Percent / Ratio" theme={theme} note="ROE = Net Profit Margin (NPM) * Asset turn Over (ATO) * Equity Multiplier (EM) | Equity Multiplier (EM)  = Total asset / Total equity | AVG uses recency weighting with IQR outlier Winsorization"/>
       <AnnualHistoryTable title="Year-by-year cash quality" rows={cashHistory} periods={historyPeriods.map(period => period.label)} theme={theme} note="CFO = Cash from Operating Activity · FCF = CFO − Capital Work in Progress · EBITDA = Operating Profit. OPM & NPM AVG use recency weighting with IQR outlier Winsorization. Cash conversion AVGs use 3-year rolling sums with recency weighting when >3 windows exist (loss windows skipped). Ratio cells are blank when EBITDA/net profit is not positive."/>
-      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th><td style={{ color: getRelativeColor(row.ttm, row.average, theme) }}>{percent(row.ttm)}</td>{row.annual.map((value,index)=><td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 1Y–9Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
+      <section className="company-summary-block"><div className="company-block-heading"><div><span>COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><small>CAGR · %</small></div><div className="company-table-scroll"><table className="company-growth-table"><thead><tr><th>Metric</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>TTM</th><th>AVG</th></tr></thead><tbody>{cagrRows.map(row=><tr key={row.title}><th>{row.title}</th>{row.annual.map((value,index)=><td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td style={{ color: getRelativeColor(row.ttm, row.average, theme) }}>{percent(row.ttm)}</td><td>{percent(row.average)}</td></tr>)}</tbody></table></div><p className="company-summary-note">TTM CAGR compares the latest four quarters with the previous four. Annual 9Y–1Y columns compare actual period endpoints. AVG uses a separate quadratic fit for each metric: when at least 6 annual values are available and R² is greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverageByMetric).map(result => result.basis).join(' · ')}. Other Income = total income − sales; Book Value = equity share capital + reserves. Non-positive endpoints are not valid for CAGR and remain blank.</p></section>
       <div className="company-method-note"><Activity size={17}/><span>Interest coverage = (profit before tax + interest) ÷ interest. ROCE = EBIT ÷ average capital employed, where capital employed is equity plus borrowings. Current ratio uses Other Assets ÷ Other Liabilities; cash ratio uses Cash & Bank ÷ Other Liabilities.</span></div>
     </div>}
     {section === 'yearly' && <div className="company-plots-page">

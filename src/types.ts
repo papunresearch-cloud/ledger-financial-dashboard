@@ -20,6 +20,7 @@ export type AnnualRow = {
   netProfitMargin: number | null
   receivables: number | null
   inventory: number | null
+  payables: number | null
   netBlock: number | null
   cwip: number | null
   netBlockToCwip: number | null
@@ -165,7 +166,37 @@ export type FinancialData = CompanyData | BankData
 
 export type AppTheme = 'dark' | 'bright'
 
-export type Section = 'about' | 'overview' | 'quarterly-ratio' | 'yearly-ratio' | 'yearly' | 'holding' | 'quarterly' | 'tables' | 'checks'
+export type Section = 'about' | 'comparison' | 'overview' | 'quarterly-ratio' | 'yearly-ratio' | 'yearly' | 'holding' | 'quarterly' | 'tables' | 'checks'
+
+export type AboutPeerRow = {
+  s_no?: string
+  company: string
+  screener_url?: string
+  mcap?: string
+  ttm_sales?: string
+  sales_growth?: string
+  profit_growth?: string
+  opm?: string
+  roe?: string
+  roa?: string
+  payout?: string
+  cfo_ebit_pct?: string
+  pe?: string
+  pb?: string
+  ps?: string
+  d_yield?: string
+  is_target?: boolean
+  is_median?: boolean
+}
+
+export type AboutPeerComparison = {
+  rows: AboutPeerRow[]
+  median?: AboutPeerRow | null
+  sector_path?: string[]
+  authenticated?: boolean
+  source_url?: string
+  footnote?: string
+}
 
 export type RatioTableRow = {
   label: string
@@ -238,6 +269,7 @@ export type ScreenerAboutData = {
   }
   paragraphs: ScreenerParagraph[]
   shareholding?: ShareholdingPattern
+  peer_comparison?: AboutPeerComparison | null
   financial_snapshot?: {
     balance_sheet?: {
       headers: string[]

@@ -248,6 +248,331 @@ def parse_shareholding_pattern(soup: BeautifulSoup) -> dict[str, Any]:
     }
 
 
+PEER_COMPARISON_FOOTNOTE = (
+    "Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data"
+)
+
+
+def _clean_num_val(raw: str) -> float | None:
+    cleaned = re.sub(r"[,\s%]", "", str(raw or ""))
+    if not cleaned or cleaned in ("-", "--", "N/A", "NA"):
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _format_indian_commas(value: float, decimals: int = 0) -> str:
+    sign = "-" if value < 0 else ""
+    rounded = f"{abs(value):.{decimals}f}"
+    if "." in rounded:
+        int_part, frac_part = rounded.split(".", 1)
+    else:
+        int_part, frac_part = rounded, ""
+    if len(int_part) > 3:
+        last3 = int_part[-3:]
+        rest = int_part[:-3]
+        groups = []
+        while len(rest) > 2:
+            groups.insert(0, rest[-2:])
+            rest = rest[:-2]
+        if rest:
+            groups.insert(0, rest)
+        int_part = ",".join(groups) + "," + last3
+    return f"{sign}{int_part}" + (f".{frac_part}" if frac_part else "")
+
+
+def _fmt_peer_cr(raw: str) -> str:
+    val = _clean_num_val(raw)
+    if val is None:
+        return "-"
+    av = abs(val)
+    decimals = 0 if av >= 100 else (1 if av >= 10 else 2)
+    return _format_indian_commas(val, decimals)
+
+
+def _fmt_peer_pct(raw: str) -> str:
+    val = _clean_num_val(raw)
+    if val is None:
+        return "-"
+    return f"{val:.2f}%"
+
+
+def _fmt_peer_mult(raw: str) -> str:
+    val = _clean_num_val(raw)
+    if val is None:
+        return "-"
+    return f"{val:.2f}"
+
+
+def _fmt_peer_pair(curr_raw: str, avg3_raw: str) -> str:
+    curr = _fmt_peer_mult(curr_raw)
+    avg3 = _fmt_peer_mult(avg3_raw)
+    if curr != "-" and avg3 != "-":
+        return f"{curr} [{avg3}]"
+    if curr != "-":
+        return curr
+    if avg3 != "-":
+        return f"- [{avg3}]"
+    return "-"
+
+
+def _norm_company_token(name: str) -> str:
+    s = re.sub(r"\b(ltd|limited|ind|industries|corpn|corporation|co)\b", "", (name or "").lower())
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
+def _extract_screener_symbol_from_href(href: str) -> str:
+    m = re.search(r"/company/([^/]+)/", str(href or ""))
+    return m.group(1).upper() if m else ""
+
+
+def _match_screener_peer_columns(ths: list[Any]) -> dict[str, int]:
+    """Map Screener peer table header elements to deterministic column indices."""
+    meta: list[tuple[int, str, str]] = []
+    for idx, th in enumerate(ths):
+        htext = " ".join(th.get_text(" ", strip=True).split()).lower()
+        ttext = " ".join(str(th.get("data-tooltip") or "").split()).lower()
+        meta.append((idx, htext, ttext))
+
+    cols: dict[str, int] = {}
+
+    def find_col(pred: Any) -> int | None:
+        for idx, h, t in meta:
+            if pred(idx, h, t):
+                return idx
+        return None
+
+    def assign(key: str, *preds: Any) -> None:
+        for pred in preds:
+            idx = find_col(pred)
+            if idx is not None:
+                cols[key] = idx
+                return
+
+    assign("s_no", lambda _i, h, _t: h in ("s.no.", "s.no", "sno"))
+    assign("company", lambda _i, h, _t: h == "company", lambda i, _h, _t: i == 1)
+    assign(
+        "mcap",
+        lambda _i, h, _t: h == "mar cap rs.cr.",
+        lambda _i, h, t: h.startswith("mar cap") or t == "market capitalization",
+    )
+    assign(
+        "ttm_sales",
+        lambda _i, h, t: (h == "sales rs.cr." or h == "sales" or t == "sales")
+        and "/" not in h
+        and "var" not in h
+        and "qtr" not in h
+        and "growth" not in h,
+    )
+    assign(
+        "sales_growth_3y",
+        lambda _i, h, _t: "sales var 3yrs" in h or "sales var 3yr" in h,
+        lambda _i, _h, t: "sales growth 3years" in t or "sales growth 3year" in t,
+    )
+    assign(
+        "profit_growth_3y",
+        lambda _i, h, _t: "profit var 3yrs" in h or "profit var 3yr" in h,
+        lambda _i, _h, t: "profit growth 3years" in t or "profit growth 3year" in t,
+    )
+    assign(
+        "opm_3y",
+        lambda _i, h, _t: h == "average opm",
+        lambda _i, h, t: "average opm" in h or t == "avgopm",
+    )
+    assign(
+        "roe_3y",
+        lambda _i, h, _t: "roe 3yr" in h,
+        lambda _i, _h, t: "average return on equity 3years" in t,
+    )
+    assign(
+        "roa_3y",
+        lambda _i, h, _t: "roa 3yr" in h,
+        lambda _i, _h, t: "return on assets 3years" in t,
+    )
+    assign(
+        "payout_3y",
+        lambda _i, h, _t: "avg div payout 3yrs" in h or "avg div payout 3yr" in h,
+        lambda _i, _h, t: "average dividend payout 3years" in t,
+    )
+    assign(
+        "cfo_ebit_3y",
+        lambda _i, h, _t: "average ocf ebit pct" in h or "ocf ebit pct" in h,
+        lambda _i, h, t: "average ocf ebit pct" in t or "ocf/ebit" in h,
+    )
+    assign("pe_curr", lambda _i, h, _t: h == "p/e", lambda _i, _h, t: t == "price to earning")
+    assign(
+        "pe_3y",
+        lambda _i, h, _t: "3yrs pe" in h or "3yr pe" in h,
+        lambda _i, _h, t: "historical pe 3years" in t,
+    )
+    assign(
+        "pb_curr",
+        lambda _i, h, _t: h in ("cmp / bv", "cmp/bv"),
+        lambda _i, _h, t: t == "price to book value",
+        lambda _i, h, _t: h == "pbv",
+    )
+    assign(
+        "pb_3y",
+        lambda _i, h, _t: "3yrs pbv" in h or "3yr pbv" in h,
+        lambda _i, _h, t: "historical pbv 3years" in t,
+    )
+    assign(
+        "ps",
+        lambda _i, h, _t: "cmp / sales" in h or "cmp/sales" in h,
+        lambda _i, _h, t: t == "price to sales",
+    )
+    assign(
+        "div_yield",
+        lambda _i, h, _t: h.startswith("div yld"),
+        lambda _i, _h, t: t == "dividend yield",
+    )
+    return cols
+
+
+def parse_screener_peers_section(
+    main_html: str,
+    peers_html: str = "",
+    company_id: Any = None,
+    company_symbol: str = "",
+    company_name: str = "",
+    screener_url: str = "",
+) -> dict[str, Any]:
+    """Deterministically parse all rows and the Median row from Screener's Peer Comparison table."""
+    main_soup = BeautifulSoup(main_html or "", "html.parser")
+    sector_links = [
+        a.get_text(strip=True)
+        for a in main_soup.select("#peers a[href*='/market/']")
+        if a.get_text(strip=True)
+    ]
+
+    peers_soup = BeautifulSoup(peers_html, "html.parser") if peers_html else main_soup
+    peers_tbl = peers_soup.select_one("table") if peers_html else main_soup.select_one("#peers table")
+    if not peers_tbl:
+        return {
+            "rows": [],
+            "median": None,
+            "sector_path": sector_links,
+            "authenticated": False,
+            "source_url": screener_url,
+            "footnote": PEER_COMPARISON_FOOTNOTE,
+        }
+
+    header_ths: list[Any] = []
+    for tr in peers_tbl.select("tr"):
+        ths = tr.select("th")
+        if ths:
+            header_ths = ths
+            break
+    if not header_ths:
+        return {
+            "rows": [],
+            "median": None,
+            "sector_path": sector_links,
+            "authenticated": False,
+            "source_url": screener_url,
+            "footnote": PEER_COMPARISON_FOOTNOTE,
+        }
+
+    cols = _match_screener_peer_columns(header_ths)
+    target_id_str = str(company_id).strip() if company_id is not None else ""
+    target_sym = (company_symbol or "").strip().upper()
+    target_norm = _norm_company_token(company_name)
+
+    def cell(tds: list[Any], key: str) -> str:
+        idx = cols.get(key)
+        if idx is None or idx >= len(tds):
+            return ""
+        return " ".join(tds[idx].get_text(" ", strip=True).split())
+
+    def build_row(tr: Any, *, is_median: bool = False) -> dict[str, Any] | None:
+        tds = tr.select("td")
+        if not tds:
+            return None
+        comp_idx = cols.get("company", 1)
+        if comp_idx >= len(tds):
+            return None
+        comp_td = tds[comp_idx]
+        comp_link = comp_td.select_one("a[href]")
+        cname = " ".join(comp_td.get_text(" ", strip=True).split())
+        if not cname:
+            return None
+        href = str(comp_link.get("href") or "") if comp_link else ""
+        full_href = urllib.parse.urljoin("https://www.screener.in", href) if href else ""
+        row_sym = _extract_screener_symbol_from_href(href)
+        row_cid = str(tr.get("data-row-company-id") or "").strip()
+
+        is_target = False
+        if not is_median:
+            if target_id_str and row_cid and row_cid == target_id_str:
+                is_target = True
+            elif target_sym and row_sym and row_sym == target_sym:
+                is_target = True
+            elif target_norm and _norm_company_token(cname) == target_norm:
+                is_target = True
+
+        return {
+            "s_no": cell(tds, "s_no") if not is_median else "",
+            "company": cname,
+            "screener_url": full_href,
+            "mcap": _fmt_peer_cr(cell(tds, "mcap")),
+            "ttm_sales": _fmt_peer_cr(cell(tds, "ttm_sales")),
+            "sales_growth": _fmt_peer_pct(cell(tds, "sales_growth_3y")),
+            "profit_growth": _fmt_peer_pct(cell(tds, "profit_growth_3y")),
+            "opm": _fmt_peer_pct(cell(tds, "opm_3y")),
+            "roe": _fmt_peer_pct(cell(tds, "roe_3y")),
+            "roa": _fmt_peer_pct(cell(tds, "roa_3y")),
+            "payout": _fmt_peer_pct(cell(tds, "payout_3y")),
+            "cfo_ebit_pct": _fmt_peer_pct(cell(tds, "cfo_ebit_3y")),
+            "pe": _fmt_peer_pair(cell(tds, "pe_curr"), cell(tds, "pe_3y")),
+            "pb": _fmt_peer_pair(cell(tds, "pb_curr"), cell(tds, "pb_3y")),
+            "ps": _fmt_peer_mult(cell(tds, "ps")),
+            "d_yield": _fmt_peer_pct(cell(tds, "div_yield")),
+            "is_target": is_target,
+            "is_median": is_median,
+        }
+
+    tbody = peers_tbl.select_one("tbody")
+    body_trs = tbody.select("tr") if tbody else peers_tbl.select("tr")
+    rows: list[dict[str, Any]] = []
+    for tr in body_trs:
+        if tr.select("th"):
+            continue
+        parsed_row = build_row(tr, is_median=False)
+        if parsed_row:
+            rows.append(parsed_row)
+
+    median_row: dict[str, Any] | None = None
+    tfoot_tr = peers_tbl.select_one("tfoot tr")
+    if tfoot_tr:
+        median_row = build_row(tfoot_tr, is_median=True)
+
+    authenticated = any(
+        cols.get(k) is not None
+        for k in (
+            "sales_growth_3y",
+            "profit_growth_3y",
+            "opm_3y",
+            "roe_3y",
+            "roa_3y",
+            "payout_3y",
+            "cfo_ebit_3y",
+            "pe_3y",
+            "pb_3y",
+        )
+    )
+
+    return {
+        "rows": rows,
+        "median": median_row,
+        "sector_path": sector_links,
+        "authenticated": authenticated,
+        "source_url": screener_url,
+        "footnote": PEER_COMPARISON_FOOTNOTE,
+    }
+
+
 def clean_paragraph_html(p_elem: Any) -> dict[str, Any]:
     """Clean paragraph HTML by stripping all source notations and extracting structured lines."""
     # 1. Remove all sups (citations like [1], [7])
@@ -465,6 +790,49 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
         print(f"Error parsing shareholding pattern: {exc}", flush=True)
         shareholding = {"quarterly": None, "yearly": None}
 
+    # Extract Peer Comparison from Screener
+    peer_comparison = {
+        "rows": [],
+        "median": None,
+        "sector_path": sector_links,
+        "authenticated": False,
+        "source_url": final_url,
+        "footnote": PEER_COMPARISON_FOOTNOTE,
+    }
+    try:
+        info_el = soup.select_one("#company-info")
+        wh_id = (info_el.get("data-warehouse-id") or "").strip() if info_el else ""
+        if not wh_id:
+            m_wh = re.search(r'data-warehouse-id="(\d+)"', main_html)
+            wh_id = m_wh.group(1) if m_wh else ""
+
+        peers_html = ""
+        if wh_id:
+            try:
+                peers_resp = session.get(
+                    f"https://www.screener.in/api/company/{wh_id}/peers/",
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Referer": final_url,
+                    },
+                    timeout=15,
+                )
+                if peers_resp.status_code == 200 and len(peers_resp.text) > 50:
+                    peers_html = peers_resp.text
+            except Exception as exc:
+                print(f"Error fetching Screener peers: {exc}", flush=True)
+
+        peer_comparison = parse_screener_peers_section(
+            main_html,
+            peers_html=peers_html,
+            company_id=wh_id,
+            company_symbol=symbol,
+            company_name=company_name,
+            screener_url=final_url,
+        )
+    except Exception as exc:
+        print(f"Error parsing peer comparison: {exc}", flush=True)
+
     footnotes: list[dict[str, str]] = []
 
     footnotes.sort(key=lambda x: int(x["num"]) if x["num"].isdigit() else 999)
@@ -483,6 +851,7 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
         "about_intro": intro_parsed,
         "paragraphs": paragraphs,
         "shareholding": shareholding,
+        "peer_comparison": peer_comparison,
         "financial_snapshot": parse_financial_snapshot(soup),
         "pros": pros,
         "cons": cons,

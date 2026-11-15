@@ -93,7 +93,14 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
   const currentEquity = latest(data.annual, 'equity')
   const pe = data.currentMarketCap !== null && ttmNetProfit !== null && ttmNetProfit > 0 ? data.currentMarketCap / ttmNetProfit : null
   const pb = data.currentMarketCap !== null && currentEquity !== null && currentEquity !== undefined && currentEquity > 0 ? data.currentMarketCap / currentEquity : null
-  const historyPeriods = Array.from({ length: Math.min(9, data.annual.length) }, (_, i) => ({ label: formatFiscalYearHeader(data.annual[data.annual.length - 1 - i]?.period, i === 0 ? 'LY' : `${i + 1}Y`), offset: i }))
+  const historyLength = Math.min(9, data.annual.length)
+  const historyPeriods = Array.from({ length: historyLength }, (_, i) => {
+    const offset = historyLength - 1 - i
+    return {
+      label: formatFiscalYearHeader(data.annual[data.annual.length - 1 - offset]?.period, offset === 0 ? 'LY' : `${offset + 1}Y`),
+      offset,
+    }
+  })
   const returnRows = [
     {
       title: 'ROA',
@@ -135,7 +142,7 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
   ]
   const returnHistory = returnRows.map(row => ({
     ...row,
-    average: calculateRobustWeightedAverage([...row.values].reverse()),
+    average: calculateRobustWeightedAverage(row.values),
   }))
   const roeDecompositionRows = [
     {
@@ -223,7 +230,7 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
     },
   ].map(row => ({
     ...row,
-    average: calculateRobustWeightedAverage([...row.values].reverse()),
+    average: calculateRobustWeightedAverage(row.values),
   }))
   const metricPoints = (key: GrowthMetric) => data.annual.map(row => ({ year: Number(row.period.match(/\d{4}/)?.[0]), value: row[key] }))
     .filter((point): point is { year: number; value: number } => Number.isFinite(point.year) && point.value !== null && Number.isFinite(point.value))
@@ -236,7 +243,7 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
     'Net profit': curveBasedCagrAverage('Net profit', metricPoints('netProfit'), ttmCagr(data.quarterly, 'netProfit')),
     'Book Value': curveBasedCagrAverage('Book Value', metricPoints('equity'), null),
   }
-  const cagrPeriods = Array.from({ length: 9 }, (_, i) => i + 1)
+  const cagrPeriods = Array.from({ length: 9 }, (_, i) => 9 - i)
   const cagrRows = [
     { label: 'Total income', key: 'totalRevenue' as const, ttm: ttmCagr(data.quarterly, 'totalRevenue') },
     { label: 'Interest earned', key: 'interestEarned' as const, ttm: ttmCagr(data.quarterly, 'interestEarned') },
@@ -285,10 +292,10 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
         </section>
         <section className="bank-summary-block">
           <div className="bank-block-title"><div><span className="bank-section-kicker">COMPOUND GROWTH</span><h3>CAGR by duration</h3></div><span>CAGR · %</span></div>
-          <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Metric</th><th>TTM</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>AVG</th></tr></thead><tbody>
-            {cagrRows.map(row => <tr key={row.label}><th>{row.label}</th><td style={{ color: getRelativeColor(row.ttm, row.average, theme) }}>{percent(row.ttm)}</td>{row.annual.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td>{percent(row.average)}</td></tr>)}
+          <div className="bank-growth-scroll"><table className="bank-growth-table"><thead><tr><th>Metric</th>{cagrPeriods.map(years => <th key={years}>{years}Y</th>)}<th>TTM</th><th>AVG</th></tr></thead><tbody>
+            {cagrRows.map(row => <tr key={row.label}><th>{row.label}</th>{row.annual.map((value, index) => <td key={index} style={{ color: getRelativeColor(value, row.average, theme) }}>{percent(value)}</td>)}<td style={{ color: getRelativeColor(row.ttm, row.average, theme) }}>{percent(row.ttm)}</td><td>{percent(row.average)}</td></tr>)}
           </tbody></table></div>
-          <div className="bank-growth-note">Annual 1Y–9Y columns use actual period endpoints. AVG uses a separate quadratic fit per metric: with 6 or more annual values and R² greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverages).map(result => result.basis).join(' · ')}. Book Value = equity share capital + reserves. Non-positive endpoints remain blank.</div>
+          <div className="bank-growth-note">Annual 9Y–1Y columns use actual period endpoints. AVG uses a separate quadratic fit per metric: with 6 or more annual values and R² greater than 80%, it uses the fitted three-year CAGR from the latest four curve values; otherwise it falls back to actual 3Y CAGR, TTM growth when available, then 1Y growth. {Object.values(cagrAverages).map(result => result.basis).join(' · ')}. Book Value = equity share capital + reserves. Non-positive endpoints remain blank.</div>
         </section>
         <div className="bank-overview-note"><Landmark size={16}/><span>Growth and return averages use available valid periods in the uploaded Data Sheet.</span></div>
       </div>

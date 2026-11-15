@@ -488,6 +488,16 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'days'
   )
   add(
+    'Creditor Days',
+    'WORKING CAPITAL CYCLE',
+    'Trade Payables / (Sales / 365)',
+    a => {
+      const p = a.payables ?? a.otherLiabilities
+      return a.sales && p !== null && a.sales > 0 ? (p / a.sales) * 365 : null
+    },
+    'days'
+  )
+  add(
     'Inventory Days',
     'WORKING CAPITAL CYCLE',
     'Inventories / (Sales / 365)',
@@ -497,12 +507,14 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
   add(
     'Cash Conversion Cycle (Days)',
     'WORKING CAPITAL CYCLE',
-    'Debtor Days + Inventory Days',
+    'Debtor Days + Inventory Days − Creditor Days',
     a => {
       const d = a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null
       const inv = a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null
-      if (d === null && inv === null) return null
-      return (d ?? 0) + (inv ?? 0)
+      const p = a.payables ?? a.otherLiabilities
+      const cred = a.sales && p !== null && a.sales > 0 ? (p / a.sales) * 365 : null
+      if (d === null && inv === null && cred === null) return null
+      return (d ?? 0) + (inv ?? 0) - (cred ?? 0)
     },
     'days'
   )

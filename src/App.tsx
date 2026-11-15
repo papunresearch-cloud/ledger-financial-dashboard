@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
 import { AboutSection } from './AboutSection'
+import { ComparisonSection } from './ComparisonSection'
 import { BankDashboard } from './BankDashboard'
 import { CompanyDashboard } from './CompanyDashboard'
 import { ForecastCalculator } from './ForecastCalculator'
@@ -275,6 +276,7 @@ function App() {
   }
   const sections: Array<{ key: Section; label: string; icon: typeof BarChart3 }> = [
     { key: 'about', label: 'About', icon: BookOpen },
+    { key: 'comparison', label: 'Comparison', icon: GitCompare },
     { key: 'overview', label: 'Overview', icon: Activity },
     { key: 'quarterly-ratio', label: 'Quarterly-Ratio', icon: Clock },
     { key: 'yearly-ratio', label: 'Yearly-ratio', icon: Calendar },
@@ -321,6 +323,14 @@ function App() {
                 }}
               />
             )}
+            {section === 'comparison' && (
+              <ComparisonSection
+                about={about}
+                companyName={data.companyName}
+                symbol={activeCode}
+                onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+              />
+            )}
             {section === 'quarterly-ratio' && <QuarterlyRatioSection data={data} />}
             {section === 'yearly-ratio' && <YearlyRatioSection data={data} />}
             {section === 'holding' && (
@@ -344,6 +354,14 @@ function App() {
                   setAccessKey(enteredKey)
                   void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
                 }}
+              />
+            )}
+            {section === 'comparison' && (
+              <ComparisonSection
+                about={about}
+                companyName={data.companyName}
+                symbol={activeCode}
+                onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
               />
             )}
             {section === 'quarterly-ratio' && <QuarterlyRatioSection data={data} />}

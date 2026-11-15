@@ -235,6 +235,7 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
         operatingProfitMargin: safeMargin(sales, operatingProfit),
         netProfitMargin: safeMargin(sales, netProfit),
         receivables: get(balance, 'Receivables', i), inventory,
+        payables: get(balance, 'Trade Payables', i, ['Payables', 'Trade Creditors', 'Creditors', 'Trade payables']) ?? otherLiabilities,
         netBlock, cwip,
         netBlockToCwip: cwip === null || cwip === 0 || netBlock === null || netBlock === 0 ? null : 100 * cwip / netBlock,
         equity, borrowings, roce, interestCoverage, currentAssets, currentLiabilities, currentRatio, quickRatio, cashRatio,
