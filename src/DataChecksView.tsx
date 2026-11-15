@@ -369,6 +369,28 @@ export const RATIO_DEFINITIONS: RatioDefinition[] = [
     notes: 'For banks, P/B is directly tied to ROE: a bank compounding book value at 18% ROE commands a 2.5x - 3.5x P/B premium.',
     applicableTo: 'all',
   },
+  {
+    id: '52wh-correction',
+    name: 'Correction from 52-Week High (52WH %)',
+    abbr: '52WH',
+    category: 'glossary',
+    formula: '52WH (%) = 100 × (52w High − CMP) ÷ (52w High − 52w Low)',
+    meaning: 'Indicates the percentage retracement / correction from the 52-week peak within the stock’s 52-week trading range. 0% means the stock is trading right at its 52-week peak, while 100% means it has corrected completely back to its 52-week trough.',
+    benchmark: 'Deep value / oversold territory: > 70%. Momentum / near 52-week highs: < 20%.',
+    notes: 'Featured in Peer Comparison across both Bank and Non-Bank sectors to compare relative valuation corrections among peer group competitors.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'bv-growth-peer',
+    name: 'Book Value CAGR % (BV Growth 3Y)',
+    abbr: 'BV Growth',
+    category: 'growth',
+    formula: 'BV Growth (%) = 3-Year Compounded Annual Growth Rate of Book Value per Share',
+    meaning: 'Compounding rate of net worth per share across trailing 3 years. Essential for banks because lending capacity and intrinsic capitalization compound directly with book equity.',
+    benchmark: 'Leading private banks: 14% - 20%+ CAGR. Moderate PSU banks: 8% - 12% CAGR.',
+    notes: 'In banking peer comparison, Book Value CAGR replaces industrial CFO/EBIT% because financial institutions generate value via balance-sheet intermediation rather than factory cash flow.',
+    applicableTo: 'bank',
+  },
 ]
 
 export function DataChecksView({ data }: { data: FinancialData }) {

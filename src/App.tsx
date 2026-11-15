@@ -343,6 +343,7 @@ function App() {
                 about={about}
                 companyName={data.companyName}
                 symbol={activeCode}
+                isBank={true}
                 onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
               />
             )}
@@ -376,6 +377,7 @@ function App() {
                 about={about}
                 companyName={data.companyName}
                 symbol={activeCode}
+                isBank={false}
                 onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
               />
             )}
@@ -434,6 +436,7 @@ function App() {
             about={about}
             companyName={data.companyName}
             symbol={activeCode}
+            isBank={data.mode === 'bank'}
             onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
           />
         </div>

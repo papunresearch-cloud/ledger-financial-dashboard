@@ -428,7 +428,47 @@ def _match_screener_peer_columns(ths: list[Any]) -> dict[str, int]:
         lambda _i, h, _t: h.startswith("div yld"),
         lambda _i, _h, t: t == "dividend yield",
     )
+    assign(
+        "cmp",
+        lambda _i, h, _t: h in ("cmp rs.", "cmp", "current price"),
+        lambda _i, _h, t: t == "current price",
+    )
+    assign(
+        "high_52w",
+        lambda _i, h, _t: "52w high" in h or "high price" in h,
+        lambda _i, _h, t: t == "high price" or "52w high" in t,
+    )
+    assign(
+        "low_52w",
+        lambda _i, h, _t: "52w low" in h or "low price" in h,
+        lambda _i, _h, t: t == "low price" or "52w low" in t,
+    )
+    assign(
+        "debt_to_equity",
+        lambda _i, h, _t: "debt / eq" in h or "debt/eq" in h or "debt to equity" in h,
+        lambda _i, _h, t: "debt to equity" in t or "debt to eq" in t,
+    )
+    assign(
+        "bv_growth",
+        lambda _i, h, _t: "book value cagr" in h or "bvgr" in h or "bv growt" in h,
+        lambda _i, _h, t: "bvgr" in t or "book value cagr" in t or "bv growth" in t,
+    )
     return cols
+
+
+def _calc_52wh(cmp_str: str, high_str: str, low_str: str) -> str:
+    """Compute 52WH = 100 * (52w High - CMP) / (52w High - 52w Low)."""
+    try:
+        c = float(cmp_str.replace(",", "").replace("%", "").strip())
+        h = float(high_str.replace(",", "").replace("%", "").strip())
+        l = float(low_str.replace(",", "").replace("%", "").strip())
+        denom = h - l
+        if denom <= 0:
+            return "-"
+        val = 100.0 * (h - c) / denom
+        return f"{val:.1f}%"
+    except Exception:
+        return "-"
 
 
 def parse_screener_peers_section(
@@ -529,6 +569,12 @@ def parse_screener_peers_section(
             "pb": _fmt_peer_pair(cell(tds, "pb_curr"), cell(tds, "pb_3y")),
             "ps": _fmt_peer_mult(cell(tds, "ps")),
             "d_yield": _fmt_peer_pct(cell(tds, "div_yield")),
+            "debt_to_equity": _fmt_peer_mult(cell(tds, "debt_to_equity")),
+            "bv_growth": _fmt_peer_pct(cell(tds, "bv_growth")),
+            "cmp": cell(tds, "cmp"),
+            "high_52w": cell(tds, "high_52w"),
+            "low_52w": cell(tds, "low_52w"),
+            "h52_corr": _calc_52wh(cell(tds, "cmp"), cell(tds, "high_52w"), cell(tds, "low_52w")),
             "is_target": is_target,
             "is_median": is_median,
         }

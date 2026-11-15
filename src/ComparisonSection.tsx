@@ -7,16 +7,23 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import {
-  PEER_METRIC_COLUMNS,
-  PEER_TABLE_HEADERS,
+  getPeerMetricColumns,
+  getPeerTableHeaders,
   resolvePeerComparison,
   type NormalizedPeerRow,
+  type PeerMetricKey,
   type ResolvedPeerComparison,
 } from './peerComparison'
 import type { AboutState } from './types'
 import './comparisonSection.css'
 
-function PeerTableRow({ row }: { row: NormalizedPeerRow }) {
+function PeerTableRow({
+  row,
+  columns,
+}: {
+  row: NormalizedPeerRow
+  columns: ReadonlyArray<{ key: PeerMetricKey; label: string; tooltip?: string }>
+}) {
   const rowClass = row.is_median
     ? 'about-peer-row-median'
     : row.is_target
@@ -40,14 +47,22 @@ function PeerTableRow({ row }: { row: NormalizedPeerRow }) {
           <span className="about-peer-name-text">{row.company}</span>
         )}
       </td>
-      {PEER_METRIC_COLUMNS.map(col => (
+      {columns.map(col => (
         <td key={col.key}>{row[col.key] || '-'}</td>
       ))}
     </tr>
   )
 }
 
-function PeerComparisonBlock({ comp }: { comp: ResolvedPeerComparison }) {
+function PeerComparisonBlock({
+  comp,
+  columns,
+  headers,
+}: {
+  comp: ResolvedPeerComparison
+  columns: ReadonlyArray<{ key: PeerMetricKey; label: string; tooltip?: string }>
+  headers: string[]
+}) {
   if (comp.rows.length === 0) return null
 
   return (
@@ -62,19 +77,24 @@ function PeerComparisonBlock({ comp }: { comp: ResolvedPeerComparison }) {
         <table className="about-peer-table">
           <thead>
             <tr>
-              {PEER_TABLE_HEADERS.map(header => (
-                <th key={header}>{header}</th>
-              ))}
+              {headers.map((header, idx) => {
+                const colInfo = idx > 0 ? columns[idx - 1] : null
+                return (
+                  <th key={header} title={colInfo?.tooltip || header}>
+                    {header}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
             {comp.rows.map((row, idx) => (
-              <PeerTableRow key={`${row.company}-${idx}`} row={row} />
+              <PeerTableRow key={`${row.company}-${idx}`} row={row} columns={columns} />
             ))}
           </tbody>
           {comp.median && (
             <tfoot>
-              <PeerTableRow row={comp.median} />
+              <PeerTableRow row={comp.median} columns={columns} />
             </tfoot>
           )}
         </table>
@@ -86,14 +106,18 @@ function PeerComparisonBlock({ comp }: { comp: ResolvedPeerComparison }) {
 
 export function ComparisonSection({
   about,
+  isBank = false,
   onRetry,
 }: {
   about: AboutState
   companyName: string
   symbol: string
+  isBank?: boolean
   onRetry?: () => void
 }) {
-  const comp = useMemo(() => resolvePeerComparison(about), [about])
+  const comp = useMemo(() => resolvePeerComparison(about, isBank), [about, isBank])
+  const columns = useMemo(() => getPeerMetricColumns(isBank), [isBank])
+  const headers = useMemo(() => getPeerTableHeaders(isBank), [isBank])
   const isLoading = about.status === 'loading'
   const isError = about.status === 'error' && !comp.rows.length
 
@@ -121,7 +145,7 @@ export function ComparisonSection({
 
       {/* ONLY COMPARISON TABLE */}
       {comp.rows.length > 0 ? (
-        <PeerComparisonBlock comp={comp} />
+        <PeerComparisonBlock comp={comp} columns={columns} headers={headers} />
       ) : (
         !isLoading && (
           <div className="about-peer-empty">

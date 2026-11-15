@@ -1,6 +1,11 @@
 import type ExcelJS from 'exceljs'
 import type { AboutState, BankData, FinancialData } from './types'
-import { PEER_METRIC_COLUMNS, PEER_TABLE_HEADERS, resolvePeerComparison, type NormalizedPeerRow } from './peerComparison'
+import {
+  getPeerMetricColumns,
+  getPeerTableHeaders,
+  resolvePeerComparison,
+  type NormalizedPeerRow,
+} from './peerComparison'
 import { computeQuarterlyRatios, computeYearlyRatios } from './ratioCalculations'
 import { RATIO_DEFINITIONS } from './DataChecksView'
 import { mergeBrokenLines } from './AboutSection'
@@ -291,41 +296,37 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
 // -------------------------------------------------------------
 // 2. PEER COMPARISON EXCEL SHEET
 // -------------------------------------------------------------
-function appendPeerComparisonExcelSheet(book: ExcelJS.Workbook, companyName: string, about?: AboutState | null) {
-  const peerComp = resolvePeerComparison(about)
+function appendPeerComparisonExcelSheet(
+  book: ExcelJS.Workbook,
+  companyName: string,
+  about?: AboutState | null,
+  isBank: boolean = false,
+) {
+  const peerComp = resolvePeerComparison(about, isBank)
+  const columns = getPeerMetricColumns(isBank)
+  const headers = getPeerTableHeaders(isBank)
   const peerRowsAll: NormalizedPeerRow[] = peerComp.median ? [...peerComp.rows, peerComp.median] : peerComp.rows
   if (peerRowsAll.length === 0) return
 
   const peerSheet = book.addWorksheet('Peer Comparison', { views: [{ state: 'frozen', ySplit: 4 }] })
   peerSheet.columns = [
     { width: 32 },
-    { width: 16 },
-    { width: 16 },
-    { width: 14 },
-    { width: 14 },
-    { width: 11 },
-    { width: 11 },
-    { width: 11 },
-    { width: 11 },
-    { width: 13 },
-    { width: 18 },
-    { width: 16 },
-    { width: 11 },
-    { width: 11 },
+    ...columns.map(() => ({ width: 14 })),
   ]
+  const lastColLetter = String.fromCharCode(65 + columns.length)
   peerSheet.addRow([`${companyName} — Peer Comparison & Sector Valuation`])
-  peerSheet.mergeCells('A1:N1')
+  peerSheet.mergeCells(`A1:${lastColLetter}1`)
   peerSheet.getCell('A1').font = { name: 'Aptos Display', size: 15, bold: true, color: { argb: '102D2B' } }
   peerSheet.addRow([
     peerComp.sectorPath.length
       ? `Sector: ${peerComp.sectorPath.join(' > ')}`
       : 'Source: Screener Peer Comparison Section',
   ])
-  peerSheet.mergeCells('A2:N2')
+  peerSheet.mergeCells(`A2:${lastColLetter}2`)
   peerSheet.getRow(2).font = { italic: true, color: { argb: '475569' }, size: 9 }
   peerSheet.addRow([])
 
-  const hdr = peerSheet.addRow(PEER_TABLE_HEADERS)
+  const hdr = peerSheet.addRow(headers)
   styleHeader(hdr)
   hdr.eachCell((cell, colIdx) => {
     cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right', wrapText: true }
@@ -335,7 +336,7 @@ function appendPeerComparisonExcelSheet(book: ExcelJS.Workbook, companyName: str
     const prefix = peer.s_no && !peer.is_median ? `${peer.s_no} ` : ''
     const pr = peerSheet.addRow([
       `${prefix}${peer.company}`,
-      ...PEER_METRIC_COLUMNS.map(col => peer[col.key] || '-'),
+      ...columns.map(col => peer[col.key] || '-'),
     ])
     pr.eachCell((cell, colIdx) => {
       cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
@@ -354,7 +355,7 @@ function appendPeerComparisonExcelSheet(book: ExcelJS.Workbook, companyName: str
   }
 
   const fnRow = peerSheet.addRow([peerComp.footnote])
-  peerSheet.mergeCells(`A${fnRow.number}:N${fnRow.number}`)
+  peerSheet.mergeCells(`A${fnRow.number}:${lastColLetter}${fnRow.number}`)
   fnRow.getCell(1).font = { name: 'Aptos', italic: true, size: 9, color: { argb: '475569' } }
 }
 
@@ -545,7 +546,7 @@ async function exportBankExcel(data: BankData, button: HTMLButtonElement, about?
     // 1. About
     appendAboutExcelSheets(book, data.companyName, about)
     // 2. Peer Comparison
-    appendPeerComparisonExcelSheet(book, data.companyName, about)
+    appendPeerComparisonExcelSheet(book, data.companyName, about, true)
     // 3. Quarterly & Yearly Ratios
     appendRatioExcelSheets(book, data)
     // 4. Shareholding Pattern
@@ -634,7 +635,7 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
     // 1. About
     appendAboutExcelSheets(book, data.companyName, about)
     // 2. Peer Comparison
-    appendPeerComparisonExcelSheet(book, data.companyName, about)
+    appendPeerComparisonExcelSheet(book, data.companyName, about, false)
     // 3. Quarterly & Yearly Ratios
     appendRatioExcelSheets(book, data)
     // 4. Shareholding Pattern
@@ -838,8 +839,11 @@ function appendPeerComparisonPdfSection(
   startY: number,
   margin: number,
   about?: AboutState | null,
+  isBank: boolean = false,
 ): number {
-  const peerComp = resolvePeerComparison(about)
+  const peerComp = resolvePeerComparison(about, isBank)
+  const columns = getPeerMetricColumns(isBank)
+  const headers = getPeerTableHeaders(isBank)
   const peerRowsAll = peerComp.median ? [...peerComp.rows, peerComp.median] : peerComp.rows
   if (peerRowsAll.length === 0) return startY
 
@@ -851,37 +855,25 @@ function appendPeerComparisonPdfSection(
   doc.setTextColor(16, 45, 43)
   doc.text('Peers Comparison & Market Position', margin, y)
 
-  const numColStyle = { halign: 'right' as const }
   autoTable(doc, {
     theme: 'grid',
     startY: y + 4,
     margin: { left: margin, right: margin },
-    styles: { fontSize: 6.2, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
-    headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.2, halign: 'right' },
-    head: [PEER_TABLE_HEADERS],
+    styles: { fontSize: 5.6, cellPadding: 1.2, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
+    headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 5.6, halign: 'right' },
+    head: [headers],
     body: peerRowsAll.map(pr => [
       pdfText(`${pr.s_no && !pr.is_median ? `${pr.s_no} ` : ''}${pr.company}`),
-      ...PEER_METRIC_COLUMNS.map(col => pdfText(pr[col.key] || '-')),
+      ...columns.map(col => pdfText(pr[col.key] || '-')),
     ]),
     columnStyles: {
-      0: { cellWidth: 38, halign: 'left' },
-      1: { cellWidth: 19, ...numColStyle },
-      2: { cellWidth: 19, ...numColStyle },
-      3: { cellWidth: 16, ...numColStyle },
-      4: { cellWidth: 16, ...numColStyle },
-      5: { cellWidth: 14, ...numColStyle },
-      6: { cellWidth: 14, ...numColStyle },
-      7: { cellWidth: 14, ...numColStyle },
-      8: { cellWidth: 14, ...numColStyle },
-      9: { cellWidth: 17, ...numColStyle },
-      10: { cellWidth: 25, ...numColStyle },
-      11: { cellWidth: 23, ...numColStyle },
-      12: { cellWidth: 13, ...numColStyle },
-      13: { cellWidth: 15, ...numColStyle },
+      0: { cellWidth: 32, halign: 'left' },
     },
     didParseCell: hookData => {
-      if (hookData.section === 'head' && hookData.column.index === 0) {
+      if (hookData.column.index === 0) {
         hookData.cell.styles.halign = 'left'
+      } else {
+        hookData.cell.styles.halign = 'right'
       }
       if (hookData.section === 'body') {
         const rowItem = peerRowsAll[hookData.row.index]
@@ -1122,7 +1114,7 @@ async function exportBankPdf(data: BankData, button: HTMLButtonElement, about?: 
     // 1. About
     appendAboutPdfSection(doc, autoTable, 50, margin, about)
     // 2. Peer Comparison
-    appendPeerComparisonPdfSection(doc, autoTable, 18, margin, about)
+    appendPeerComparisonPdfSection(doc, autoTable, 18, margin, about, true)
     // 3. Quarterly & Yearly Ratios
     appendRatioPdfSections(doc, autoTable, 18, margin, data)
     // 4. Shareholding Pattern
@@ -1198,7 +1190,7 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement, 
     // 1. About
     appendAboutPdfSection(doc, autoTable, 50, margin, about)
     // 2. Peer Comparison
-    appendPeerComparisonPdfSection(doc, autoTable, 18, margin, about)
+    appendPeerComparisonPdfSection(doc, autoTable, 18, margin, about, false)
     // 3. Quarterly & Yearly Ratios
     appendRatioPdfSections(doc, autoTable, 18, margin, data)
     // 4. Shareholding Pattern

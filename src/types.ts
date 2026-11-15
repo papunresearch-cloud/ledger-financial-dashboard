@@ -177,6 +177,8 @@ export type AboutPeerRow = {
   sales_growth?: string
   profit_growth?: string
   opm?: string
+  debt_to_equity?: string
+  bv_growth?: string
   roe?: string
   roa?: string
   payout?: string
@@ -185,6 +187,10 @@ export type AboutPeerRow = {
   pb?: string
   ps?: string
   d_yield?: string
+  cmp?: string
+  high_52w?: string
+  low_52w?: string
+  h52_corr?: string
   is_target?: boolean
   is_median?: boolean
 }
