@@ -1,8 +1,9 @@
-import { AlertTriangle, CircleHelp, Landmark, ShieldCheck } from 'lucide-react'
+import { Landmark } from 'lucide-react'
 import { ChartPanel, type BankChartSpecs } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { calculateRobustWeightedAverage } from './rollingPerShare'
 import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
+import { DataChecksView } from './DataChecksView'
 import type { AppTheme, BankData, BankAnnualRow, BankQuarterRow, Section } from './types'
 const amount = (value: number | null | undefined, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`
@@ -300,34 +301,13 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
       </div>
     </>}
     {section === 'tables' && <BankSourceSheet data={data}/>}
-    {section === 'checks' && <>
-      <Intro kicker="SOURCE COVERAGE & FORMULAS" title="Bank data checks" description="Calculations use the uploaded fields only; missing bank disclosures are not estimated." count={data.warnings.length ? `${data.warnings.length} data notes` : 'READY'}/>
-      <div className="checks-grid"><div className="checks-card"><h3><ShieldCheck size={18}/> Source and coverage</h3><CheckRow label="Company" value={data.companyName}/><CheckRow label="Annual periods" value={`${data.annual[0]?.period ?? '—'} to ${data.annual.at(-1)?.period ?? '—'}`}/><CheckRow label="Quarterly periods" value={`${data.quarterly.length} quarters`}/><CheckRow label="Face value" value={data.faceValue === null ? 'Not provided' : `₹${data.faceValue}`}/><CheckRow label="Workbook" value={data.sourceFileName}/></div>
-        <div className="checks-card definitions-card"><h3><CircleHelp size={18}/> Bank-mode calculations</h3><ul>
-          <li><b>Annual and quarterly interest earned</b> = source Sales; <b>interest paid</b> = source Interest.</li>
-          <li><b>Total revenue</b> = interest earned + Other Income.</li>
-          <li><b>Interest Ratio %</b> = 100 × interest paid ÷ interest earned. <b>Interest income contribution %</b> = 100 × interest earned ÷ total revenue.</li>
-          <li><b>Annual total expense</b> = available itemized expense rows + Other Expenses + Interest when all components exist; otherwise total revenue − reported PBT. The fallback is flagged in data notes.</li>
-          <li><b>Quarterly total expense</b> = Expenses + Interest. <b>OPM</b> = 100 × (total revenue − total expense) ÷ total revenue. <b>NPM</b> = 100 × net profit ÷ total revenue.</li>
-          <li><b>Equity</b> = share capital + reserves. <b>Borrowings / equity</b> is plotted as requested; interpret as a user-defined bank funding ratio.</li>
-          <li><b>EPS / dividend per share</b> = ₹ crore ÷ adjusted equity shares in crore. Zero dividend gives zero per-share dividend and payout; blank remains missing.</li>
-          <li><b>ROE / ROA</b> = net profit ÷ average equity / average total assets. First year is blank without prior-year balances.</li>
-          <li><b>Liquidity</b> = 100 × Cash &amp; Bank ÷ (Borrowings + Other Liabilities).</li>
-        </ul></div></div>
-      <div className="checks-card warnings-card"><h3><AlertTriangle size={18}/> Workbook notes & unavailable fields</h3><ul>{[...data.warnings, ...data.missingMetrics].map((warning, i) => <li key={i}>{warning}</li>)}</ul></div>
-    </>}
+    {section === 'checks' && <DataChecksView data={data} />}
     <div className="chart-export-stage bank-chart-export-stage" aria-hidden="true">{[...specs.annual, ...specs.quarterly].map(spec => <ChartPanel key={`export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>
   </>
 }
 
-function Intro({ kicker, title, description, count }: { kicker: string; title: string; description: string; count: string }) {
-  return <div className="section-intro"><div><div className="hero-kicker">{kicker}</div><h2>{title}</h2><p>{description}</p></div><span className="period-chip">{count}</span></div>
-}
 function SnapshotCard({ label, value, accent }: { label: string; value: string; accent: string }) {
   return <article className={`bank-snapshot-card accent-${accent}`}><span>{label}</span><strong>{value}</strong></article>
-}
-function CheckRow({ label, value }: { label: string; value: string }) {
-  return <div className="check-row"><span>{label}</span><b>{value}</b></div>
 }
 function BankSourceSheet({ data }: { data: BankData }) {
   const sections = ['company name', 'profit & loss', 'quarters', 'balance sheet', 'cash flow', 'price', 'derived']

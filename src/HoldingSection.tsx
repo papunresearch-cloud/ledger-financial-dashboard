@@ -1,9 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   AlertTriangle,
   Building2,
-  Check,
-  Copy,
   Globe,
   Landmark,
   LoaderCircle,
@@ -85,8 +83,6 @@ function ShareholdingTableView({
   table: ShareholdingTable | null
   tableType: 'quarterly' | 'yearly'
 }) {
-  const [copied, setCopied] = useState(false)
-
   if (!table || !table.periods || table.periods.length === 0 || !table.rows || table.rows.length === 0) {
     return (
       <div className="sh-table-empty">
@@ -98,17 +94,6 @@ function ShareholdingTableView({
   const { periods, rows } = table
   const latestPeriodIdx = periods.length - 1
 
-  function handleCopyTable() {
-    if (!table) return
-    const headerRow = ['Category', ...periods].join('\t')
-    const bodyRows = rows.map(r => [r.category, ...r.values].join('\t'))
-    const tsv = [headerRow, ...bodyRows].join('\n')
-    navigator.clipboard.writeText(tsv).then(() => {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2200)
-    })
-  }
-
   return (
     <div className="sh-table-card">
       <div className="sh-table-header">
@@ -119,15 +104,6 @@ function ShareholdingTableView({
         </div>
         <div className="sh-table-actions">
           <span className="sh-col-count-pill">{periods.length} {tableType === 'quarterly' ? 'Quarters' : 'Years'}</span>
-          <button
-            type="button"
-            className="sh-copy-btn"
-            onClick={handleCopyTable}
-            title="Copy table to clipboard for Excel"
-          >
-            {copied ? <Check size={13} className="text-emerald" /> : <Copy size={13} />}
-            <span>{copied ? 'Copied!' : 'Copy Table'}</span>
-          </button>
         </div>
       </div>
 

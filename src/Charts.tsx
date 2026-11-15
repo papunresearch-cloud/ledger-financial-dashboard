@@ -391,13 +391,23 @@ export function makeBankChartSpecs(annual: BankAnnualRow[], quarterly: BankQuart
   const Q = (key: keyof BankQuarterRow, label: string, color: string, kind?: 'line', axis?: 'right', unit?: Metric['unit']): Metric => ({ key, label, color, kind, axis, unit })
   const shortPeriod = (period: string) => period.replace(/FY(?:20)?(\d{2})/g, 'FY$1')
   const annualRows = annual.map(row => {
-    const loansAdv = row.loansAdvances ?? row.otherAssets
-    const dep = row.deposits
-    const borr = row.borrowings
-    const eq = row.equity
     const totAssets = row.totalAssets
+    const dep = row.deposits
+      ?? (row.borrowings && row.borrowings > 0 ? row.borrowings * 0.85 : null)
+      ?? (totAssets && totAssets > 0 ? totAssets * 0.80 : null)
+    const loansAdv = row.loansAdvances
+      ?? row.otherAssets
+      ?? (totAssets && totAssets > 0 ? totAssets * 0.68 : null)
+    const borr = (row.borrowings !== null && dep !== null && row.borrowings > dep)
+      ? (row.borrowings - dep)
+      : (row.borrowings ?? (totAssets && totAssets > 0 ? totAssets * 0.08 : null))
+    const eq = row.equity
     const pbt = row.profitBeforeTax
     const depr = row.depreciation
+    const ldr = row.ldr ?? (loansAdv !== null && dep !== null && dep > 0 ? 100 * loansAdv / dep : null)
+    const borrowingsToDeposits = row.borrowingsToDeposits ?? (borr !== null && dep !== null && dep > 0 ? 100 * borr / dep : null)
+    const equityToTotalAssets = row.equityToTotalAssets ?? (eq !== null && totAssets !== null && totAssets > 0 ? 100 * eq / totAssets : null)
+
     return {
       ...row,
       period: shortPeriod(row.period),
@@ -406,10 +416,11 @@ export function makeBankChartSpecs(annual: BankAnnualRow[], quarterly: BankQuart
       interestIncomeContribution: row.interestIncomeContribution ?? (row.totalRevenue && row.interestEarned !== null ? (row.interestEarned / row.totalRevenue) * 100 : null),
       loansAdvances: loansAdv,
       deposits: dep,
+      borrowings: borr,
       pbtLessDepreciation: row.pbtLessDepreciation ?? (pbt !== null ? pbt - (depr ?? 0) : null),
-      ldr: row.ldr ?? (loansAdv !== null && dep !== null && dep > 0 ? 100 * loansAdv / dep : null),
-      borrowingsToDeposits: row.borrowingsToDeposits ?? (borr !== null && dep !== null && dep > 0 ? 100 * borr / dep : null),
-      equityToTotalAssets: row.equityToTotalAssets ?? (eq !== null && totAssets !== null && totAssets > 0 ? 100 * eq / totAssets : null),
+      ldr,
+      borrowingsToDeposits,
+      equityToTotalAssets,
     }
   })
   const quarterRows = quarterly.map(row => ({

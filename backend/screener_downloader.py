@@ -122,34 +122,43 @@ def _cloud_login(session) -> None:
 
 
 def _download_cloud_workbook(code: str) -> bytes:
-    """Fetch the same company Excel export over HTTP, without installing Chromium."""
+    """Fetch the same company Excel export over HTTP, without installing Chromium.
+    
+    Tries priority 1 (/company/{code}/consolidated/), falling back to priority 2 (/company/{code}/)
+    for companies that do not report consolidated statements.
+    """
     session = _cloud_proxy_session()
     _cloud_login(session)
-    page_url = f"https://www.screener.in/company/{code}/consolidated/"
-    page = session.get(page_url, timeout=60)
-    page.raise_for_status()
-    if urlsplit(page.url).path.rstrip("/").endswith("login"):
-        raise ScreenerDownloadError(
-            "Screener redirected the company page to login. Set a valid SCREENER_SESSION_ID in Vercel, "
-            "or check SCREENER_EMAIL and SCREENER_PASSWORD."
-        )
+    candidate_urls = [
+        f"https://www.screener.in/company/{code}/consolidated/",
+        f"https://www.screener.in/company/{code}/",
+    ]
+    page = None
+    export_form = None
+    for page_url in candidate_urls:
+        try:
+            res = session.get(page_url, timeout=60)
+            if res.status_code == 200 and not urlsplit(res.url).path.rstrip("/").endswith("login"):
+                parser = _ExportFormParser()
+                parser.feed(res.text)
+                form = next((f for f in parser.forms if f["export"] and f["action"]), None)
+                if form:
+                    page = res
+                    export_form = form
+                    break
+        except Exception:
+            continue
 
-    parser = _ExportFormParser()
-    parser.feed(page.text)
-    export_form = next((form for form in parser.forms if form["export"] and form["action"]), None)
-    if not export_form:
-        raise ScreenerDownloadError("Could not find the company Excel export form. Confirm Screener sign-in and try again.")
+    if not export_form or not page:
+        raise ScreenerDownloadError("Could not find the company Excel export form on consolidated or standalone page. Confirm Screener sign-in and try again.")
 
     target = urljoin(page.url, export_form["action"])
     headers = {"Referer": page.url, "Origin": "https://www.screener.in"}
-    # Screener's company workbook action is a POST. Some pages express this as a
-    # button `formaction`, so relying on the enclosing form's default method can
-    # accidentally issue a GET and return HTML instead of the workbook.
     export_data = dict(export_form["fields"])
     csrf = session.cookies.get("csrftoken", "")
     if csrf:
         export_data.setdefault("csrfmiddlewaretoken", csrf)
-    export_data.setdefault("next", f"/company/{code}/consolidated/")
+    export_data.setdefault("next", urlsplit(page.url).path)
     headers["Content-Type"] = "application/x-www-form-urlencoded"
     if csrf:
         headers["X-CSRFToken"] = csrf
@@ -267,17 +276,21 @@ def _export_button(page):
 def _wait_until_signed_in(page, code: str, timeout_seconds: int = 180) -> None:
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-    company_url = f"https://www.screener.in/company/{code}/consolidated/"
+    priority_urls = [
+        f"https://www.screener.in/company/{code}/consolidated/",
+        f"https://www.screener.in/company/{code}/",
+    ]
     end = time.monotonic() + timeout_seconds
     while time.monotonic() < end:
         if "/login" not in page.url.lower():
-            if "/company/" not in page.url.lower():
-                page.goto(company_url, wait_until="domcontentloaded", timeout=60000)
-            try:
-                _export_button(page).wait_for(state="visible", timeout=1600)
-                return
-            except PlaywrightTimeoutError:
-                pass
+            for curl in priority_urls:
+                if f"/company/{code}" not in page.url.lower():
+                    page.goto(curl, wait_until="domcontentloaded", timeout=60000)
+                try:
+                    _export_button(page).wait_for(state="visible", timeout=1600)
+                    return
+                except PlaywrightTimeoutError:
+                    pass
         page.wait_for_timeout(500)
     if os.environ.get("LEDGER_CLOUD_MODE") == "1" or os.environ.get("VERCEL") == "1":
         raise ScreenerDownloadError(
@@ -320,23 +333,40 @@ def download_company_workbook(company_code: str) -> bytes:
                 args=["--start-maximized"],
             )
             page = context.pages[0] if context.pages else context.new_page()
-            company_url = f"https://www.screener.in/company/{code}/consolidated/"
-            page.goto(company_url, wait_until="domcontentloaded", timeout=60000)
-            button = _export_button(page)
-            try:
-                button.wait_for(state="visible", timeout=7000)
-            except PlaywrightTimeoutError:
-                # Only attempt form login if Screener actually presents its credential fields.
+
+            # Priority 1: Consolidated, Priority 2: Standalone
+            priority_urls = [
+                f"https://www.screener.in/company/{code}/consolidated/",
+                f"https://www.screener.in/company/{code}/",
+            ]
+            button_found = False
+            for curl in priority_urls:
+                page.goto(curl, wait_until="domcontentloaded", timeout=60000)
+                try:
+                    _export_button(page).wait_for(state="visible", timeout=4000)
+                    button_found = True
+                    break
+                except PlaywrightTimeoutError:
+                    continue
+
+            if not button_found:
+                # Neither has visible export button yet. Check if login is needed.
                 page.goto("https://www.screener.in/login/", wait_until="domcontentloaded", timeout=60000)
                 attempted = _try_environment_login(page)
                 if attempted:
                     page.wait_for_timeout(2500)
-                page.goto(company_url, wait_until="domcontentloaded", timeout=60000)
-                try:
-                    _export_button(page).wait_for(state="visible", timeout=7000)
-                except PlaywrightTimeoutError:
-                    print("Screener sign-in is needed in the opened Chrome window. Complete it there; waiting up to 3 minutes.")
-                    _wait_until_signed_in(page, code, timeout_seconds=180)
+                for curl in priority_urls:
+                    page.goto(curl, wait_until="domcontentloaded", timeout=60000)
+                    try:
+                        _export_button(page).wait_for(state="visible", timeout=4000)
+                        button_found = True
+                        break
+                    except PlaywrightTimeoutError:
+                        continue
+
+            if not button_found:
+                print("Screener sign-in is needed in the opened Chrome window. Complete it there; waiting up to 3 minutes.")
+                _wait_until_signed_in(page, code, timeout_seconds=180)
 
             try:
                 with page.expect_download(timeout=60000) as download_event:

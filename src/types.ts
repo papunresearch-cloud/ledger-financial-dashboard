@@ -172,6 +172,7 @@ export type RatioTableRow = {
   category: string
   formula?: string
   values: string[]
+  rawValues?: (number | null)[]
 }
 
 export type RatioTable = {
@@ -237,6 +238,12 @@ export type ScreenerAboutData = {
   }
   paragraphs: ScreenerParagraph[]
   shareholding?: ShareholdingPattern
+  financial_snapshot?: {
+    balance_sheet?: {
+      headers: string[]
+      rows: Array<{ label: string; values: string[] }>
+    }
+  }
   pros: string[]
   cons: string[]
   footnotes: ScreenerFootnote[]

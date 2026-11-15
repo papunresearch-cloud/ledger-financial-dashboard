@@ -186,6 +186,29 @@ def resolve_company(session: requests.Session, code_or_name: str, company_name_h
     }
 
 
+def parse_financial_snapshot(soup: BeautifulSoup) -> dict[str, Any]:
+    """Extract Screener Balance Sheet table for bank deposits/borrowings enrichment."""
+    bs_sec = soup.select_one("#balance-sheet")
+    if not bs_sec:
+        return {}
+    bs_table = bs_sec.select_one("table")
+    if not bs_table:
+        return {}
+    headers = [th.get_text(" ", strip=True) for th in bs_table.select("thead th") if th.get_text(" ", strip=True)]
+    rows = []
+    for tr in bs_table.select("tbody tr"):
+        tds = [td.get_text(" ", strip=True) for td in tr.select("th, td")]
+        if tds and tds[0]:
+            lbl = tds[0].replace("+", "").strip()
+            rows.append({"label": lbl, "values": tds[1:]})
+    return {
+        "balance_sheet": {
+            "headers": headers,
+            "rows": rows,
+        }
+    }
+
+
 def parse_shareholding_pattern(soup: BeautifulSoup) -> dict[str, Any]:
     """Extract Quarterly and Yearly Shareholding Pattern tables from Screener."""
     sh_section = soup.select_one("#shareholding")
@@ -460,6 +483,7 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
         "about_intro": intro_parsed,
         "paragraphs": paragraphs,
         "shareholding": shareholding,
+        "financial_snapshot": parse_financial_snapshot(soup),
         "pros": pros,
         "cons": cons,
         "footnotes": footnotes,

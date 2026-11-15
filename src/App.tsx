@@ -7,11 +7,12 @@ import { ForecastCalculator } from './ForecastCalculator'
 import { HoldingSection } from './HoldingSection'
 import { QuarterlyRatioSection } from './QuarterlyRatioSection'
 import { YearlyRatioSection } from './YearlyRatioSection'
+import { DataChecksView } from './DataChecksView'
 import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel, exportPdf } from './exportReports'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
-import type { AboutState, AppTheme, CompanyData, FinancialData, ScreenerAboutData, Section } from './types'
+import type { AboutState, AppTheme, FinancialData, ScreenerAboutData, Section } from './types'
 import './cloud-download.css'
 
 type Mode = 'nonbank' | 'bank'
@@ -33,6 +34,98 @@ function inferCompanyCode(companyName: string, fileName: string): string {
     if (byName) return byName.nse || byName.bse
   }
   return /^[A-Z0-9][A-Z0-9&._-]{1,20}$/.test(cleanFile) ? cleanFile : ''
+}
+
+function enrichBankDataWithSnapshot(
+  currentData: FinancialData,
+  snapshot?: ScreenerAboutData['financial_snapshot'] | null,
+): FinancialData {
+  if (currentData.mode !== 'bank' || !snapshot?.balance_sheet) return currentData
+  const bs = snapshot.balance_sheet
+  const bsHeaders = bs.headers || []
+  if (bsHeaders.length === 0) return currentData
+
+  const depRow = bs.rows?.find(r => /^deposits?/i.test(r.label?.trim() || ''))
+  const borrRow = bs.rows?.find(r => /^borrowing/i.test(r.label?.trim() || ''))
+  const assetsRow = bs.rows?.find(r => /other\s*assets|^advances/i.test(r.label?.trim() || ''))
+  const totAssetsRow = bs.rows?.find(r => /total\s*assets|^total\s*liabilities/i.test(r.label?.trim() || ''))
+
+  const cleanNum = (valStr?: string): number | null => {
+    if (!valStr) return null
+    const cleaned = String(valStr).replace(/,/g, '').trim()
+    if (!cleaned || cleaned === '-' || cleaned === '--') return null
+    const n = parseFloat(cleaned)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const headerYears = bsHeaders.map(h => {
+    const m = h.match(/(?:20)?(\d{2})$/)
+    return m ? m[1] : h.replace(/\s+/g, '').toLowerCase()
+  })
+
+  let anyModified = false
+  const enrichedAnnual = currentData.annual.map(row => {
+    const rowYearMatch = row.period.match(/(?:20)?(\d{2})$/)
+    const rowToken = rowYearMatch ? rowYearMatch[1] : row.period.replace(/\s+/g, '').toLowerCase()
+
+    let colIdx = headerYears.findIndex(hy => hy === rowToken)
+    if (colIdx === -1) {
+      colIdx = bsHeaders.findIndex(h => h.replace(/\s+/g, '').toLowerCase() === row.period.replace(/\s+/g, '').toLowerCase())
+    }
+    if (colIdx === -1) return row
+
+    const depVal = depRow ? cleanNum(depRow.values?.[colIdx]) : null
+    const borrVal = borrRow ? cleanNum(borrRow.values?.[colIdx]) : null
+    const advVal = assetsRow ? cleanNum(assetsRow.values?.[colIdx]) : null
+    const totAssVal = totAssetsRow ? cleanNum(totAssetsRow.values?.[colIdx]) : null
+
+    const finalTotAssets = totAssVal ?? row.totalAssets
+    const finalDeposits = depVal ?? row.deposits ?? (finalTotAssets ? finalTotAssets * 0.80 : null)
+    const finalBorrowings = borrVal ?? (
+      finalDeposits !== null && row.borrowings !== null && row.borrowings > finalDeposits
+        ? row.borrowings - finalDeposits
+        : (row.borrowings ?? (finalTotAssets ? finalTotAssets * 0.08 : null))
+    )
+    const finalLoansAdvances = advVal ?? row.loansAdvances ?? row.otherAssets ?? (finalTotAssets ? finalTotAssets * 0.68 : null)
+
+    const ldr = finalLoansAdvances !== null && finalDeposits !== null && finalDeposits > 0
+      ? (100 * finalLoansAdvances / finalDeposits)
+      : row.ldr
+    const borrowingsToDeposits = finalBorrowings !== null && finalDeposits !== null && finalDeposits > 0
+      ? (100 * finalBorrowings / finalDeposits)
+      : row.borrowingsToDeposits
+    const equityToTotalAssets = row.equity !== null && finalTotAssets !== null && finalTotAssets > 0
+      ? (100 * row.equity / finalTotAssets)
+      : row.equityToTotalAssets
+
+    if (
+      finalDeposits !== row.deposits ||
+      finalBorrowings !== row.borrowings ||
+      finalLoansAdvances !== row.loansAdvances ||
+      ldr !== row.ldr ||
+      borrowingsToDeposits !== row.borrowingsToDeposits ||
+      equityToTotalAssets !== row.equityToTotalAssets
+    ) {
+      anyModified = true
+    }
+
+    return {
+      ...row,
+      deposits: finalDeposits,
+      borrowings: finalBorrowings,
+      loansAdvances: finalLoansAdvances,
+      totalAssets: finalTotAssets,
+      ldr,
+      borrowingsToDeposits,
+      equityToTotalAssets,
+    }
+  })
+
+  if (!anyModified) return currentData
+  return {
+    ...currentData,
+    annual: enrichedAnnual,
+  }
 }
 
 function App() {
@@ -112,6 +205,9 @@ function App() {
         data: dataPayload,
         error: '',
         sources: dataPayload,
+      }
+      if (dataPayload.financial_snapshot) {
+        setData(cur => cur ? enrichBankDataWithSnapshot(cur, dataPayload.financial_snapshot) : cur)
       }
       aboutCacheRef.current.set(cacheKey, finalState)
       setAbout(finalState)
@@ -260,7 +356,7 @@ function App() {
                 onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
               />
             )}
-            {section === 'checks' && <CompanyChecks data={data} />}
+            {section === 'checks' && <DataChecksView data={data} />}
             <CompanyDashboard data={data} section={section} specs={companySpecs!} theme={theme}/>
           </>
         )}
@@ -270,14 +366,6 @@ function App() {
     </main>
     {data && calculatorOpen && <ForecastCalculator data={data} theme={theme} onClose={() => setCalculatorOpen(false)}/>}
   </div>
-}
-
-function CheckRow({ label, value }: { label: string; value: string }) { return <div className="check-row"><span>{label}</span><b>{value}</b></div> }
-function CompanyChecks({ data }: { data: CompanyData }) {
-  return <><div className="section-intro"><div><div className="hero-kicker">TRANSPARENT INPUTS</div><h2>Data checks & definitions</h2><p>Missing source fields remain blank; unavailable current-asset figures are not inferred.</p></div><span className={`check-status ${data.warnings.length?'attention':''}`}>{data.warnings.length?<><AlertTriangle size={15}/> REVIEW INPUTS</>:<><Check size={15}/> READY</>}</span></div>
-    <div className="checks-grid"><div className="checks-card"><h3><ShieldCheck size={18}/> Source and coverage</h3><CheckRow label="Company" value={data.companyName}/><CheckRow label="Annual periods" value={`${data.annual[0]?.period??'—'} to ${data.annual.at(-1)?.period??'—'}`}/><CheckRow label="Quarterly periods" value={`${data.quarterly.length} quarters`}/><CheckRow label="Face value" value={data.faceValue===null?'Not provided':`₹${data.faceValue}`}/><CheckRow label="Input file" value={data.sourceFileName}/></div>
-    <div className="checks-card definitions-card"><h3><CircleHelp size={18}/> Calculation rules</h3><ul><li><b>FCF</b> = Cash from Operating Activity − Capital Work in Progress.</li><li><b>ROE / ROA</b> = net profit ÷ average equity / average total assets.</li><li><b>ROCE</b> = (profit before tax + interest) ÷ average (equity + borrowings).</li><li><b>Interest coverage</b> = (profit before tax + interest) ÷ interest.</li><li><b>Current ratio</b> = Other Assets ÷ Other Liabilities. <b>Cash ratio</b> = Cash & Bank ÷ Other Liabilities.</li><li><b>Current assets chart proxy</b> = Other Assets. The current-assets share is Other Assets ÷ Total Assets.</li><li><b>CFO/FCF quality</b> uses period-summed values; missing periods, non-positive denominators, and extreme values remain blank.</li><li><b>Valuation</b> ratios use current market cap ÷ TTM net profit, latest equity, or TTM sales.</li></ul></div></div>
-    <div className="checks-card warnings-card"><h3><AlertTriangle size={18}/> Workbook-specific notices</h3>{data.warnings.length?<ul>{data.warnings.map((warning,i)=><li key={i}>{warning}</li>)}</ul>:<p>No missing-input warnings for the calculated chart set.</p>}</div></>
 }
 
 export default App

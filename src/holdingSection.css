@@ -416,8 +416,9 @@
   border-spacing: 0;
   width: 100%;
   min-width: 750px;
-  font-size: 13.5px;
-  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+  letter-spacing: -0.1px;
 }
 
 /* Table Head */
@@ -431,37 +432,38 @@
   z-index: 10;
   background: #0f172a;
   text-align: left;
-  padding: 12px 18px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #94a3b8;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-  min-width: 210px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+  min-width: 220px;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
 }
 
 .sh-th-period {
-  padding: 12px 14px;
+  padding: 14px 16px;
   text-align: right;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-  font-weight: 750;
-  font-size: 13px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-weight: 800;
+  font-size: 14.5px;
   white-space: nowrap;
-  min-width: 100px;
+  min-width: 105px;
+  font-family: 'DM Mono', monospace;
 }
 
 .sh-th-latest {
-  background: rgba(99, 102, 241, 0.12);
-  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.16);
+  color: #c7d2fe;
 }
 
 .sh-latest-tag {
   display: block;
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 850;
   text-transform: uppercase;
   color: #38bdf8;
   letter-spacing: 0.8px;
@@ -473,21 +475,21 @@
 }
 
 .sh-data-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .sh-td-category {
   position: sticky;
   left: 0;
   z-index: 8;
-  background: #111827;
-  padding: 12px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0d1424;
+  padding: 13px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.35);
 }
 
 .sh-data-table tbody tr:hover .sh-td-category {
-  background: #162032;
+  background: #141d33;
 }
 
 /* Jewel Category Badges */
@@ -495,75 +497,77 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 11px;
-  border-radius: 8px;
-  font-weight: 750;
-  font-size: 13px;
+  padding: 6px 13px;
+  border-radius: 9px;
+  font-weight: 800;
+  font-size: 14px;
   letter-spacing: -0.1px;
   font-family: Manrope, sans-serif;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .cat-promoters {
-  background: rgba(99, 102, 241, 0.16);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(129, 140, 248, 0.5);
+  color: #c7d2fe;
 }
 .cat-fiis {
-  background: rgba(168, 85, 247, 0.16);
-  border: 1px solid rgba(168, 85, 247, 0.4);
-  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(192, 132, 252, 0.5);
+  color: #e9d5ff;
 }
 .cat-diis {
-  background: rgba(16, 185, 129, 0.16);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  color: #a7f3d0;
 }
 .cat-government {
-  background: rgba(245, 158, 11, 0.16);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fde047;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  color: #fef08a;
 }
 .cat-public {
-  background: rgba(244, 63, 94, 0.16);
-  border: 1px solid rgba(244, 63, 94, 0.4);
-  color: #fda4af;
+  background: rgba(244, 63, 94, 0.2);
+  border: 1px solid rgba(251, 113, 133, 0.5);
+  color: #fecdd3;
 }
 .cat-shareholders {
-  background: rgba(6, 182, 212, 0.16);
-  border: 1px solid rgba(6, 182, 212, 0.4);
-  color: #67e8f9;
+  background: rgba(6, 182, 212, 0.2);
+  border: 1px solid rgba(34, 211, 238, 0.5);
+  color: #a5f3fc;
 }
 .cat-total,
 .cat-other {
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #e2e8f0;
 }
 
 /* Data Cells */
 .sh-td-cell {
-  padding: 11px 14px;
+  padding: 12px 16px;
   text-align: right;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   white-space: nowrap;
 }
 
 .cell-latest {
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .sh-cell-content {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 3px;
 }
 
 .sh-cell-value {
-  font-weight: 750;
-  color: #f1f5f9;
-  font-size: 13.5px;
+  font-weight: 800;
+  color: #f8fafc;
+  font-size: 15.5px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: -0.2px;
 }
 
 .cell-promoters .sh-cell-value { color: #e0e7ff; }
@@ -571,28 +575,32 @@
 .cell-diis .sh-cell-value { color: #d1fae5; }
 .cell-government .sh-cell-value { color: #fef3c7; }
 .cell-public .sh-cell-value { color: #ffe4e6; }
-.cell-shareholders .sh-cell-value { color: #e0f2fe; font-size: 13px; }
+.cell-shareholders .sh-cell-value { color: #e0f2fe; font-size: 14.5px; }
 
-/* Delta Chips */
+/* Delta Chips - Substantially Larger & High Contrast */
 .sh-delta-chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 750;
-  padding: 1px 5px;
-  border-radius: 4px;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 2.5px 7.5px;
+  border-radius: 6px;
   letter-spacing: 0.2px;
+  font-family: 'DM Mono', monospace;
+  line-height: 1.2;
 }
 
 .delta-up {
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.14);
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.22);
+  border: 1px solid rgba(74, 222, 128, 0.45);
 }
 
 .delta-down {
-  color: #fb7185;
-  background: rgba(244, 63, 94, 0.14);
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.45);
 }
 
 /* Distinct Row Styling */
@@ -861,13 +869,17 @@
 .theme-bright .cell-shareholders .sh-cell-value { color: #134e4a; }
 
 .theme-bright .delta-up {
-  color: #047857;
-  background: #d1fae5;
+  color: #14532d;
+  background: #bbf7d0;
+  border: 1px solid #86efac;
+  font-weight: 850;
 }
 
 .theme-bright .delta-down {
-  color: #be123c;
-  background: #ffe4e6;
+  color: #991b1b;
+  background: #fecaca;
+  border: 1px solid #fca5a5;
+  font-weight: 850;
 }
 
 .theme-bright .sh-tr-shareholders {

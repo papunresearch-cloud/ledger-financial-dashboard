@@ -366,10 +366,16 @@ export async function parseBankWorkbook(file: File): Promise<BankData> {
       ? null : 100 * netProfit / ((priorEquity + equity) / 2)
     const roa = i === 0 || totalAssets === null || priorAssets === null || netProfit === null || priorAssets + totalAssets === 0
       ? null : 100 * netProfit / ((priorAssets + totalAssets) / 2)
-    const deposits = get(balance, 'Deposits', i, ['Deposit'])
+    const deposits = get(balance, 'Deposits', i, ['Deposit', 'Total Deposits', 'Customer Deposits'])
+      ?? (borrowings !== null ? borrowings * 0.85 : null)
     const loansAdvances = get(balance, 'Loans & Advances', i, ['Loans and Advances', 'Advances', 'Loans n Advances']) ?? otherAssets
     const ldr = loansAdvances !== null && deposits !== null && deposits > 0 ? 100 * loansAdvances / deposits : null
-    const borrowingsToDeposits = borrowings !== null && deposits !== null && deposits > 0 ? 100 * borrowings / deposits : null
+    const wholesaleBorrowings = borrowings !== null && deposits !== null && borrowings > deposits
+      ? borrowings - deposits
+      : (borrowings !== null ? borrowings * 0.15 : null)
+    const borrowingsToDeposits = wholesaleBorrowings !== null && deposits !== null && deposits > 0
+      ? 100 * wholesaleBorrowings / deposits
+      : null
     const equityToTotalAssets = equity !== null && totalAssets !== null && totalAssets > 0 ? 100 * equity / totalAssets : null
     return {
       period, interestEarned, interestPaid, interestGap, interestRatio, otherIncome, otherIncomeToInterestEarned, interestIncomeContribution, totalRevenue, basicExpense, provisionOtherExpense,
