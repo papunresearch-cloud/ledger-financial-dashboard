@@ -3,6 +3,7 @@ import type { AboutState, BankData, FinancialData } from './types'
 import { PEER_METRIC_COLUMNS, PEER_TABLE_HEADERS, resolvePeerComparison, type NormalizedPeerRow } from './peerComparison'
 import { computeQuarterlyRatios, computeYearlyRatios } from './ratioCalculations'
 import { RATIO_DEFINITIONS } from './DataChecksView'
+import { mergeBrokenLines } from './AboutSection'
 
 type CapturedChart = { title: string; dataUrl: string }
 const safeName = (value: string) => value.toUpperCase().replace(/[^A-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'COMPANY'
@@ -242,7 +243,7 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
 
   if (data?.about_intro?.text) {
     addBanner('ABOUT COMPANY')
-    addKV('Corporate Overview', data.about_intro.text)
+    addKV('Corporate Overview', mergeBrokenLines(data.about_intro.text.split('\n')).join(' '))
     ws.addRow([])
   }
 
@@ -250,9 +251,9 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
     addBanner(`READ MORE COMMENTARY & OPERATIONAL DIMENSIONS (${data.paragraphs.length} TOPICS)`)
     for (const p of data.paragraphs) {
       const title = p.title || `Dimension #${p.id}`
-      const content = p.bullets && p.bullets.length > 0
-        ? p.bullets.map(b => `• ${b}`).join('\n')
-        : p.text
+      const rawLines = p.lines && p.lines.length > 0 ? p.lines : (p.text ? p.text.split('\n').filter(Boolean) : [])
+      const lines = mergeBrokenLines(rawLines)
+      const content = lines.join('\n')
       addKV(title, content)
     }
     ws.addRow([])
@@ -759,7 +760,7 @@ function appendAboutPdfSection(
     if (data.company_info?.name) rows.push(['Company Name', pdfText(data.company_info.name)])
     if (data.company_info?.symbol) rows.push(['Symbol', pdfText(data.company_info.symbol)])
     if (data.company_info?.sector) rows.push(['Sector & Industry', pdfText(data.company_info.sector)])
-    if (data.about_intro?.text) rows.push(['About Description', pdfText(data.about_intro.text)])
+    if (data.about_intro?.text) rows.push(['About Description', pdfText(mergeBrokenLines(data.about_intro.text.split('\n')).join(' '))])
     if (data.ratios && data.ratios.length > 0) {
       rows.push(['Key Financial Metrics', pdfText(data.ratios.map(r => `${r.label}: ${r.value}`).join(' | '))])
     }
@@ -777,10 +778,14 @@ function appendAboutPdfSection(
     if (data.paragraphs && data.paragraphs.length > 0) {
       if (y > 150) { doc.addPage(); y = 18 }
       sectionHeading(`Read More Operational Insights (${data.paragraphs.length} Topics)`, y)
-      const commRows: Array<[string, string]> = data.paragraphs.map(p => [
-        pdfText(p.title || `Dimension #${p.id}`),
-        pdfText(p.bullets && p.bullets.length > 0 ? p.bullets.map(b => `• ${b}`).join('\n') : p.text),
-      ])
+      const commRows: Array<[string, string]> = data.paragraphs.map(p => {
+        const rawLines = p.lines && p.lines.length > 0 ? p.lines : (p.text ? p.text.split('\n').filter(Boolean) : [])
+        const lines = mergeBrokenLines(rawLines)
+        return [
+          pdfText(p.title || `Dimension #${p.id}`),
+          pdfText(lines.join('\n')),
+        ]
+      })
       autoTable(doc, {
         ...baseTable,
         startY: y + 4,

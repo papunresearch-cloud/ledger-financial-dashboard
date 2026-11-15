@@ -42,6 +42,99 @@ function sanitizeInlineText(raw: string): string {
   return s.trim()
 }
 
+/** Determine whether a line represents a standalone list item, bullet, or metric */
+function isBulletOrItem(line: string): boolean {
+  const trimmed = line.trim()
+  if (!trimmed) return false
+
+  // Explicit bullet or dash
+  if (/^[-•*–—]\s+/.test(trimmed)) return true
+
+  // Numbered or lettered list: 1., 1), a), (a), etc.
+  if (/^(\d+[\.\)]|[a-zA-Z][\.\)]|\([a-zA-Z0-9]+\))\s+/.test(trimmed)) return true
+
+  // Key-value metric: short label ending in colon followed by value, e.g. "MSME: 29%"
+  const m = trimmed.match(/^([^:]{2,35}):\s*(.*)$/)
+  if (m) {
+    const label = m[1].trim()
+    const words = label.split(/\s+/)
+    const disallowed = new Set(['note', 'however', 'furthermore', 'moreover', 'in addition', 'for example', 'specifically'])
+    if (words.length <= 5 && !disallowed.has(words[0].toLowerCase())) {
+      return true
+    }
+  }
+
+  // Mini-header: short (<=30 chars), Title Case or All-Caps, no terminal sentence punctuation
+  if (
+    trimmed.length <= 30 &&
+    !/[.,;:–-]$/.test(trimmed) &&
+    /^[A-Z][a-zA-Z0-9\s/&()-]+$/.test(trimmed) &&
+    trimmed.split(/\s+/).length <= 4
+  ) {
+    return true
+  }
+
+  return false
+}
+
+/** Merge lines that were arbitrarily split due to column width / space scarcity in source documents */
+export function mergeBrokenLines(lines: string[]): string[] {
+  if (!lines || lines.length <= 1) return lines || []
+
+  const merged: string[] = []
+
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (!line) continue
+
+    if (merged.length === 0) {
+      merged.push(line)
+      continue
+    }
+
+    const prev = merged[merged.length - 1]
+    const currIsItem = isBulletOrItem(line)
+    const prevIsItem = isBulletOrItem(prev)
+
+    // 1. If current line is a distinct bullet / metric item, keep it on a new line
+    if (currIsItem) {
+      merged.push(line)
+      continue
+    }
+
+    // 2. If previous line was a bullet / metric item:
+    if (prevIsItem) {
+      // If previous item was hyphenated at line end: "cost-to-" -> merge with "income"
+      if (/[a-zA-Z][-–]$/.test(prev)) {
+        merged[merged.length - 1] = prev.replace(/[-–]$/, '') + '-' + line
+        continue
+      }
+      // If current line starts with lowercase, it is definitively a continuation of previous line
+      if (/^[a-z]/.test(line)) {
+        merged[merged.length - 1] = prev + ' ' + line
+        continue
+      }
+      // If previous item ended in incomplete preposition / conjunction / comma
+      if (/[,;]$|\b(and|or|with|to|for|in|of|the|a|an|by|from|as|at)$/i.test(prev)) {
+        merged[merged.length - 1] = prev + ' ' + line
+        continue
+      }
+      // Otherwise keep current line separate
+      merged.push(line)
+      continue
+    }
+
+    // 3. Both lines are narrative text: merge them together into a flowing sentence/paragraph
+    if (/[a-zA-Z][-–]$/.test(prev)) {
+      merged[merged.length - 1] = prev.replace(/[-–]$/, '') + '-' + line
+    } else {
+      merged[merged.length - 1] = prev + ' ' + line
+    }
+  }
+
+  return merged
+}
+
 /** Render highlighted text with bold underline styling for numbers and key terms */
 function HighlightedContent({ text }: { text: string }) {
   const cleaned = sanitizeInlineText(text)
@@ -123,7 +216,8 @@ function RenderDocumentSubsection({
 }: {
   sub: string
 }) {
-  const clean = sanitizeInlineText(sub)
+  const merged = mergeBrokenLines(sub.split('\n')).join(' ')
+  const clean = sanitizeInlineText(merged)
   if (!clean) return null
 
   // Match e.g. "a) AI Services: rest..."
@@ -175,14 +269,20 @@ export function AboutSection({ about, fallbackCompanyName, onRetry }: Props) {
 
   function handleCopyDocument() {
     if (!intro?.text) return
-    let docText = `About\n${sanitizeInlineText(intro.text)}\n\nKey Points\n`
+    const cleanIntro = mergeBrokenLines(intro.text.split('\n')).join(' ')
+    let docText = `About\n${sanitizeInlineText(cleanIntro)}\n\nKey Points\n`
     for (const p of paragraphs) {
       if (p.title) docText += `\n${p.title}:\n`
-      if (p.lines) {
-        for (const l of p.lines) docText += `${sanitizeInlineText(l)}\n`
+      const rawLines = p.lines && p.lines.length > 0 ? p.lines : (p.text ? p.text.split('\n').filter(Boolean) : [])
+      const lines = mergeBrokenLines(rawLines)
+      if (lines) {
+        for (const l of lines) docText += `${sanitizeInlineText(l)}\n`
       }
       if (p.subsections) {
-        for (const s of p.subsections) docText += `${sanitizeInlineText(s)}\n`
+        for (const s of p.subsections) {
+          const subLines = mergeBrokenLines(s.split('\n'))
+          for (const sl of subLines) docText += `${sanitizeInlineText(sl)}\n`
+        }
       }
     }
     navigator.clipboard.writeText(docText.trim()).then(() => {
@@ -303,7 +403,7 @@ export function AboutSection({ about, fallbackCompanyName, onRetry }: Props) {
           <div className="doc-intro-content">
             <p className="doc-intro-paragraph">
               {intro?.text ? (
-                <HighlightedContent text={intro.text} />
+                <HighlightedContent text={mergeBrokenLines(intro.text.split('\n')).join(' ')} />
               ) : (
                 `${compName} is a publicly listed enterprise in India.`
               )}
@@ -323,7 +423,8 @@ export function AboutSection({ about, fallbackCompanyName, onRetry }: Props) {
             {paragraphs.map((p, idx) => {
               const pal = SECTION_PALETTES[idx % SECTION_PALETTES.length]
               const title = p.title || ''
-              const lines = p.lines && p.lines.length > 0 ? p.lines : (p.text ? p.text.split('\n').filter(Boolean) : [])
+              const rawLines = p.lines && p.lines.length > 0 ? p.lines : (p.text ? p.text.split('\n').filter(Boolean) : [])
+              const lines = mergeBrokenLines(rawLines)
               const subsections = p.subsections ?? []
 
               return (

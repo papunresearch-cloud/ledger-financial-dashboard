@@ -323,10 +323,12 @@
 
 .doc-narrative-p {
   font-size: 16.5px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: #e2e8f0;
   font-weight: 500;
-  margin: 0 0 4px 0;
+  margin: 0 0 6px 0;
+  text-align: left;
+  overflow-wrap: break-word;
 }
 
 .doc-narrative-p:last-child {

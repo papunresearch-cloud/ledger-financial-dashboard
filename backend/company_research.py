@@ -573,6 +573,85 @@ def parse_screener_peers_section(
     }
 
 
+def _is_bullet_or_item(line: str) -> bool:
+    """Determine whether a line represents a standalone list item, bullet, or metric."""
+    s = line.strip()
+    if not s:
+        return False
+    # Explicit bullet symbols: -, •, *, –, —
+    if re.match(r"^[-•*–—]\s+", s):
+        return True
+    # Numbered / lettered list: 1., 1), a), (a), i.
+    if re.match(r"^(\d+[\.\)]|[a-zA-Z][\.\)]|\([a-zA-Z0-9]+\))\s+", s):
+        return True
+    # Key-value metric: "Label: Value", e.g. "MSME: 29%", "GNPA: 0.91%", "Employees: 5,98,056"
+    m = re.match(r"^([^:]{2,35}):\s*(.*)$", s)
+    if m:
+        label = m.group(1).strip()
+        words = label.split()
+        disallowed = {"note", "however", "furthermore", "moreover", "in addition", "for example", "specifically"}
+        if len(words) <= 5 and not any(w.lower() in disallowed for w in words):
+            return True
+    # Mini header: short (<=30 chars), Title Case or All-Caps, no ending sentence punctuation
+    if len(s) <= 30 and not s.endswith((".", ",", ";", ":", "-", "–")) and (s.istitle() or s.isupper()):
+        words = s.split()
+        if len(words) <= 4:
+            return True
+    return False
+
+
+def _merge_broken_lines(lines: list[str]) -> list[str]:
+    """Merge lines that were arbitrarily split due to column width / space scarcity in source documents."""
+    if not lines or len(lines) <= 1:
+        return lines or []
+
+    merged: list[str] = []
+
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+
+        if not merged:
+            merged.append(line)
+            continue
+
+        prev = merged[-1]
+        curr_is_item = _is_bullet_or_item(line)
+        prev_is_item = _is_bullet_or_item(prev)
+
+        # 1. If current line is a distinct bullet / metric item, keep it on a new line
+        if curr_is_item:
+            merged.append(line)
+            continue
+
+        # 2. If previous line was a bullet / metric item:
+        if prev_is_item:
+            # Check if previous item was hyphenated at line end: "cost-to-" -> merge with "income"
+            if re.search(r"[a-zA-Z][-–]$", prev):
+                merged[-1] = re.sub(r"[-–]$", "", prev) + "-" + line
+                continue
+            # If current line starts with lowercase, it is definitively a continuation of previous line
+            if line[0].islower():
+                merged[-1] = prev + " " + line
+                continue
+            # If previous item ended in incomplete preposition / conjunction / comma
+            if re.search(r"[,;]$|\b(and|or|with|to|for|in|of|the|a|an|by|from|as|at)$", prev, re.IGNORECASE):
+                merged[-1] = prev + " " + line
+                continue
+            # Otherwise, keep current line separate
+            merged.append(line)
+            continue
+
+        # 3. Both lines are narrative text: merge them together into a flowing sentence/paragraph
+        if re.search(r"[a-zA-Z][-–]$", prev):
+            merged[-1] = re.sub(r"[-–]$", "", prev) + "-" + line
+        else:
+            merged[-1] = prev + " " + line
+
+    return merged
+
+
 def clean_paragraph_html(p_elem: Any) -> dict[str, Any]:
     """Clean paragraph HTML by stripping all source notations and extracting structured lines."""
     # 1. Remove all sups (citations like [1], [7])
@@ -621,6 +700,9 @@ def clean_paragraph_html(p_elem: Any) -> dict[str, Any]:
             title = first.rstrip(":")
             content_lines = lines[1:]
 
+    # Merge broken lines caused by column width / space scarcity in source documents
+    content_lines = _merge_broken_lines(content_lines)
+
     bullets: list[str] = []
     for line in content_lines:
         if line.startswith(("-", "•", "*")):
@@ -629,7 +711,7 @@ def clean_paragraph_html(p_elem: Any) -> dict[str, Any]:
     return {
         "title": title,
         "html": str(p_elem),
-        "text": "\n".join(lines),
+        "text": "\n".join(content_lines),
         "lines": content_lines,
         "bullets": bullets,
         "citations": [],
@@ -767,7 +849,8 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
                         sections[-1]["html"] += item.get("html", "")
                     elif sections:
                         sections[-1]["lines"].extend(lines)
-                        sections[-1]["text"] += "\n" + item.get("text", "")
+                        sections[-1]["lines"] = _merge_broken_lines(sections[-1]["lines"])
+                        sections[-1]["text"] = "\n".join(sections[-1]["lines"])
                         sections[-1]["html"] += item.get("html", "")
                     else:
                         sections.append({
@@ -779,6 +862,10 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
                             "html": item.get("html", ""),
                             "text": item.get("text", ""),
                         })
+                # Final cleanup of section lines and subsections
+                for sec in sections:
+                    sec["lines"] = _merge_broken_lines(sec.get("lines", []))
+                    sec["text"] = "\n".join(sec["lines"])
                 paragraphs = sections
         except Exception as exc:
             print(f"Error fetching Screener Read More commentary: {exc}", flush=True)
