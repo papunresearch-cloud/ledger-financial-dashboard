@@ -485,3 +485,93 @@ html,body{width:100%;min-width:320px;max-width:100%;overflow-x:hidden}
   height: 3px !important;
   box-shadow: 0 0 8px rgba(2, 132, 199, 0.5) !important;
 }
+
+/* ==========================================================================
+   Identical Styling for Report Action Buttons (PDF, Excel, Web report)
+   ========================================================================== */
+.report-action-button {
+  background: linear-gradient(135deg, #0f766e, #1d4ed8) !important;
+  color: #ffffff !important;
+  border: 1px solid #2dd4bf !important;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.28) !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  padding: 8px 14px !important;
+  border-radius: 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  white-space: nowrap !important;
+}
+
+.report-action-button:hover {
+  background: linear-gradient(135deg, #0d9488, #2563eb) !important;
+  border-color: #5eead4 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(13, 148, 136, 0.38) !important;
+}
+
+.report-action-button:disabled {
+  opacity: 0.65 !important;
+  cursor: wait !important;
+  transform: none !important;
+}
+
+.theme-bright .report-action-button {
+  background: linear-gradient(135deg, #1d4ed8, #4338ca) !important;
+  color: #ffffff !important;
+  border: 1px solid #1e3a8a !important;
+  border-bottom: 3px solid #172554 !important;
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.25) !important;
+}
+
+.theme-bright .report-action-button:hover {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  border-color: #1d4ed8 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(29, 78, 216, 0.35) !important;
+}
+
+/* Offscreen Print / Web Report Generation Stage */
+.print-report-stage {
+  position: fixed;
+  left: -18000px;
+  top: 0;
+  width: 1280px;
+  padding: 24px 30px 36px;
+  z-index: -1;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  background: #ffffff;
+}
+
+.print-report-stage .company-actions,
+.print-report-stage .topbar,
+.print-report-stage .section-nav,
+.print-report-stage .app-footer,
+.print-report-stage .theme-toggle-button,
+.print-report-stage .about-refresh-btn,
+.print-report-stage .holding-btn-refresh,
+.print-report-stage .peer-refresh-btn {
+  display: none !important;
+}
+
+.print-report-stage .about-table-scroll,
+.print-report-stage .company-table-scroll,
+.print-report-stage .bank-growth-scroll,
+.print-report-stage .sh-table-scroll-wrap,
+.print-report-stage .peer-table-scroll-wrap,
+.print-report-stage .ratio-table-wrapper {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.print-report-stage .chart-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+}
+

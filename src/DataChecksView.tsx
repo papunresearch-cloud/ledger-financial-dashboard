@@ -13,7 +13,7 @@ import {
 import type { FinancialData } from './types'
 import './dataChecks.css'
 
-interface RatioDefinition {
+export interface RatioDefinition {
   id: string
   name: string
   abbr: string
@@ -25,7 +25,7 @@ interface RatioDefinition {
   applicableTo: 'all' | 'bank' | 'nonbank'
 }
 
-const RATIO_DEFINITIONS: RatioDefinition[] = [
+export const RATIO_DEFINITIONS: RatioDefinition[] = [
   // Banking (BFSI) Ratios
   {
     id: 'ldr',

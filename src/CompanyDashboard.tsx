@@ -83,7 +83,23 @@ function curveBasedCagrAverage(metric: string, points: Array<{ year: number; val
   if (lastYear !== null) return { value: lastYear, basis: `${metric}: 1Y growth fallback`, rSquared: curve?.rSquared ?? null }
   return { value: null, basis: `${metric}: unavailable`, rSquared: curve?.rSquared ?? null }
 }
-export function CompanyDashboard({ data, section, specs, theme }: { data: CompanyData; section: Section; specs: CompanySpecs; theme: AppTheme }) {
+export function CompanyDashboard({
+  data,
+  section,
+  specs,
+  theme,
+  staticCharts = false,
+  gradientPrefix,
+  hideExportStage = false,
+}: {
+  data: CompanyData
+  section: Section
+  specs: CompanySpecs
+  theme: AppTheme
+  staticCharts?: boolean
+  gradientPrefix?: string
+  hideExportStage?: boolean
+}) {
   const ttmSales = ttmSum(data.quarterly, 'sales')
   const ttmProfit = ttmSum(data.quarterly, 'netProfit')
   const epsAverage = calculateRobustWeightedAverage(data.annual.map(row => row.eps))
@@ -243,14 +259,14 @@ export function CompanyDashboard({ data, section, specs, theme }: { data: Compan
     </div>}
     {section === 'yearly' && <div className="company-plots-page">
       <div className="company-page-heading"><div><div className="hero-kicker">NON-BANK PLOTBOOK</div><h2>Yearly & quarterly plots</h2></div><span>₹ CRORE UNLESS STATED</span></div>
-      <div className="chart-grid">{[...specs.annual, ...specs.margins, ...specs.quarterly].map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} />)}</div>
-      <section className="company-chart-section company-special-chart-section"><div className="company-chart-section-heading"><h3>Special analysis</h3><i>YEARLY · NON-STANDARD RATIOS</i></div><div className="chart-grid">{specs.special.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} />)}</div></section>
+      <div className="chart-grid">{[...specs.annual, ...specs.margins, ...specs.quarterly].map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} staticRender={staticCharts} gradientPrefix={gradientPrefix} />)}</div>
+      <section className="company-chart-section company-special-chart-section"><div className="company-chart-section-heading"><h3>Special analysis</h3><i>YEARLY · NON-STANDARD RATIOS</i></div><div className="chart-grid">{specs.special.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} staticRender={staticCharts} gradientPrefix={gradientPrefix} />)}</div></section>
     </div>}
     {section === 'tables' && <section className="company-data-sheet">
       <div className="company-page-heading"><div><div className="hero-kicker">ORIGINAL WORKBOOK VIEW</div><h2>Data Sheet</h2><p>{data.sourceFileName} · original row and column order</p></div><span>{displayRows.length} ROWS</span></div>
       <div className="company-sheet-frame"><div className="company-sheet-topline"><i/><i/><i/><strong>DATA SHEET</strong><small>Source values · empty cells preserved</small></div><div className="company-source-scroll"><table className="company-source-table"><tbody>{displayRows.map((cells,i)=>{const label=String(cells[0]??'').trim().toLowerCase().replace(/:$/,'');const section=['company name','meta','profit & loss','quarters','balance sheet','cash flow','price','derived'].includes(label);const date=label==='report date';return <tr key={i} className={section?'source-section':date?'source-period':''}>{cells.map((cell,j)=>{const clean=cleanSourceText(cell);return <td key={j} className={j===0?'source-label':''}>{clean instanceof Date?clean.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):typeof clean==='number'?fmt(clean,2):clean==null?'':String(clean)}</td>})}</tr>})}</tbody></table></div></div>
     </section>}
-    <div className="chart-export-stage company-chart-export-stage" aria-hidden="true">{[...specs.annual,...specs.margins,...specs.quarterly,...specs.special].map(spec=><ChartPanel key={`company-export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>
+    {!hideExportStage && <div className="chart-export-stage company-chart-export-stage" aria-hidden="true">{[...specs.annual,...specs.margins,...specs.quarterly,...specs.special].map(spec=><ChartPanel key={`company-export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>}
   </>
 }
 

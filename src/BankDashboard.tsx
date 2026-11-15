@@ -82,7 +82,23 @@ function curveBasedCagrAverage(metric: string, points: Array<{ year: number; val
   return { value: null, basis: `${metric}: unavailable` }
 }
 
-export function BankDashboard({ data, section, specs, theme }: { data: BankData; section: Section; specs: BankChartSpecs; theme: AppTheme }) {
+export function BankDashboard({
+  data,
+  section,
+  specs,
+  theme,
+  staticCharts = false,
+  gradientPrefix,
+  hideExportStage = false,
+}: {
+  data: BankData
+  section: Section
+  specs: BankChartSpecs
+  theme: AppTheme
+  staticCharts?: boolean
+  gradientPrefix?: string
+  hideExportStage?: boolean
+}) {
   const newest = data.annual.at(-1)
   const ttmNetProfit = ttmSum(data.quarterly, 'netProfit', 0)
   const epsAverage = calculateRobustWeightedAverage(data.annual.map(row => row.eps))
@@ -303,13 +319,13 @@ export function BankDashboard({ data, section, specs, theme }: { data: BankData;
     {section === 'yearly' && <>
       <div className="bank-plots-page">
         <div className="bank-plots-heading"><div><div className="hero-kicker">BANK PLOTBOOK</div><h2>Financial charts</h2></div><span>ANNUAL + QUARTERLY · ₹ CRORE UNLESS STATED</span></div>
-        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>01</span><h3>Annual plots</h3><i>{specs.annual.length} charts</i></div><div className="chart-grid">{specs.annual.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme}/>)}</div></div>
-        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>02</span><h3>Quarterly plots</h3><i>{specs.quarterly.length} charts</i></div><div className="chart-grid">{specs.quarterly.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme}/>)}</div></div>
+        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>01</span><h3>Annual plots</h3><i>{specs.annual.length} charts</i></div><div className="chart-grid">{specs.annual.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} staticRender={staticCharts} gradientPrefix={gradientPrefix}/>)}</div></div>
+        <div className="bank-chart-section"><div className="bank-chart-section-title"><span>02</span><h3>Quarterly plots</h3><i>{specs.quarterly.length} charts</i></div><div className="chart-grid">{specs.quarterly.map(spec => <ChartPanel key={spec.id} spec={spec} theme={theme} staticRender={staticCharts} gradientPrefix={gradientPrefix}/>)}</div></div>
       </div>
     </>}
     {section === 'tables' && <BankSourceSheet data={data}/>}
     {section === 'checks' && <DataChecksView data={data} />}
-    <div className="chart-export-stage bank-chart-export-stage" aria-hidden="true">{[...specs.annual, ...specs.quarterly].map(spec => <ChartPanel key={`export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>
+    {!hideExportStage && <div className="chart-export-stage bank-chart-export-stage" aria-hidden="true">{[...specs.annual, ...specs.quarterly].map(spec => <ChartPanel key={`export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>}
   </>
 }
 

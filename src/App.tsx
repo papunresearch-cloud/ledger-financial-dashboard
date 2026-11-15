@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { ComparisonSection } from './ComparisonSection'
 import { BankDashboard } from './BankDashboard'
@@ -11,6 +11,7 @@ import { YearlyRatioSection } from './YearlyRatioSection'
 import { DataChecksView } from './DataChecksView'
 import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel, exportPdf } from './exportReports'
+import { exportStandaloneHtmlReport } from './exportVisualPdf'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
 import type { AboutState, AppTheme, FinancialData, ScreenerAboutData, Section } from './types'
@@ -147,6 +148,7 @@ function App() {
   const aboutCacheRef = useRef<Map<string, AboutState>>(new Map())
   const aboutReqIdRef = useRef(0)
   const fileInput = useRef<HTMLInputElement>(null)
+  const printStageRef = useRef<HTMLDivElement>(null)
   const companySpecs = useMemo(() => !data || data.mode === 'bank' ? null : makeChartSpecs(data.annual, data.quarterly), [data])
   const bankSpecs = useMemo(() => !data || data.mode !== 'bank' ? null : makeBankChartSpecs(data.annual, data.quarterly), [data])
   const companySuggestions = useMemo(() => {
@@ -269,10 +271,22 @@ function App() {
   }
 
   const reset = () => { aboutReqIdRef.current++; setData(null); setActiveCode(''); setAbout(emptyAboutState()); setError(''); setSection('about'); if (fileInput.current) fileInput.current.value = '' }
-  const handleExport = (kind: 'pdf' | 'excel') => async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleExport = (kind: 'pdf' | 'excel' | 'html') => async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!data) return
-    try { if (kind === 'pdf') await exportPdf(data, event.currentTarget, about); else await exportExcel(data, event.currentTarget, about) }
-    catch (cause) { setError(`Export failed: ${cause instanceof Error ? cause.message : String(cause)}`) }
+    const buttonEl = event.currentTarget
+    try {
+      if (kind === 'pdf') {
+        await exportPdf(data, buttonEl, about)
+      } else if (kind === 'excel') {
+        await exportExcel(data, buttonEl, about)
+      } else {
+        const stageEl = printStageRef.current
+        if (!stageEl) throw new Error('Web report stage could not be prepared for export.')
+        await exportStandaloneHtmlReport({ data, button: buttonEl, stageElement: stageEl })
+      }
+    } catch (cause) {
+      setError(`Export failed: ${cause instanceof Error ? cause.message : String(cause)}`)
+    }
   }
   const sections: Array<{ key: Section; label: string; icon: typeof BarChart3 }> = [
     { key: 'about', label: 'About', icon: BookOpen },
@@ -294,8 +308,9 @@ function App() {
         <button type="button" className="button button-soft theme-toggle-button" onClick={() => setTheme(current => current === 'dark' ? 'bright' : 'dark')} title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}>
           {theme === 'dark' ? <><Sun size={16}/> Bright mode</> : <><Moon size={16}/> Dark mode</>}
         </button>
-        <button className="button button-soft" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button>
-        <button className="button button-primary" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel report</button>
+        <button className="button report-action-button" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button>
+        <button className="button report-action-button" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel report</button>
+        <button className="button report-action-button" onClick={handleExport('html')}><Globe size={16}/> Web report</button>
       </>}</div>
     </header>
     <main id="top" className="main-wrap">
@@ -382,6 +397,93 @@ function App() {
         <footer className="app-footer"><span>LEDGER <b>·</b> PRIVATE BY DESIGN</span><span>Workbook is processed in browser memory only. Clearing or refreshing removes it.</span></footer>
       </>}
     </main>
+    {data && (
+      <div
+        id="ledger-print-stage"
+        ref={printStageRef}
+        className="print-report-stage theme-bright web-report-stage"
+        aria-hidden="true"
+      >
+        <div data-print-block="banner">
+          <section className="company-banner">
+            <div className="company-title-wrap">
+              <div className="company-icon">{data.companyName.slice(0, 1).toUpperCase()}</div>
+              <div>
+                <div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div>
+                <h1>{data.companyName}</h1>
+                <p className="muted">Source: {data.sourceFileName}{data.faceValue !== null ? ` · Face value ₹${compact(data.faceValue)}` : ''}</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div data-print-section="about">
+          <AboutSection
+            about={about}
+            fallbackCompanyName={data.companyName}
+            onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+            onUnlockWithKey={enteredKey => {
+              setAccessKey(enteredKey)
+              void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
+            }}
+          />
+        </div>
+
+        <div data-print-section="comparison">
+          <ComparisonSection
+            about={about}
+            companyName={data.companyName}
+            symbol={activeCode}
+            onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+          />
+        </div>
+
+        <div data-print-section="overview">
+          {data.mode === 'bank' ? (
+            <BankDashboard data={data} section="overview" specs={bankSpecs!} theme="bright" hideExportStage/>
+          ) : (
+            <CompanyDashboard data={data} section="overview" specs={companySpecs!} theme="bright" hideExportStage/>
+          )}
+        </div>
+
+        <div data-print-section="quarterly-ratio">
+          <QuarterlyRatioSection data={data} />
+        </div>
+
+        <div data-print-section="yearly-ratio">
+          <YearlyRatioSection data={data} />
+        </div>
+
+        <div data-print-section="plots">
+          {data.mode === 'bank' ? (
+            <BankDashboard data={data} section="yearly" specs={bankSpecs!} theme="bright" staticCharts gradientPrefix="print-" hideExportStage/>
+          ) : (
+            <CompanyDashboard data={data} section="yearly" specs={companySpecs!} theme="bright" staticCharts gradientPrefix="print-" hideExportStage/>
+          )}
+        </div>
+
+        <div data-print-section="holding">
+          <HoldingSection
+            about={about}
+            companyName={data.companyName}
+            symbol={activeCode}
+            onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
+          />
+        </div>
+
+        <div data-print-section="tables">
+          {data.mode === 'bank' ? (
+            <BankDashboard data={data} section="tables" specs={bankSpecs!} theme="bright" hideExportStage/>
+          ) : (
+            <CompanyDashboard data={data} section="tables" specs={companySpecs!} theme="bright" hideExportStage/>
+          )}
+        </div>
+
+        <div data-print-section="checks">
+          <DataChecksView data={data} />
+        </div>
+      </div>
+    )}
     {data && calculatorOpen && <ForecastCalculator data={data} theme={theme} onClose={() => setCalculatorOpen(false)}/>}
   </div>
 }

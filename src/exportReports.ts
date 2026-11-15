@@ -1,8 +1,25 @@
 import type ExcelJS from 'exceljs'
 import type { AboutState, BankData, FinancialData } from './types'
+import { PEER_METRIC_COLUMNS, PEER_TABLE_HEADERS, resolvePeerComparison, type NormalizedPeerRow } from './peerComparison'
+import { computeQuarterlyRatios, computeYearlyRatios } from './ratioCalculations'
+import { RATIO_DEFINITIONS } from './DataChecksView'
 
 type CapturedChart = { title: string; dataUrl: string }
 const safeName = (value: string) => value.toUpperCase().replace(/[^A-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'COMPANY'
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 45_000)
+}
+
 const safeTextVal = (value: unknown): string => {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value
@@ -19,11 +36,19 @@ const safeTextVal = (value: unknown): string => {
   }
   return ''
 }
+
+const stripEmphasis = (txt: string) =>
+  txt
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/<\/?u>/gi, '')
+
 const cleanMultilineCite = (text: unknown) =>
-  safeTextVal(text)
+  stripEmphasis(safeTextVal(text))
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\[+([\d\s,]+)\]+/g, '[$1]')
     .trim()
+
 const pdfText = (text: unknown) =>
   cleanMultilineCite(text)
     .replace(/₹/g, 'Rs. ')
@@ -34,11 +59,15 @@ const pdfText = (text: unknown) =>
     .replace(/★/g, '*')
     .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '')
     .trim()
+
 const estimateRowHeight = (text: string, charsPerLine = 92, base = 22) => {
   const lines = text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
   return Math.max(base, Math.min(409, lines * 14 + 10))
 }
-const display = (value: number | null, decimals = 2) => value === null || !Number.isFinite(value) ? '—' : Number(value.toFixed(decimals))
+
+const display = (value: number | null | undefined, decimals = 2) =>
+  value === null || value === undefined || !Number.isFinite(value) ? '—' : Number(value.toFixed(decimals))
+
 const excelValue = (value: unknown): string | number | boolean | Date | null => {
   if (value === null || value === undefined) return null
   if (value instanceof Date) return value
@@ -148,6 +177,7 @@ async function captureCharts(): Promise<CapturedChart[]> {
 }
 
 const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: '102D2B' } }
+const subHeaderFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: '164E48' } }
 const paleFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'EAF2ED' } }
 
 function styleHeader(row: ExcelJS.Row) {
@@ -160,9 +190,12 @@ function styleHeader(row: ExcelJS.Row) {
   })
 }
 
+// -------------------------------------------------------------
+// 1. ABOUT & INSIGHTS EXCEL SHEET
+// -------------------------------------------------------------
 function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, about?: AboutState | null) {
   const data = about?.data || (about?.sources as unknown as import('./types').ScreenerAboutData)
-  if (!data?.about_intro && !about?.ai && !about?.sources) return
+  if (!data?.about_intro && !about?.sources && !data?.company_info) return
 
   const ws = book.addWorksheet('About & Insights', { views: [{ state: 'frozen', ySplit: 2 }] })
   ws.columns = [
@@ -177,7 +210,7 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
   ws.addRow([compInfo?.name || companyName, compInfo?.symbol ? `Symbol: ${compInfo.symbol}` : 'Screener.in Corporate Profile & Insights'])
   ws.mergeCells('A1:F1')
   ws.getCell('A1').font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: '102D2B' } }
-  ws.addRow(['Updated / Status', data?.generated_at || about?.sources?.generated_at || about?.status])
+  ws.addRow(['Updated / Status', data?.generated_at || about?.sources?.generated_at || about?.status || 'Active'])
   ws.getRow(2).font = { italic: true, color: { argb: '475569' }, size: 9 }
   ws.addRow([])
 
@@ -232,8 +265,6 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
     ws.addRow([])
   }
 
-
-
   // Master Sources / Footnotes
   const footnotes = data?.footnotes ?? []
   if (footnotes.length > 0) {
@@ -256,6 +287,249 @@ function appendAboutExcelSheets(book: ExcelJS.Workbook, companyName: string, abo
   }
 }
 
+// -------------------------------------------------------------
+// 2. PEER COMPARISON EXCEL SHEET
+// -------------------------------------------------------------
+function appendPeerComparisonExcelSheet(book: ExcelJS.Workbook, companyName: string, about?: AboutState | null) {
+  const peerComp = resolvePeerComparison(about)
+  const peerRowsAll: NormalizedPeerRow[] = peerComp.median ? [...peerComp.rows, peerComp.median] : peerComp.rows
+  if (peerRowsAll.length === 0) return
+
+  const peerSheet = book.addWorksheet('Peer Comparison', { views: [{ state: 'frozen', ySplit: 4 }] })
+  peerSheet.columns = [
+    { width: 32 },
+    { width: 16 },
+    { width: 16 },
+    { width: 14 },
+    { width: 14 },
+    { width: 11 },
+    { width: 11 },
+    { width: 11 },
+    { width: 11 },
+    { width: 13 },
+    { width: 18 },
+    { width: 16 },
+    { width: 11 },
+    { width: 11 },
+  ]
+  peerSheet.addRow([`${companyName} — Peer Comparison & Sector Valuation`])
+  peerSheet.mergeCells('A1:N1')
+  peerSheet.getCell('A1').font = { name: 'Aptos Display', size: 15, bold: true, color: { argb: '102D2B' } }
+  peerSheet.addRow([
+    peerComp.sectorPath.length
+      ? `Sector: ${peerComp.sectorPath.join(' > ')}`
+      : 'Source: Screener Peer Comparison Section',
+  ])
+  peerSheet.mergeCells('A2:N2')
+  peerSheet.getRow(2).font = { italic: true, color: { argb: '475569' }, size: 9 }
+  peerSheet.addRow([])
+
+  const hdr = peerSheet.addRow(PEER_TABLE_HEADERS)
+  styleHeader(hdr)
+  hdr.eachCell((cell, colIdx) => {
+    cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right', wrapText: true }
+  })
+
+  for (const peer of peerRowsAll) {
+    const prefix = peer.s_no && !peer.is_median ? `${peer.s_no} ` : ''
+    const pr = peerSheet.addRow([
+      `${prefix}${peer.company}${peer.is_target ? ' ★' : ''}`,
+      ...PEER_METRIC_COLUMNS.map(col => peer[col.key] || '-'),
+    ])
+    pr.eachCell((cell, colIdx) => {
+      cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+    })
+    if (peer.is_target) {
+      pr.eachCell(cell => {
+        cell.fill = paleFill
+        cell.font = { name: 'Aptos', bold: true, size: 10, color: { argb: '102D2B' } }
+      })
+    } else if (peer.is_median) {
+      pr.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } }
+        cell.font = { name: 'Aptos', bold: true, size: 10, color: { argb: '0F172A' } }
+      })
+    }
+  }
+
+  const fnRow = peerSheet.addRow([peerComp.footnote])
+  peerSheet.mergeCells(`A${fnRow.number}:N${fnRow.number}`)
+  fnRow.getCell(1).font = { name: 'Aptos', italic: true, size: 9, color: { argb: '475569' } }
+}
+
+// -------------------------------------------------------------
+// 3. RATIOS EXCEL SHEETS (QUARTERLY & YEARLY)
+// -------------------------------------------------------------
+function appendRatioExcelSheets(book: ExcelJS.Workbook, data: FinancialData) {
+  // 3a. Quarterly Ratios Sheet
+  const qRatios = computeQuarterlyRatios(data)
+  if (qRatios.headers.length > 0 && qRatios.rows.length > 0) {
+    const ws = book.addWorksheet('Quarterly Ratios', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] })
+    ws.columns = [{ width: 34 }, ...qRatios.headers.map(() => ({ width: 14 }))]
+    ws.addRow([`${data.companyName} — Quarterly Financial Ratios`])
+    ws.mergeCells(1, 1, 1, qRatios.headers.length + 1)
+    ws.getCell('A1').font = { name: 'Aptos Display', size: 15, bold: true, color: { argb: '102D2B' } }
+    ws.addRow([`Computed across ${qRatios.headers.length} quarterly reporting periods · Values in % or ratio`])
+    ws.getRow(2).font = { italic: true, color: { argb: '64748B' }, size: 9 }
+
+    const hdr = ws.addRow(['Financial Ratio', ...qRatios.headers])
+    styleHeader(hdr)
+    hdr.eachCell((cell, colIdx) => {
+      cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+    })
+
+    let lastCat = ''
+    for (const row of qRatios.rows) {
+      if (row.category && row.category !== lastCat) {
+        lastCat = row.category
+        const catRow = ws.addRow([lastCat.toUpperCase()])
+        ws.mergeCells(catRow.number, 1, catRow.number, qRatios.headers.length + 1)
+        catRow.eachCell(cell => {
+          cell.fill = subHeaderFill
+          cell.font = { name: 'Aptos', bold: true, color: { argb: 'FFFFFF' }, size: 9.5 }
+        })
+      }
+      const dataRow = ws.addRow([row.label, ...row.values])
+      dataRow.eachCell((cell, colIdx) => {
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+        if (colIdx === 1) cell.font = { name: 'Aptos', bold: true, size: 9.5, color: { argb: '0F172A' } }
+      })
+    }
+  }
+
+  // 3b. Yearly Ratios Sheet (including Creditor Days)
+  const yRatios = computeYearlyRatios(data)
+  if (yRatios.headers.length > 0 && yRatios.rows.length > 0) {
+    const ws = book.addWorksheet('Yearly Ratios', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] })
+    ws.columns = [{ width: 34 }, ...yRatios.headers.map(() => ({ width: 14 }))]
+    ws.addRow([`${data.companyName} — Yearly Financial Ratios`])
+    ws.mergeCells(1, 1, 1, yRatios.headers.length + 1)
+    ws.getCell('A1').font = { name: 'Aptos Display', size: 15, bold: true, color: { argb: '102D2B' } }
+    ws.addRow([`Computed across ${yRatios.headers.length} annual reporting periods · Values in % or ratio`])
+    ws.getRow(2).font = { italic: true, color: { argb: '64748B' }, size: 9 }
+
+    const hdr = ws.addRow(['Financial Ratio', ...yRatios.headers])
+    styleHeader(hdr)
+    hdr.eachCell((cell, colIdx) => {
+      cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+    })
+
+    let lastCat = ''
+    for (const row of yRatios.rows) {
+      if (row.category && row.category !== lastCat) {
+        lastCat = row.category
+        const catRow = ws.addRow([lastCat.toUpperCase()])
+        ws.mergeCells(catRow.number, 1, catRow.number, yRatios.headers.length + 1)
+        catRow.eachCell(cell => {
+          cell.fill = subHeaderFill
+          cell.font = { name: 'Aptos', bold: true, color: { argb: 'FFFFFF' }, size: 9.5 }
+        })
+      }
+      const dataRow = ws.addRow([row.label, ...row.values])
+      dataRow.eachCell((cell, colIdx) => {
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+        if (colIdx === 1) cell.font = { name: 'Aptos', bold: true, size: 9.5, color: { argb: '0F172A' } }
+      })
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// 4. SHAREHOLDING PATTERN EXCEL SHEET
+// -------------------------------------------------------------
+function appendShareholdingExcelSheet(book: ExcelJS.Workbook, companyName: string, about?: AboutState | null) {
+  const data = about?.data || (about?.sources as unknown as import('./types').ScreenerAboutData)
+  const shp = data?.shareholding
+  if (!shp || (!shp.quarterly?.rows?.length && !shp.yearly?.rows?.length)) return
+
+  const ws = book.addWorksheet('Shareholding Pattern', { views: [{ state: 'frozen', ySplit: 3 }] })
+  ws.addRow([`${companyName} — Shareholding Pattern & Distribution`])
+  ws.mergeCells('A1:J1')
+  ws.getCell('A1').font = { name: 'Aptos Display', size: 15, bold: true, color: { argb: '102D2B' } }
+  ws.addRow(['Source: Screener.in Quarterly & Yearly Shareholding Pattern Disclosures (values in %)'])
+  ws.getRow(2).font = { italic: true, color: { argb: '475569' }, size: 9 }
+  ws.addRow([])
+
+  const addTable = (title: string, tbl: NonNullable<typeof shp.quarterly>) => {
+    if (!tbl.periods.length || !tbl.rows.length) return
+    const banner = ws.addRow([title])
+    ws.mergeCells(banner.number, 1, banner.number, tbl.periods.length + 1)
+    styleHeader(banner)
+
+    const hdr = ws.addRow(['Holder Category', ...tbl.periods])
+    hdr.eachCell((cell, colIdx) => {
+      cell.fill = subHeaderFill
+      cell.font = { name: 'Aptos', bold: true, color: { argb: 'FFFFFF' }, size: 9.5 }
+      cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+    })
+
+    for (const r of tbl.rows) {
+      const row = ws.addRow([r.category, ...tbl.periods.map((_, i) => r.values[i] || '—')])
+      row.eachCell((cell, colIdx) => {
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'left' : 'right' }
+        if (colIdx === 1) cell.font = { name: 'Aptos', bold: true, size: 9.5, color: { argb: '0F172A' } }
+        if (r.is_total || r.is_shareholders) {
+          cell.font = { name: 'Aptos', bold: true, size: 9.5, color: { argb: '102D2B' } }
+          cell.fill = paleFill
+        }
+      })
+    }
+    ws.addRow([])
+  }
+
+  if (shp.quarterly) addTable(`QUARTERLY SHAREHOLDING PATTERN (${shp.quarterly.periods.length} QUARTERS)`, shp.quarterly)
+  if (shp.yearly) addTable(`YEARLY SHAREHOLDING PATTERN (${shp.yearly.periods.length} YEARS)`, shp.yearly)
+  ws.columns = [{ width: 30 }, ...Array.from({ length: 15 }, () => ({ width: 14 }))]
+}
+
+// -------------------------------------------------------------
+// 5. DATA CHECKS & FORMULAS EXCEL SHEET
+// -------------------------------------------------------------
+function appendDataChecksExcelSheet(book: ExcelJS.Workbook, data: FinancialData) {
+  const ws = book.addWorksheet('Data Checks & Formulas', { views: [{ state: 'frozen', ySplit: 3 }] })
+  ws.columns = [
+    { width: 32 },
+    { width: 16 },
+    { width: 18 },
+    { width: 45 },
+    { width: 55 },
+    { width: 45 },
+  ]
+  ws.addRow([`${data.companyName} — Financial Dictionary, Formulas & Benchmark Guidelines`])
+  ws.mergeCells('A1:F1')
+  ws.getCell('A1').font = { name: 'Aptos Display', size: 15, bold: true, color: { argb: '102D2B' } }
+  ws.addRow(['Detailed explanations of financial ratios, mathematical formulas, benchmarks, and data checks'])
+  ws.getRow(2).font = { italic: true, color: { argb: '475569' }, size: 9 }
+
+  const hdr = ws.addRow(['Metric / Ratio Name', 'Abbreviation', 'Category', 'Mathematical Formula', 'Financial Meaning', 'Benchmark & Notes'])
+  styleHeader(hdr)
+
+  const applicableDefs = RATIO_DEFINITIONS.filter(r => r.applicableTo === 'all' || r.applicableTo === data.mode)
+  for (const def of applicableDefs) {
+    const r = ws.addRow([def.name, def.abbr, def.category.toUpperCase(), def.formula, def.meaning, `${def.benchmark} | Note: ${def.notes}`])
+    r.getCell(1).font = { name: 'Aptos', bold: true, size: 9.5, color: { argb: '102D2B' } }
+    r.getCell(1).alignment = { vertical: 'top', wrapText: true }
+    r.getCell(4).alignment = { vertical: 'top', wrapText: true }
+    r.getCell(5).alignment = { vertical: 'top', wrapText: true }
+    r.getCell(6).alignment = { vertical: 'top', wrapText: true }
+    r.height = estimateRowHeight(def.meaning + def.benchmark, 60, 24)
+  }
+
+  if (data.warnings && data.warnings.length > 0) {
+    ws.addRow([])
+    const wBanner = ws.addRow(['SPECIFIC WORKBOOK DATA INTEGRITY CHECKS & WARNINGS'])
+    ws.mergeCells(wBanner.number, 1, wBanner.number, 6)
+    styleHeader(wBanner)
+    for (const w of data.warnings) {
+      const wr = ws.addRow(['Integrity Notice', '-', 'VALIDATION', w, 'Specific workbook parsing check', '-'])
+      wr.getCell(4).font = { italic: true, color: { argb: 'B45309' } }
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// 6. MAIN EXCEL EXPORT (BANK & NON-BANK)
+// -------------------------------------------------------------
 async function exportBankExcel(data: BankData, button: HTMLButtonElement, about?: AboutState | null) {
   button.disabled = true
   const oldText = button.textContent
@@ -266,7 +540,41 @@ async function exportBankExcel(data: BankData, button: HTMLButtonElement, about?
     const book = new ExcelJSRuntime.Workbook()
     book.creator = 'Ledger Financial Visualizer'
     book.created = new Date()
+
+    // 1. About
     appendAboutExcelSheets(book, data.companyName, about)
+    // 2. Peer Comparison
+    appendPeerComparisonExcelSheet(book, data.companyName, about)
+    // 3. Quarterly & Yearly Ratios
+    appendRatioExcelSheets(book, data)
+    // 4. Shareholding Pattern
+    appendShareholdingExcelSheet(book, data.companyName, about)
+
+    // 5. Overview Analysis
+    const analysis = book.addWorksheet('Overview Analysis', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] })
+    analysis.addRow([data.companyName, 'Financial Analysis — Bank mode'])
+    analysis.mergeCells('A1:B1')
+    analysis.getCell('A1').font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: '102D2B' } }
+    analysis.addRow(['Annual and quarterly metrics (Oldest → Newest)', '₹ crore unless stated; values use the bank prompt formulas.'])
+    analysis.addRow(['Period','Interest earned','Interest paid','Interest gap (%)','Other income','Total revenue','Basic expense','Provision & other expense','Total expense','PBT','Net profit','OPM (%)','NPM (%)','Dividend','DPS (₹)','Payout (%)','EPS (₹)','Equity','Borrowings','Borrowings/equity (×)','ROE (%)','ROA (%)','Cash & Bank','Other liabilities','Liquidity (%)','Total assets','Other assets','Shares (Cr)','Loans & advances','Deposits','LDR (%)','Borrowings/deposits (%)'])
+    styleHeader(analysis.getRow(3))
+    for (const r of data.annual) {
+      analysis.addRow([r.period,r.interestEarned,r.interestPaid,r.interestGap,r.otherIncome,r.totalRevenue,r.basicExpense,r.provisionOtherExpense,r.totalExpense,r.profitBeforeTax,r.netProfit,r.operatingProfitMargin,r.netProfitMargin,r.dividend,r.dividendPerShare,r.dividendPayout,r.eps,r.equity,r.borrowings,r.debtToEquity,r.roe,r.roa,r.cashBank,r.otherLiabilities,r.liquidity,r.totalAssets,r.otherAssets,r.sharesCr,r.loansAdvances,r.deposits,r.ldr,r.borrowingsToDeposits])
+    }
+    analysis.addRow([])
+    analysis.addRow(['Quarterly metrics · ₹ crore unless stated (Oldest → Newest)'])
+    analysis.addRow(['Period','Interest earned','Interest paid','Interest gap (%)','Other income','Total revenue','Expenses','Total expense','Operating profit','Net profit','OPM (%)','NPM (%)'])
+    styleHeader(analysis.getRow(analysis.rowCount))
+    for (const r of data.quarterly) {
+      analysis.addRow([r.period,r.interestEarned,r.interestPaid,r.interestGap,r.otherIncome,r.totalRevenue,r.expenses,r.totalExpense,r.operatingProfit,r.netProfit,r.operatingProfitMargin,r.netProfitMargin])
+    }
+    analysis.columns.forEach((column, index) => { column.width = index === 0 ? 25 : 18 })
+    analysis.getRow(2).font = { italic: true, color: { argb: '65776E' }, size: 9 }
+
+    // 6. Data Checks & Formulas
+    appendDataChecksExcelSheet(book, data)
+
+    // 7. Data Sheet (Raw matrix)
     const source = book.addWorksheet('Data Sheet', { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] })
     for (const sourceRow of data.sourceMatrix) source.addRow((sourceRow ?? []).map(excelValue))
     source.columns.forEach((column, index) => { column.width = index === 0 ? 32 : 15 })
@@ -277,46 +585,8 @@ async function exportBankExcel(data: BankData, button: HTMLButtonElement, about?
         row.eachCell(cell => { cell.fill = headerFill; cell.font = { name: 'Aptos Display', bold: true, size: 11, color: { argb: 'FFFFFF' } } })
       } else if (label === 'report date') row.eachCell(cell => { cell.fill = paleFill; cell.font = { bold: true, color: { argb: '17473B' }, size: 9 } })
     })
-    const analysis = book.addWorksheet('Bank Analysis', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] })
-    analysis.addRow([data.companyName, 'Financial Analysis — Bank mode'])
-    analysis.mergeCells('A1:B1')
-    analysis.getCell('A1').font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: '102D2B' } }
-    analysis.addRow(['Annual and quarterly metrics', '₹ crore unless stated; values use the bank prompt formulas.'])
-    analysis.addRow(['Period','Interest earned','Interest paid','Interest gap (%)','Other income','Total revenue','Basic expense (available rows)','Provision & other expense','Total expense','Expense method','PBT','Net profit','OPM (%)','NPM (%)','Dividend','DPS (₹)','Payout (%)','EPS (₹)','Equity','Borrowings','Borrowings/equity (×)','ROE (%)','ROA (%)','Cash & Bank','Other liabilities','Liquidity (%)','Total assets','Other assets','Shares (Cr)'])
-    styleHeader(analysis.getRow(3))
-    for (const r of data.annual) analysis.addRow([r.period,r.interestEarned,r.interestPaid,r.interestGap,r.otherIncome,r.totalRevenue,r.basicExpense,r.provisionOtherExpense,r.totalExpense,r.expenseMethod,r.profitBeforeTax,r.netProfit,r.operatingProfitMargin,r.netProfitMargin,r.dividend,r.dividendPerShare,r.dividendPayout,r.eps,r.equity,r.borrowings,r.debtToEquity,r.roe,r.roa,r.cashBank,r.otherLiabilities,r.liquidity,r.totalAssets,r.otherAssets,r.sharesCr])
-    analysis.addRow([])
-    analysis.addRow(['Quarterly metrics · ₹ crore unless stated'])
-    analysis.addRow(['Period','Interest earned','Interest paid','Interest gap (%)','Other income','Total revenue','Expenses','Total expense','Operating profit (reported)','Net profit','OPM (%)','NPM (%)'])
-    styleHeader(analysis.getRow(analysis.rowCount))
-    for (const r of data.quarterly) analysis.addRow([r.period,r.interestEarned,r.interestPaid,r.interestGap,r.otherIncome,r.totalRevenue,r.expenses,r.totalExpense,r.operatingProfit,r.netProfit,r.operatingProfitMargin,r.netProfitMargin])
-    analysis.columns.forEach((column, index) => { column.width = index === 0 ? 25 : 18 })
-    analysis.getRow(2).font = { italic: true, color: { argb: '65776E' }, size: 9 }
-    analysis.views = [{ state: 'frozen', ySplit: 3 }]
-    const defs = book.addWorksheet('Definitions')
-    defs.addRows([
-      ['Metric','Definition used'],
-      ['Annual / quarterly interest earned','Source Sales row'],
-      ['Annual / quarterly interest paid','Source Interest row'],
-      ['Total revenue','Interest earned + Other Income'],
-      ['Interest gap (%)','100 × (interest earned − interest paid) ÷ interest earned'],
-      ['Annual total expense','Available itemized expense rows + Other Expenses + Interest when all inputs are available; otherwise Total Revenue − reported PBT'],
-      ['Quarterly total expense','Expenses + Interest'],
-      ['OPM','100 × (Total Revenue − Total expense) ÷ Total Revenue'],
-      ['NPM','100 × Net profit ÷ Total Revenue'],
-      ['Equity','Equity share capital + reserves'],
-      ['Borrowings / equity','Borrowings ÷ Equity, shown as the requested bank-mode measure'],
-      ['EPS / dividend per share','₹ crore ÷ adjusted equity shares in crore'],
-      ['Dividend payout','100 × Dividend amount ÷ Net profit; explicit zero dividend gives zero payout and DPS; missing stays blank'],
-      ['ROE / ROA','Net profit ÷ average equity / average total assets; first period blank without prior period'],
-      ['Liquidity','100 × Cash & Bank ÷ (Borrowings + Other Liabilities)'],
-      ['Unavailable data','NIM, advances/loans, deposits/CASA, NPAs/provisions and capital adequacy are not in this Data Sheet and are not estimated.'],
-      ...data.warnings.map(note => ['Data note', note]),
-      ['Source file', data.sourceFileName],
-    ])
-    styleHeader(defs.getRow(1))
-    defs.columns = [{ width: 31 }, { width: 120 }]
-    defs.eachRow((row, number) => { if (number > 1) row.alignment = { wrapText: true, vertical: 'top' } })
+
+    // 8. Charts Sheet
     const chartSheet = book.addWorksheet('Charts', { views: [{ showGridLines: false }] })
     chartSheet.columns = Array.from({ length: 22 }, (_, i) => ({ width: i === 0 || i === 11 ? 2 : 11 }))
     chartSheet.getCell('A1').value = `${data.companyName} — Bank financial charts`
@@ -338,11 +608,14 @@ async function exportBankExcel(data: BankData, button: HTMLButtonElement, about?
       const imageId = book.addImage({ base64: chart.dataUrl.split(',')[1], extension: 'png' })
       chartSheet.addImage(imageId, { tl: { col, row: row + 1 }, ext: { width: 580, height: 310 } })
     })
+
     const buffer = await book.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${safeName(data.companyName)}_Complete_Report.xlsx`; link.click()
-    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000)
-  } finally { button.disabled = false; button.textContent = oldText }
+    triggerBlobDownload(blob, `${safeName(data.companyName)}_Complete_Report.xlsx`)
+  } finally {
+    button.disabled = false
+    button.textContent = oldText
+  }
 }
 
 export async function exportExcel(data: FinancialData, button: HTMLButtonElement, about?: AboutState | null) {
@@ -356,7 +629,41 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
     const book = new ExcelJSRuntime.Workbook()
     book.creator = 'Ledger Financial Visualizer'
     book.created = new Date()
+
+    // 1. About
     appendAboutExcelSheets(book, data.companyName, about)
+    // 2. Peer Comparison
+    appendPeerComparisonExcelSheet(book, data.companyName, about)
+    // 3. Quarterly & Yearly Ratios
+    appendRatioExcelSheets(book, data)
+    // 4. Shareholding Pattern
+    appendShareholdingExcelSheet(book, data.companyName, about)
+
+    // 5. Overview Analysis
+    const analysis = book.addWorksheet('Overview Analysis', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] })
+    analysis.addRow([data.companyName, 'Financial Analysis — Non-bank mode'])
+    analysis.mergeCells('A1:B1')
+    analysis.getCell('A1').font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: '102D2B' } }
+    analysis.addRow(['Annual metrics (Oldest → Newest) · ₹ crore unless stated', 'Derived values use the formulas shown in the application.'])
+    analysis.addRow(['Period','Sales','Total income','Net profit','Operating profit','Operating cash flow','FCF: OCF − CWIP','Dividend amount','Dividend/share (₹)','Payout (%)','EPS (₹)','GPM (%)','OPM (%)','NPM (%)','Receivables','Inventory','Net block','CWIP','CWIP/Net block (%)','Equity','Borrowings','Debt/equity (×)','ROE (%)','ROA (%)','ROCE (%)','Interest coverage (×)','Other assets','Other liabilities','Current ratio · Other assets/liabilities (×)','Cash ratio (×)','Total assets','Other assets / total assets (%)','Cash / total assets (%)','Cash & bank','Adjusted shares (Cr)'])
+    styleHeader(analysis.getRow(3))
+    for (const r of data.annual) {
+      analysis.addRow([r.period,r.sales,r.totalIncome,r.netProfit,r.operatingProfit,r.operatingCashFlow,r.freeCashFlow,r.dividend,r.dividendPerShare,r.dividendPayout,r.eps,r.grossProfitMargin,r.operatingProfitMargin,r.netProfitMargin,r.receivables,r.inventory,r.netBlock,r.cwip,r.netBlockToCwip,r.equity,r.borrowings,r.debtToEquity,r.roe,r.roa,r.roce,r.interestCoverage,r.otherAssets,r.otherLiabilities,r.currentRatio,r.cashRatio,r.totalAssets,r.currentAssetsToTotalAssets,r.cashToTotalAssets,r.cashBank,r.sharesCr])
+    }
+    analysis.addRow([])
+    analysis.addRow(['Quarterly metrics · ₹ crore unless stated (Oldest → Newest)'])
+    analysis.addRow(['Period','Sales','Net profit','Operating profit','OPM (%)','NPM (%)'])
+    styleHeader(analysis.getRow(analysis.rowCount))
+    for (const r of data.quarterly) {
+      analysis.addRow([r.period,r.sales,r.netProfit,r.operatingProfit,r.operatingProfitMargin,r.netProfitMargin])
+    }
+    analysis.columns.forEach((column, index) => { column.width = index === 0 ? 23 : 17 })
+    analysis.getRow(2).font = { italic: true, color: { argb: '65776E' }, size: 9 }
+
+    // 6. Data Checks & Formulas
+    appendDataChecksExcelSheet(book, data)
+
+    // 7. Data Sheet (Raw Matrix)
     const source = book.addWorksheet('Data Sheet', { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] })
     for (const sourceRow of data.sourceMatrix) source.addRow((sourceRow ?? []).map(excelValue))
     source.columns.forEach((column, index) => { column.width = index === 0 ? 32 : 15 })
@@ -375,47 +682,7 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
       if (rowNumber === 1) row.height = 23
     })
 
-    const analysis = book.addWorksheet('Analysis Tables', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] })
-    analysis.addRow([data.companyName, 'Financial Analysis — Non-bank mode'])
-    analysis.mergeCells('A1:B1')
-    analysis.getCell('A1').font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: '102D2B' } }
-    analysis.addRow(['Annual metrics · ₹ crore unless stated', 'Derived values use the formulas shown in the application.'])
-    analysis.addRow(['Period','Sales','Total income','Net profit','Operating profit','Operating cash flow','FCF: OCF − CWIP','Dividend amount','Dividend/share (₹)','Payout (%)','EPS (₹)','GPM (%)','OPM (%)','NPM (%)','Receivables','Inventory','Net block','CWIP','CWIP/Net block (%)','Equity','Borrowings','Debt/equity (×)','ROE (%)','ROA (%)','ROCE (%)','Interest coverage (×)','Other assets','Other liabilities','Current ratio · Other assets/liabilities (×)','Cash ratio (×)','Total assets','Other assets / total assets (%)','Cash / total assets (%)','Cash & bank','Adjusted shares (Cr)'])
-    styleHeader(analysis.getRow(3))
-    for (const r of data.annual) analysis.addRow([r.period,r.sales,r.totalIncome,r.netProfit,r.operatingProfit,r.operatingCashFlow,r.freeCashFlow,r.dividend,r.dividendPerShare,r.dividendPayout,r.eps,r.grossProfitMargin,r.operatingProfitMargin,r.netProfitMargin,r.receivables,r.inventory,r.netBlock,r.cwip,r.netBlockToCwip,r.equity,r.borrowings,r.debtToEquity,r.roe,r.roa,r.roce,r.interestCoverage,r.otherAssets,r.otherLiabilities,r.currentRatio,r.cashRatio,r.totalAssets,r.currentAssetsToTotalAssets,r.cashToTotalAssets,r.cashBank,r.sharesCr])
-    analysis.addRow([])
-    analysis.addRow(['Quarterly metrics · ₹ crore unless stated'])
-    analysis.addRow(['Period','Sales','Net profit','Operating profit','OPM (%)','NPM (%)'])
-    styleHeader(analysis.getRow(analysis.rowCount))
-    for (const r of data.quarterly) analysis.addRow([r.period,r.sales,r.netProfit,r.operatingProfit,r.operatingProfitMargin,r.netProfitMargin])
-    analysis.columns.forEach((column, index) => { column.width = index === 0 ? 23 : 17 })
-    analysis.getRow(2).font = { italic: true, color: { argb: '65776E' }, size: 9 }
-    analysis.views = [{ state: 'frozen', ySplit: 3 }]
-    const defs = book.addWorksheet('Definitions')
-    defs.addRows([
-      ['Metric','Definition used'],
-      ['GPM (annual)','100 × (Sales + Change in Inventory − Raw Material Cost) ÷ Sales'],
-      ['OPM (annual)','100 × (Sales + Change in Inventory − Raw Material Cost − Power & Fuel − Other Manufacturing − Employee − Selling/Admin − Other Expenses) ÷ Sales'],
-      ['NPM','100 × Net profit ÷ Sales'],
-      ['EPS','Net profit (₹ crore) ÷ adjusted equity shares (crore)'],
-      ['Dividend/share','Dividend amount (₹ crore) ÷ adjusted equity shares (crore)'],
-      ['Dividend payout','100 × Dividend amount ÷ Net profit; explicit zero dividend produces zero per share and payout'],
-      ['Equity','Share capital + reserves'],
-      ['Debt to equity','Borrowings ÷ equity'],
-      ['ROE / ROA','Net profit ÷ average equity / average total assets; first period is blank if no prior year is available'],
-      ['FCF (user-defined)','Operating cash flow − Capital Work in Progress (CWIP)'],
-      ['CapEx proxy','CWIP is used as the requested proxy; CWIP is a balance-sheet amount, not cash capex incurred during the year'],
-      ['Asset ratio','Other Assets ÷ Total Assets, following the selected proxy'],
-      ['Current ratio','Other Assets ÷ Other Liabilities, as requested for this report'],
-      ['Cash ratio','Cash & Bank ÷ Other Liabilities'],
-      ['Quarterly OPM / NPM','100 × Operating profit / Sales; 100 × Net profit / Sales'],
-      ['Units','Financial statements are shown as supplied; share count in crore and per-share values in ₹.'],
-      ['Source file',data.sourceFileName],
-    ])
-    styleHeader(defs.getRow(1))
-    defs.columns = [{ width: 26 }, { width: 115 }]
-    defs.eachRow((row, number) => { if (number > 1) row.alignment = { wrapText: true, vertical: 'top' } })
-
+    // 8. Charts Sheet
     const chartSheet = book.addWorksheet('Charts', { views: [{ showGridLines: false }] })
     chartSheet.columns = Array.from({ length: 22 }, (_, i) => ({ width: i === 0 || i === 11 ? 2 : 11 }))
     chartSheet.getCell('A1').value = `${data.companyName} — Financial charts`
@@ -434,19 +701,19 @@ export async function exportExcel(data: FinancialData, button: HTMLButtonElement
       const imageId = book.addImage({ base64: chart.dataUrl.split(',')[1], extension: 'png' })
       chartSheet.addImage(imageId, { tl: { col, row: row + 1 }, ext: { width: 580, height: 310 } })
     })
+
     const buffer = await book.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `${safeName(data.companyName)}_Complete_Report.xlsx`
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+    triggerBlobDownload(blob, `${safeName(data.companyName)}_Complete_Report.xlsx`)
   } finally {
     button.disabled = false
     button.textContent = oldText
   }
 }
 
+// -------------------------------------------------------------
+// 7. COMPREHENSIVE PDF REPORT EXPORT
+// -------------------------------------------------------------
 type AutoTableFn = typeof import('jspdf-autotable').default
 
 function appendAboutPdfSection(
@@ -455,9 +722,10 @@ function appendAboutPdfSection(
   startY: number,
   margin: number,
   about?: AboutState | null,
-): void {
+): number {
   const data = about?.data || (about?.sources as unknown as import('./types').ScreenerAboutData)
-  if (!data?.about_intro && !about?.ai && !about?.sources) return
+  if (!data?.about_intro && !about?.sources && !data?.company_info) return startY
+
   const baseTable = {
     theme: 'grid' as const,
     margin: { left: margin, right: margin },
@@ -485,15 +753,15 @@ function appendAboutPdfSection(
 
   let y = startY
 
-  if (data?.about_intro) {
+  if (data?.about_intro || data?.company_info) {
     sectionHeading('Screener.in Corporate Profile & Overview', y)
     const rows: Array<[string, string]> = []
     if (data.company_info?.name) rows.push(['Company Name', pdfText(data.company_info.name)])
     if (data.company_info?.symbol) rows.push(['Symbol', pdfText(data.company_info.symbol)])
     if (data.company_info?.sector) rows.push(['Sector & Industry', pdfText(data.company_info.sector)])
-    if (data.about_intro.text) rows.push(['About Description', pdfText(data.about_intro.text)])
+    if (data.about_intro?.text) rows.push(['About Description', pdfText(data.about_intro.text)])
     if (data.ratios && data.ratios.length > 0) {
-      rows.push(['Key Financial Ratios', pdfText(data.ratios.map(r => `${r.label}: ${r.value}`).join(' | '))])
+      rows.push(['Key Financial Metrics', pdfText(data.ratios.map(r => `${r.label}: ${r.value}`).join(' | '))])
     }
     autoTable(doc, {
       ...baseTable,
@@ -507,7 +775,7 @@ function appendAboutPdfSection(
     y = lastY1 + 8
 
     if (data.paragraphs && data.paragraphs.length > 0) {
-      if (y > 220) { doc.addPage(); y = 18 }
+      if (y > 150) { doc.addPage(); y = 18 }
       sectionHeading(`Read More Operational Insights (${data.paragraphs.length} Topics)`, y)
       const commRows: Array<[string, string]> = data.paragraphs.map(p => [
         pdfText(p.title || `Dimension #${p.id}`),
@@ -518,14 +786,14 @@ function appendAboutPdfSection(
         startY: y + 4,
         head: [['Commentary Topic', 'Details & Operational Breakdown']],
         body: commRows,
-        columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+        columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
       })
       const lastY2 = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 60
       y = lastY2 + 8
     }
 
     if ((data.pros && data.pros.length > 0) || (data.cons && data.cons.length > 0)) {
-      if (y > 220) { doc.addPage(); y = 18 }
+      if (y > 150) { doc.addPage(); y = 18 }
       sectionHeading('Screener Analysis: Pros & Cons', y)
       const pcRows: Array<[string, string]> = []
       if (data.pros?.length) pcRows.push(['Strengths / Pros', pdfText(data.pros.map(pr => `✔ ${pr}`).join('\n'))])
@@ -542,7 +810,7 @@ function appendAboutPdfSection(
     }
 
     if (data.footnotes && data.footnotes.length > 0) {
-      if (y > 230) { doc.addPage(); y = 18 }
+      if (y > 160) { doc.addPage(); y = 18 }
       sectionHeading(`Verified Source Filings (${data.footnotes.length} References)`, y)
       autoTable(doc, {
         ...baseTable,
@@ -551,14 +819,279 @@ function appendAboutPdfSection(
         body: data.footnotes.map(fn => [pdfText(`[${fn.num}]`), pdfText(fn.title || 'Source Filing'), pdfText(fn.url)]),
         columnStyles: { 0: { cellWidth: 16, fontStyle: 'bold' }, 1: { cellWidth: 60 }, 2: { cellWidth: 'auto' } },
       })
+      y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 20
     }
   }
 
+  doc.addPage()
+  return 18
+}
 
+function appendPeerComparisonPdfSection(
+  doc: import('jspdf').jsPDF,
+  autoTable: AutoTableFn,
+  startY: number,
+  margin: number,
+  about?: AboutState | null,
+): number {
+  const peerComp = resolvePeerComparison(about)
+  const peerRowsAll = peerComp.median ? [...peerComp.rows, peerComp.median] : peerComp.rows
+  if (peerRowsAll.length === 0) return startY
 
-  if (data?.about_intro) {
+  let y = startY
+  if (y > 150) { doc.addPage(); y = 18 }
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11.5)
+  doc.setTextColor(16, 45, 43)
+  doc.text('Peers Comparison & Market Position', margin, y)
+
+  const numColStyle = { halign: 'right' as const }
+  autoTable(doc, {
+    theme: 'grid',
+    startY: y + 4,
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 6.2, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
+    headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.2, halign: 'right' },
+    head: [PEER_TABLE_HEADERS],
+    body: peerRowsAll.map(pr => [
+      pdfText(`${pr.s_no && !pr.is_median ? `${pr.s_no} ` : ''}${pr.company}${pr.is_target ? ' *' : ''}`),
+      ...PEER_METRIC_COLUMNS.map(col => pdfText(pr[col.key] || '-')),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 38, halign: 'left' },
+      1: { cellWidth: 19, ...numColStyle },
+      2: { cellWidth: 19, ...numColStyle },
+      3: { cellWidth: 16, ...numColStyle },
+      4: { cellWidth: 16, ...numColStyle },
+      5: { cellWidth: 14, ...numColStyle },
+      6: { cellWidth: 14, ...numColStyle },
+      7: { cellWidth: 14, ...numColStyle },
+      8: { cellWidth: 14, ...numColStyle },
+      9: { cellWidth: 17, ...numColStyle },
+      10: { cellWidth: 25, ...numColStyle },
+      11: { cellWidth: 23, ...numColStyle },
+      12: { cellWidth: 13, ...numColStyle },
+      13: { cellWidth: 15, ...numColStyle },
+    },
+    didParseCell: hookData => {
+      if (hookData.section === 'head' && hookData.column.index === 0) {
+        hookData.cell.styles.halign = 'left'
+      }
+      if (hookData.section === 'body') {
+        const rowItem = peerRowsAll[hookData.row.index]
+        if (rowItem?.is_target) {
+          hookData.cell.styles.fillColor = [224, 242, 254]
+          hookData.cell.styles.fontStyle = 'bold'
+          hookData.cell.styles.textColor = [12, 74, 110]
+        } else if (rowItem?.is_median) {
+          hookData.cell.styles.fillColor = [241, 245, 249]
+          hookData.cell.styles.fontStyle = 'bold'
+        }
+      }
+    },
+  })
+
+  const tableEndY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? (y + 24)
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7)
+  doc.setTextColor(71, 85, 105)
+  doc.text(pdfText(peerComp.footnote), margin, tableEndY + 4)
+
+  doc.addPage()
+  return 18
+}
+
+function appendRatioPdfSections(
+  doc: import('jspdf').jsPDF,
+  autoTable: AutoTableFn,
+  startY: number,
+  margin: number,
+  data: FinancialData,
+): number {
+  let y = startY
+
+  // 1. Quarterly Ratios
+  const qRatios = computeQuarterlyRatios(data)
+  if (qRatios.headers.length > 0 && qRatios.rows.length > 0) {
+    if (y > 150) { doc.addPage(); y = 18 }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(16, 45, 43)
+    doc.text(`Quarterly Financial Ratios (${qRatios.headers.length} Quarters · Q1-25 format)`, margin, y)
+
+    autoTable(doc, {
+      theme: 'grid',
+      startY: y + 4,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 6.2, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
+      headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.2, halign: 'right' },
+      head: [['Financial Ratio', ...qRatios.headers.map(h => pdfText(h))]],
+      body: qRatios.rows.map(r => [pdfText(r.label), ...r.values.map(v => pdfText(v))]),
+      columnStyles: { 0: { cellWidth: 54, halign: 'left', fontStyle: 'bold' } },
+      didParseCell: hookData => {
+        if (hookData.section === 'head' && hookData.column.index === 0) {
+          hookData.cell.styles.halign = 'left'
+        } else if (hookData.section === 'body' && hookData.column.index > 0) {
+          hookData.cell.styles.halign = 'right'
+        }
+      },
+    })
     doc.addPage()
+    y = 18
   }
+
+  // 2. Yearly Ratios (with Creditor Days)
+  const yRatios = computeYearlyRatios(data)
+  if (yRatios.headers.length > 0 && yRatios.rows.length > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(16, 45, 43)
+    doc.text(`Yearly Financial Ratios (${yRatios.headers.length} Periods · Creditor Days included)`, margin, y)
+
+    autoTable(doc, {
+      theme: 'grid',
+      startY: y + 4,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 6.2, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
+      headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.2, halign: 'right' },
+      head: [['Financial Ratio', ...yRatios.headers.map(h => pdfText(h))]],
+      body: yRatios.rows.map(r => [pdfText(r.label), ...r.values.map(v => pdfText(v))]),
+      columnStyles: { 0: { cellWidth: 54, halign: 'left', fontStyle: 'bold' } },
+      didParseCell: hookData => {
+        if (hookData.section === 'head' && hookData.column.index === 0) {
+          hookData.cell.styles.halign = 'left'
+        } else if (hookData.section === 'body' && hookData.column.index > 0) {
+          hookData.cell.styles.halign = 'right'
+        }
+      },
+    })
+    doc.addPage()
+    y = 18
+  }
+
+  return y
+}
+
+function appendShareholdingPdfSection(
+  doc: import('jspdf').jsPDF,
+  autoTable: AutoTableFn,
+  startY: number,
+  margin: number,
+  about?: AboutState | null,
+): number {
+  const data = about?.data || (about?.sources as unknown as import('./types').ScreenerAboutData)
+  const shp = data?.shareholding
+  if (!shp || (!shp.quarterly?.rows?.length && !shp.yearly?.rows?.length)) return startY
+
+  let y = startY
+  if (y > 150) { doc.addPage(); y = 18 }
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11.5)
+  doc.setTextColor(16, 45, 43)
+  doc.text('Shareholding Pattern & Distribution (Quarterly & Yearly)', margin, y)
+
+  const renderTable = (labelTitle: string, tbl: NonNullable<typeof shp.quarterly>) => {
+    if (!tbl.periods.length || !tbl.rows.length) return
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8.5)
+    doc.setTextColor(16, 45, 43)
+    doc.text(pdfText(labelTitle), margin, y + 4)
+
+    autoTable(doc, {
+      theme: 'grid',
+      startY: y + 6,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 6.8, cellPadding: 1.8, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
+      headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.8, halign: 'right' },
+      head: [['Holder Category', ...tbl.periods.map(h => pdfText(h))]],
+      body: tbl.rows.map(r => [pdfText(r.category), ...tbl.periods.map((_, i) => pdfText(r.values[i] || '-'))]),
+      columnStyles: { 0: { cellWidth: 48, halign: 'left', fontStyle: 'bold' } },
+      didParseCell: hookData => {
+        if (hookData.section === 'head' && hookData.column.index === 0) {
+          hookData.cell.styles.halign = 'left'
+        } else if (hookData.section === 'body' && hookData.column.index > 0) {
+          hookData.cell.styles.halign = 'right'
+        }
+        if (hookData.section === 'body') {
+          const rowItem = tbl.rows[hookData.row.index]
+          if (rowItem?.is_total || rowItem?.is_shareholders) {
+            hookData.cell.styles.fillColor = [224, 242, 254]
+            hookData.cell.styles.fontStyle = 'bold'
+          }
+        }
+      },
+    })
+    y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 20) + 8
+  }
+
+  if (shp.quarterly) renderTable(`Quarterly Shareholding (Last ${shp.quarterly.periods.length} Quarters)`, shp.quarterly)
+  if (shp.yearly) {
+    if (y > 150) { doc.addPage(); y = 18 }
+    renderTable(`Yearly Shareholding (Last ${shp.yearly.periods.length} Years)`, shp.yearly)
+  }
+
+  doc.addPage()
+  return 18
+}
+
+function appendDataChecksPdfSection(
+  doc: import('jspdf').jsPDF,
+  autoTable: AutoTableFn,
+  startY: number,
+  margin: number,
+  data: FinancialData,
+): number {
+  let y = startY
+  if (y > 150) { doc.addPage(); y = 18 }
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11.5)
+  doc.setTextColor(16, 45, 43)
+  doc.text('Financial Definitions, Formulas & Benchmark Guidelines', margin, y)
+
+  const applicableDefs = RATIO_DEFINITIONS.filter(r => r.applicableTo === 'all' || r.applicableTo === data.mode)
+  autoTable(doc, {
+    theme: 'grid',
+    startY: y + 4,
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 6.5, cellPadding: 1.8, textColor: [15, 23, 42], lineColor: [203, 213, 225] },
+    headStyles: { fillColor: [16, 45, 43], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5 },
+    head: [['Ratio / Metric', 'Category', 'Mathematical Formula', 'Meaning & Benchmark']],
+    body: applicableDefs.map(d => [
+      pdfText(d.name),
+      pdfText(d.category.toUpperCase()),
+      pdfText(d.formula),
+      pdfText(`${d.meaning}\nBenchmark: ${d.benchmark}`),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 42, fontStyle: 'bold' },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 70 },
+      3: { cellWidth: 'auto' },
+    },
+  })
+
+  y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 40) + 8
+  if (data.warnings && data.warnings.length > 0) {
+    if (y > 165) { doc.addPage(); y = 18 }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(16, 45, 43)
+    doc.text('Workbook Data Integrity Notes', margin, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(63, 78, 69)
+    let wY = y + 5
+    for (const w of data.warnings) {
+      const lines = doc.splitTextToSize(`• ${pdfText(w)}`, doc.internal.pageSize.getWidth() - 2 * margin)
+      doc.text(lines, margin, wY)
+      wY += lines.length * 4.2 + 2
+    }
+  }
+
+  return y
 }
 
 async function exportBankPdf(data: BankData, button: HTMLButtonElement, about?: AboutState | null) {
@@ -574,33 +1107,39 @@ async function exportBankPdf(data: BankData, button: HTMLButtonElement, about?: 
     const margin = 12
     const title = (text: string, y: number) => { doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(31,55,47); doc.text(text, margin, y) }
     const tableOptions = { theme: 'grid' as const, styles: { fontSize: 6.8, cellPadding: 2, textColor: [39,56,48] as [number,number,number], lineColor: [222,231,225] as [number,number,number] }, headStyles: { fillColor: [16,45,43] as [number,number,number], textColor: [255,255,255] as [number,number,number], fontStyle: 'bold' as const }, alternateRowStyles: { fillColor: [244,248,245] as [number,number,number] }, margin: { left: margin, right: margin } }
+
+    // Cover Page
     doc.setFillColor(16,45,43); doc.rect(0,0,pageWidth,42,'F')
     doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(23); doc.text(data.companyName,margin,20)
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text('Complete Corporate Intelligence & Bank Financial Report',margin,30)
     doc.text(`Source: ${data.sourceFileName}   •   ${data.annual[0]?.period ?? ''} to ${data.annual.at(-1)?.period ?? ''}`,margin,37)
+
+    // 1. About
     appendAboutPdfSection(doc, autoTable, 50, margin, about)
-    const finStartY = about?.data || about?.sources ? 23 : 58
-    title('Annual earnings, income & returns', finStartY - 5)
-    autoTable(doc, { ...tableOptions, startY: finStartY, head: [['Year','Interest earned','Interest paid','Gap %','Other income','Total revenue','Total expense','PBT','Net profit','OPM %','NPM %','ROE %','ROA %']], body: data.annual.map(r => [r.period,display(r.interestEarned,0),display(r.interestPaid,0),display(r.interestGap,1),display(r.otherIncome,0),display(r.totalRevenue,0),display(r.totalExpense,0),display(r.profitBeforeTax,0),display(r.netProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1),display(r.roe,1),display(r.roa,1)]), ...tableOptions })
-    doc.addPage(); title('Annual balance sheet & shareholder metrics', 18)
+    // 2. Peer Comparison
+    appendPeerComparisonPdfSection(doc, autoTable, 18, margin, about)
+    // 3. Quarterly & Yearly Ratios
+    appendRatioPdfSections(doc, autoTable, 18, margin, data)
+    // 4. Shareholding Pattern
+    appendShareholdingPdfSection(doc, autoTable, 18, margin, about)
+
+    // 5. Overview Tables
+    title('Annual earnings, income & returns (Oldest → Newest)', 18)
+    autoTable(doc, { ...tableOptions, startY: 23, head: [['Year','Interest earned','Interest paid','Gap %','Other income','Total revenue','Total expense','PBT','Net profit','OPM %','NPM %','ROE %','ROA %']], body: data.annual.map(r => [r.period,display(r.interestEarned,0),display(r.interestPaid,0),display(r.interestGap,1),display(r.otherIncome,0),display(r.totalRevenue,0),display(r.totalExpense,0),display(r.profitBeforeTax,0),display(r.netProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1),display(r.roe,1),display(r.roa,1)]), ...tableOptions })
+
+    doc.addPage(); title('Annual balance sheet & shareholder metrics (Oldest → Newest)', 18)
     autoTable(doc, { ...tableOptions, startY: 23, head: [['Year','Dividend','DPS ₹','Payout %','EPS ₹','Equity','Borrowings','Borrowings/equity ×','Cash & Bank','Other liabilities','Liquidity %','Total assets','Other assets']], body: data.annual.map(r => [r.period,display(r.dividend,0),display(r.dividendPerShare),display(r.dividendPayout,1),display(r.eps),display(r.equity,0),display(r.borrowings,0),display(r.debtToEquity),display(r.cashBank,0),display(r.otherLiabilities,0),display(r.liquidity,1),display(r.totalAssets,0),display(r.otherAssets,0)]), ...tableOptions })
+
     let qY = ((doc as unknown as {lastAutoTable?:{finalY:number}}).lastAutoTable?.finalY ?? 160) + 12
     if (qY > 178) { doc.addPage(); qY = 18 }
-    title('Quarterly analysis', qY)
+    title('Quarterly analysis (Oldest → Newest)', qY)
     autoTable(doc, { ...tableOptions, startY: qY + 5, head: [['Quarter','Interest earned','Interest paid','Gap %','Other income','Total revenue','Expenses','Total expense','Operating profit','Net profit','OPM %','NPM %']], body: data.quarterly.map(r => [r.period,display(r.interestEarned,0),display(r.interestPaid,0),display(r.interestGap,1),display(r.otherIncome,0),display(r.totalRevenue,0),display(r.expenses,0),display(r.totalExpense,0),display(r.operatingProfit,0),display(r.netProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1)]), ...tableOptions })
-    doc.addPage(); doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(16,45,43); doc.text('Method & data availability',margin,18)
-    const notes = [
-      'Annual and quarterly interest earned = Sales. Interest paid = Interest. Total revenue = interest earned + Other Income.',
-      'Annual total expense uses reported components when complete; otherwise it uses Total Revenue − reported PBT. Quarterly total expense = Expenses + Interest.',
-      'OPM = 100 × (Total Revenue − Total expense) ÷ Total Revenue. NPM = 100 × Net profit ÷ Total Revenue. Interest gap = 100 × (interest earned − interest paid) ÷ interest earned.',
-      'ROE / ROA use net profit divided by average equity / average total assets. Liquidity = 100 × Cash & Bank ÷ (Borrowings + Other Liabilities).',
-      'Borrowings/equity is displayed as requested in the bank prompt; interpret as a user-defined bank funding ratio.',
-      ...data.warnings,
-      ...data.missingMetrics,
-    ]
-    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(63,78,69)
-    let y = 30
-    for (const note of notes) { const lines = doc.splitTextToSize(`• ${note}`, pageWidth - 2 * margin); doc.text(lines, margin, y); y += lines.length * 4.5 + 3 }
+
+    // 6. Data Checks
+    doc.addPage()
+    appendDataChecksPdfSection(doc, autoTable, 18, margin, data)
+
+    // 7. Charts
     for (let i = 0; i < charts.length; i += 2) {
       doc.addPage()
       for (let j = 0; j < 2 && i + j < charts.length; j++) {
@@ -609,10 +1148,21 @@ async function exportBankPdf(data: BankData, button: HTMLButtonElement, about?: 
         doc.addImage(chart.dataUrl,'PNG',margin,top+9,pageWidth-2*margin,78,undefined,'FAST')
       }
     }
+
     const pages = doc.getNumberOfPages()
-    for (let page = 1; page <= pages; page++) { doc.setPage(page); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(119,132,124); doc.text(`${data.companyName} · Ledger Bank Analysis`,margin,doc.internal.pageSize.getHeight()-5); doc.text(`${page} / ${pages}`,pageWidth-margin,doc.internal.pageSize.getHeight()-5,{align:'right'}) }
+    for (let page = 1; page <= pages; page++) {
+      doc.setPage(page)
+      doc.setFont('helvetica','normal')
+      doc.setFontSize(8)
+      doc.setTextColor(119,132,124)
+      doc.text(`${data.companyName} · Ledger Bank Analysis`,margin,doc.internal.pageSize.getHeight()-5)
+      doc.text(`${page} / ${pages}`,pageWidth-margin,doc.internal.pageSize.getHeight()-5,{align:'right'})
+    }
     doc.save(`${safeName(data.companyName)}_Complete_Report.pdf`)
-  } finally { button.disabled = false; button.textContent = oldText }
+  } finally {
+    button.disabled = false
+    button.textContent = oldText
+  }
 }
 
 export async function exportPdf(data: FinancialData, button: HTMLButtonElement, about?: AboutState | null) {
@@ -627,6 +1177,8 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement, 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
     const pageWidth = doc.internal.pageSize.getWidth()
     const margin = 12
+
+    // Cover Page
     doc.setFillColor(16, 45, 43)
     doc.rect(0, 0, pageWidth, 42, 'F')
     doc.setTextColor(255, 255, 255)
@@ -637,41 +1189,86 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement, 
     doc.setFontSize(10)
     doc.text('Complete Corporate Intelligence & Financial Report · Non-bank analysis', margin, 30)
     doc.text(`Source: ${data.sourceFileName}   •   ${data.annual[0]?.period ?? ''} to ${data.annual.at(-1)?.period ?? ''}`, margin, 37)
+
+    // 1. About
     appendAboutPdfSection(doc, autoTable, 50, margin, about)
-    const finStartY = about?.data || about?.sources ? 23 : 58
+    // 2. Peer Comparison
+    appendPeerComparisonPdfSection(doc, autoTable, 18, margin, about)
+    // 3. Quarterly & Yearly Ratios
+    appendRatioPdfSections(doc, autoTable, 18, margin, data)
+    // 4. Shareholding Pattern
+    appendShareholdingPdfSection(doc, autoTable, 18, margin, about)
+
+    // 5. Overview Tables
     doc.setTextColor(31, 55, 47)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
-    doc.text('Annual analysis table', margin, finStartY - 5)
-    const annualBody = data.annual.map(r => [r.period,display(r.sales,0),display(r.netProfit,0),display(r.operatingProfit,0),display(r.grossProfitMargin,1),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1),display(r.operatingCashFlow,0),display(r.freeCashFlow,0),display(r.eps),display(r.dividendPerShare),display(r.dividendPayout,1),display(r.debtToEquity),display(r.roe,1),display(r.roa,1)])
-    autoTable(doc, { startY: finStartY, head: [['Year','Sales','Net profit','Op. profit','GPM %','OPM %','NPM %','CFO','FCF*','EPS ₹','DPS ₹','Payout %','D/E ×','ROE %','ROA %']], body: annualBody, theme: 'grid', styles: { fontSize: 6.7, cellPadding: 2.1, textColor: [39,56,48], lineColor: [222,231,225] }, headStyles: { fillColor: [16,45,43], textColor: [255,255,255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [244,248,245] }, margin: { left: margin, right: margin } })
+    doc.text('Annual analysis table (Oldest → Newest)', margin, 18)
+    const annualBody = data.annual.map(r => [
+      r.period,
+      display(r.sales,0),
+      display(r.netProfit,0),
+      display(r.operatingProfit,0),
+      display(r.grossProfitMargin,1),
+      display(r.operatingProfitMargin,1),
+      display(r.netProfitMargin,1),
+      display(r.operatingCashFlow,0),
+      display(r.freeCashFlow,0),
+      display(r.eps),
+      display(r.dividendPerShare),
+      display(r.dividendPayout,1),
+      display(r.debtToEquity),
+      display(r.roe,1),
+      display(r.roa,1),
+    ])
+    autoTable(doc, {
+      startY: 23,
+      head: [['Year','Sales','Net profit','Op. profit','GPM %','OPM %','NPM %','CFO','FCF*','EPS ₹','DPS ₹','Payout %','D/E ×','ROE %','ROA %']],
+      body: annualBody,
+      theme: 'grid',
+      styles: { fontSize: 6.7, cellPadding: 2.1, textColor: [39,56,48], lineColor: [222,231,225] },
+      headStyles: { fillColor: [16,45,43], textColor: [255,255,255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [244,248,245] },
+      margin: { left: margin, right: margin },
+    })
+
     let y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 140
     y += 8
-    if (y > 180) { doc.addPage(); y = 18 }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Quarterly snapshot', margin, y)
-    autoTable(doc, { startY: y + 4, head: [['Quarter','Sales','Net profit','Operating profit','OPM %','NPM %']], body: data.quarterly.map(r => [r.period,display(r.sales,0),display(r.netProfit,0),display(r.operatingProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1)]), theme: 'grid', styles: { fontSize: 7, cellPadding: 2 }, headStyles: { fillColor: [22,139,114] }, margin: { left: margin, right: margin } })
+    if (y > 175) { doc.addPage(); y = 18 }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('Quarterly snapshot (Oldest → Newest)', margin, y)
+    autoTable(doc, {
+      startY: y + 4,
+      head: [['Quarter','Sales','Net profit','Operating profit','OPM %','NPM %']],
+      body: data.quarterly.map(r => [r.period,display(r.sales,0),display(r.netProfit,0),display(r.operatingProfit,0),display(r.operatingProfitMargin,1),display(r.netProfitMargin,1)]),
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [22,139,114] },
+      margin: { left: margin, right: margin },
+    })
+
     doc.addPage()
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(31,55,47)
-    doc.text('Annual balance sheet, investment & return metrics', margin, 18)
-    autoTable(doc, { startY: 23,
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(31,55,47)
+    doc.text('Annual balance sheet, investment & return metrics (Oldest → Newest)', margin, 18)
+    autoTable(doc, {
+      startY: 23,
       head: [['Year','Receivables','Inventory','Net block','CWIP','CWIP/Net block %','Equity','Borrowings','D/E ×','ROE %','ROA %','Assets','Current assets/assets %','Cash/bank']],
       body: data.annual.map(r => [r.period,display(r.receivables,0),display(r.inventory,0),display(r.netBlock,0),display(r.cwip,0),display(r.netBlockToCwip,1),display(r.equity,0),display(r.borrowings,0),display(r.debtToEquity),display(r.roe,1),display(r.roa,1),display(r.totalAssets,0),display(r.currentAssetsToTotalAssets,1),display(r.cashBank,0)]),
-      theme: 'grid', styles: { fontSize: 6.7, cellPadding: 2.1, textColor: [39,56,48], lineColor: [222,231,225] }, headStyles: { fillColor: [16,45,43], textColor: [255,255,255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [244,248,245] }, margin: { left: margin, right: margin } })
-    const notes = [
-      '* FCF is the user-defined measure Operating Cash Flow − CWIP; CWIP is a balance-sheet balance and is not the same as cash CapEx incurred during a year.',
-      'EPS and dividend/share = ₹ crore ÷ adjusted shares in crore. Debt/equity = borrowings ÷ (share capital + reserves). ROE/ROA use average equity/assets.',
-      'The requested Current Assets proxy is Other Assets. Blank source values remain missing; explicit zero dividend produces zero DPS and payout.',
-      ...data.warnings,
-    ]
+      theme: 'grid',
+      styles: { fontSize: 6.7, cellPadding: 2.1, textColor: [39,56,48], lineColor: [222,231,225] },
+      headStyles: { fillColor: [16,45,43], textColor: [255,255,255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [244,248,245] },
+      margin: { left: margin, right: margin },
+    })
+
+    // 6. Data Checks
     doc.addPage()
-    doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(16,45,43); doc.text('Method & data checks', margin, 18)
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(63,78,69)
-    let noteY = 31
-    for (const note of notes) {
-      const lines = doc.splitTextToSize(`- ${note}`, pageWidth - 2 * margin)
-      doc.text(lines, margin, noteY)
-      noteY += lines.length * 5.3 + 4
-    }
+    appendDataChecksPdfSection(doc, autoTable, 18, margin, data)
+
+    // 7. Charts
     for (let i = 0; i < charts.length; i += 2) {
       doc.addPage()
       for (let j = 0; j < 2 && i + j < charts.length; j++) {
@@ -682,10 +1279,13 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement, 
         doc.addImage(chart.dataUrl, 'PNG', margin, top + 9, pageWidth - 2 * margin, 78, undefined, 'FAST')
       }
     }
+
     const pages = doc.getNumberOfPages()
     for (let page = 1; page <= pages; page++) {
       doc.setPage(page)
-      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(119,132,124)
+      doc.setFont('helvetica','normal')
+      doc.setFontSize(8)
+      doc.setTextColor(119,132,124)
       doc.text(`${data.companyName}  ·  Ledger Financial Visualizer`, margin, doc.internal.pageSize.getHeight() - 5)
       doc.text(`${page} / ${pages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 5, { align: 'right' })
     }
@@ -695,4 +1295,3 @@ export async function exportPdf(data: FinancialData, button: HTMLButtonElement, 
     button.textContent = oldText
   }
 }
-
