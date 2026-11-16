@@ -310,8 +310,8 @@ function appendPeerComparisonExcelSheet(
 
   const peerSheet = book.addWorksheet('Peer Comparison', { views: [{ state: 'frozen', ySplit: 4 }] })
   peerSheet.columns = [
-    { width: 32 },
-    ...columns.map(() => ({ width: 14 })),
+    { width: 24 },
+    ...columns.map(col => ({ width: col.key === 'price_range' ? 22 : 14 })),
   ]
   const lastColLetter = String.fromCharCode(65 + columns.length)
   peerSheet.addRow([`${companyName} — Peer Comparison & Sector Valuation`])

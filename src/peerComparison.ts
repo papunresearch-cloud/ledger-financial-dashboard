@@ -1,14 +1,15 @@
 import type { AboutPeerComparison, AboutPeerRow, AboutState } from './types'
 
 export const DEFAULT_NON_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data; 52WH => Correction from 52w High [100*(52w High - CMP)/(52w High - 52w Low)]'
+  'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · 52W Range: ━━ Gray track = 52W Low to High · Legends: ◆ CMP (Cyan), ● 50 DMA (Amber), ▲ 200 DMA (Purple)'
 
 export const DEFAULT_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data; 52WH => Correction from 52w High [100*(52w High - CMP)/(52w High - 52w Low)]'
+  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data · 52W Range: ━━ Gray track = 52W Low to High · Legends: ◆ CMP (Cyan), ● 50 DMA (Amber), ▲ 200 DMA (Purple)'
 
 export const DEFAULT_PEER_FOOTNOTE = DEFAULT_NON_BANK_FOOTNOTE
 
 export type PeerMetricKey =
+  | 'price_range'
   | 'mcap'
   | 'ttm_sales'
   | 'sales_growth'
@@ -24,48 +25,47 @@ export type PeerMetricKey =
   | 'pb'
   | 'ps'
   | 'd_yield'
-  | 'h52_corr'
 
-export const NON_BANK_PEER_COLUMNS: ReadonlyArray<{
+export type PeerMetricColumn = {
   key: PeerMetricKey
   label: string
+  headerLine1: string
+  headerLine2?: string
   tooltip?: string
-}> = [
-  { key: 'mcap', label: 'MCAP', tooltip: 'Market Capitalization (₹ Cr)' },
-  { key: 'ttm_sales', label: 'TTM sales', tooltip: 'Trailing 12-Month Sales (₹ Cr)' },
-  { key: 'sales_growth', label: 'Sales growth', tooltip: '3-Year Sales Growth (%)' },
-  { key: 'profit_growth', label: 'Profit growth', tooltip: '3-Year Profit Growth (%)' },
-  { key: 'opm', label: 'OPM', tooltip: '3-Year Average Operating Profit Margin (%)' },
-  { key: 'roe', label: 'ROE', tooltip: '3-Year Average Return on Equity (%)' },
-  { key: 'roa', label: 'ROA', tooltip: '3-Year Average Return on Assets (%)' },
-  { key: 'payout', label: 'Payout', tooltip: '3-Year Average Dividend Payout (%)' },
-  { key: 'cfo_ebit_pct', label: 'CFO/EBIT%', tooltip: '3-Year Average CFO / EBIT (%)' },
-  { key: 'pe', label: 'PE', tooltip: 'Current PE [3-Year Historical PE]' },
-  { key: 'pb', label: 'PB', tooltip: 'Current PB [3-Year Historical PB]' },
-  { key: 'ps', label: 'PS', tooltip: 'Price to Sales' },
-  { key: 'd_yield', label: 'D.Yield', tooltip: 'Dividend Yield (%)' },
-  { key: 'h52_corr', label: '52WH', tooltip: 'Correction from 52-Week High: 100 * (52w High - CMP) / (52w High - 52w Low)' },
+}
+
+export const NON_BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
+  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'CMP · DMAs', tooltip: '52-Week Price Range with 50 DMA, 200 DMA, and Current Market Price' },
+  { key: 'mcap', label: 'MCAP', headerLine1: 'MCAP', headerLine2: '(₹ Cr)', tooltip: 'Market Capitalization (₹ Cr)' },
+  { key: 'ttm_sales', label: 'TTM sales', headerLine1: 'TTM Sales', headerLine2: '(₹ Cr)', tooltip: 'Trailing 12-Month Sales (₹ Cr)' },
+  { key: 'sales_growth', label: 'Sales growth', headerLine1: 'Sales', headerLine2: 'Growth', tooltip: '3-Year Sales Growth (%)' },
+  { key: 'profit_growth', label: 'Profit growth', headerLine1: 'Profit', headerLine2: 'Growth', tooltip: '3-Year Profit Growth (%)' },
+  { key: 'opm', label: 'OPM', headerLine1: 'OPM', headerLine2: '(%)', tooltip: '3-Year Average Operating Profit Margin (%)' },
+  { key: 'roe', label: 'ROE', headerLine1: 'ROE', headerLine2: '(%)', tooltip: '3-Year Average Return on Equity (%)' },
+  { key: 'roa', label: 'ROA', headerLine1: 'ROA', headerLine2: '(%)', tooltip: '3-Year Average Return on Assets (%)' },
+  { key: 'payout', label: 'Payout', headerLine1: 'Div', headerLine2: 'Payout', tooltip: '3-Year Average Dividend Payout (%)' },
+  { key: 'cfo_ebit_pct', label: 'CFO/EBIT%', headerLine1: 'CFO/', headerLine2: 'EBIT%', tooltip: '3-Year Average CFO / EBIT (%)' },
+  { key: 'pe', label: 'PE', headerLine1: 'P/E', headerLine2: '[3Y Avg]', tooltip: 'Current PE [3-Year Historical PE] and % Diff' },
+  { key: 'pb', label: 'PB', headerLine1: 'P/B', headerLine2: '[3Y Avg]', tooltip: 'Current PB [3-Year Historical PB] and % Diff' },
+  { key: 'ps', label: 'PS', headerLine1: 'P/S', headerLine2: 'Ratio', tooltip: 'Price to Sales' },
+  { key: 'd_yield', label: 'D.Yield', headerLine1: 'Div', headerLine2: 'Yield', tooltip: 'Dividend Yield (%)' },
 ]
 
-export const BANK_PEER_COLUMNS: ReadonlyArray<{
-  key: PeerMetricKey
-  label: string
-  tooltip?: string
-}> = [
-  { key: 'mcap', label: 'MCAP', tooltip: 'Market Capitalization (₹ Cr)' },
-  { key: 'ttm_sales', label: 'TTM sales', tooltip: 'Trailing 12-Month Total Revenue / Sales (₹ Cr)' },
-  { key: 'sales_growth', label: 'Sales growth', tooltip: '3-Year Sales Growth (%)' },
-  { key: 'profit_growth', label: 'Profit growth', tooltip: '3-Year Profit Growth (%)' },
-  { key: 'bv_growth', label: 'BV Growth', tooltip: 'Book Value CAGR (BV Growth 3Y)' },
-  { key: 'payout', label: 'Payout', tooltip: '3-Year Average Dividend Payout (%)' },
-  { key: 'debt_to_equity', label: 'DE', tooltip: 'Debt to Equity (DE)' },
-  { key: 'roe', label: 'ROE', tooltip: '3-Year Average Return on Equity (%)' },
-  { key: 'roa', label: 'ROA', tooltip: '3-Year Average Return on Assets (%)' },
-  { key: 'pe', label: 'PE', tooltip: 'Current PE [3-Year Historical PE]' },
-  { key: 'pb', label: 'PB', tooltip: 'Current PB [3-Year Historical PB]' },
-  { key: 'ps', label: 'PS', tooltip: 'Price to Sales' },
-  { key: 'd_yield', label: 'D.Yield', tooltip: 'Dividend Yield (%)' },
-  { key: 'h52_corr', label: '52WH', tooltip: 'Correction from 52-Week High: 100 * (52w High - CMP) / (52w High - 52w Low)' },
+export const BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
+  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'CMP · DMAs', tooltip: '52-Week Price Range with 50 DMA, 200 DMA, and Current Market Price' },
+  { key: 'mcap', label: 'MCAP', headerLine1: 'MCAP', headerLine2: '(₹ Cr)', tooltip: 'Market Capitalization (₹ Cr)' },
+  { key: 'ttm_sales', label: 'TTM sales', headerLine1: 'TTM Sales', headerLine2: '(₹ Cr)', tooltip: 'Trailing 12-Month Total Revenue / Sales (₹ Cr)' },
+  { key: 'sales_growth', label: 'Sales growth', headerLine1: 'Sales', headerLine2: 'Growth', tooltip: '3-Year Sales Growth (%)' },
+  { key: 'profit_growth', label: 'Profit growth', headerLine1: 'Profit', headerLine2: 'Growth', tooltip: '3-Year Profit Growth (%)' },
+  { key: 'bv_growth', label: 'BV Growth', headerLine1: 'BV', headerLine2: 'Growth', tooltip: 'Book Value CAGR (BV Growth 3Y)' },
+  { key: 'payout', label: 'Payout', headerLine1: 'Div', headerLine2: 'Payout', tooltip: '3-Year Average Dividend Payout (%)' },
+  { key: 'debt_to_equity', label: 'DE', headerLine1: 'DE', headerLine2: 'Ratio', tooltip: 'Debt to Equity (DE)' },
+  { key: 'roe', label: 'ROE', headerLine1: 'ROE', headerLine2: '(%)', tooltip: '3-Year Average Return on Equity (%)' },
+  { key: 'roa', label: 'ROA', headerLine1: 'ROA', headerLine2: '(%)', tooltip: '3-Year Average Return on Assets (%)' },
+  { key: 'pe', label: 'PE', headerLine1: 'P/E', headerLine2: '[3Y Avg]', tooltip: 'Current PE [3-Year Historical PE] and % Diff' },
+  { key: 'pb', label: 'PB', headerLine1: 'P/B', headerLine2: '[3Y Avg]', tooltip: 'Current PB [3-Year Historical PB] and % Diff' },
+  { key: 'ps', label: 'PS', headerLine1: 'P/S', headerLine2: 'Ratio', tooltip: 'Price to Sales' },
+  { key: 'd_yield', label: 'D.Yield', headerLine1: 'Div', headerLine2: 'Yield', tooltip: 'Dividend Yield (%)' },
 ]
 
 export function getPeerMetricColumns(isBank: boolean = false) {
@@ -84,6 +84,7 @@ export type NormalizedPeerRow = {
   s_no: string
   company: string
   screener_url: string
+  price_range: string
   mcap: string
   ttm_sales: string
   sales_growth: string
@@ -102,7 +103,8 @@ export type NormalizedPeerRow = {
   cmp: string
   high_52w: string
   low_52w: string
-  h52_corr: string
+  dma_50: string
+  dma_200: string
   is_target: boolean
   is_median: boolean
 }
@@ -120,29 +122,6 @@ function cleanStr(value: unknown, fallback = '-'): string {
   if (value === null || value === undefined) return fallback
   const s = String(value).trim()
   return s || fallback
-}
-
-function compute52WH(cmpRaw: unknown, highRaw: unknown, lowRaw: unknown, fallback?: unknown): string {
-  const fb = String(fallback ?? '').trim()
-  if (fb && fb !== '-') return fb
-
-  const parseNum = (v: unknown): number | null => {
-    if (v === null || v === undefined) return null
-    const s = String(v).replace(/,/g, '').replace(/%/g, '').trim()
-    const n = parseFloat(s)
-    return isNaN(n) ? null : n
-  }
-  const cmp = parseNum(cmpRaw)
-  const high = parseNum(highRaw)
-  const low = parseNum(lowRaw)
-  if (cmp !== null && high !== null && low !== null) {
-    const denom = high - low
-    if (denom > 0) {
-      const pct = (100.0 * (high - cmp)) / denom
-      return `${pct.toFixed(1)}%`
-    }
-  }
-  return '-'
 }
 
 export function formatPePbDiff(val: unknown): string {
@@ -183,12 +162,19 @@ function normalizePeerRow(raw: AboutPeerRow | Record<string, unknown>, isMedian 
   const cmp = cleanStr(r.cmp)
   const high_52w = cleanStr(r.high_52w ?? r['52w_high'])
   const low_52w = cleanStr(r.low_52w ?? r['52w_low'])
-  const h52_corr = compute52WH(r.cmp, r.high_52w ?? r['52w_high'], r.low_52w ?? r['52w_low'], r.h52_corr)
+  const dma_50 = cleanStr(r.dma_50 ?? r['50_dma'])
+  const dma_200 = cleanStr(r.dma_200 ?? r['200_dma'])
+
+  let price_range = cmp
+  if (cmp !== '-' && high_52w !== '-' && low_52w !== '-') {
+    price_range = `₹${cmp} (${low_52w} - ${high_52w})`
+  }
 
   return {
     s_no: cleanStr(r.s_no, ''),
     company,
     screener_url: cleanStr(r.screener_url, ''),
+    price_range,
     mcap: cleanStr(r.mcap ?? r.mcap_cr),
     ttm_sales: cleanStr(r.ttm_sales ?? r.revenue_cr),
     sales_growth: cleanStr(r.sales_growth),
@@ -207,7 +193,8 @@ function normalizePeerRow(raw: AboutPeerRow | Record<string, unknown>, isMedian 
     cmp,
     high_52w,
     low_52w,
-    h52_corr,
+    dma_50,
+    dma_200,
     is_target: !isMedian && Boolean(r.is_target),
     is_median: isMedian || Boolean(r.is_median),
   }

@@ -249,7 +249,8 @@ def parse_shareholding_pattern(soup: BeautifulSoup) -> dict[str, Any]:
 
 
 PEER_COMPARISON_FOOTNOTE = (
-    "Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data"
+    "Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · "
+    "52W Range: ━━ Gray track = 52W Low to High · Legends: ◆ CMP (Cyan), ● 50 DMA (Amber), ▲ 200 DMA (Purple)"
 )
 
 
@@ -453,6 +454,16 @@ def _match_screener_peer_columns(ths: list[Any]) -> dict[str, int]:
         lambda _i, _h, t: t == "low price" or "52w low" in t,
     )
     assign(
+        "dma_50",
+        lambda _i, h, _t: "50 dma" in h or "50dma" in h or "dma 50" in h,
+        lambda _i, _h, t: "dma 50" in t or "50 dma" in t or t == "50dma",
+    )
+    assign(
+        "dma_200",
+        lambda _i, h, _t: "200 dma" in h or "200dma" in h or "dma 200" in h,
+        lambda _i, _h, t: "dma 200" in t or "200 dma" in t or t == "200dma",
+    )
+    assign(
         "debt_to_equity",
         lambda _i, h, _t: "debt / eq" in h or "debt/eq" in h or "debt to equity" in h,
         lambda _i, _h, t: "debt to equity" in t or "debt to eq" in t,
@@ -463,21 +474,6 @@ def _match_screener_peer_columns(ths: list[Any]) -> dict[str, int]:
         lambda _i, _h, t: "bvgr" in t or "book value cagr" in t or "bv growth" in t,
     )
     return cols
-
-
-def _calc_52wh(cmp_str: str, high_str: str, low_str: str) -> str:
-    """Compute 52WH = 100 * (52w High - CMP) / (52w High - 52w Low)."""
-    try:
-        c = float(cmp_str.replace(",", "").replace("%", "").strip())
-        h = float(high_str.replace(",", "").replace("%", "").strip())
-        l = float(low_str.replace(",", "").replace("%", "").strip())
-        denom = h - l
-        if denom <= 0:
-            return "-"
-        val = 100.0 * (h - c) / denom
-        return f"{val:.1f}%"
-    except Exception:
-        return "-"
 
 
 def parse_screener_peers_section(
@@ -583,7 +579,8 @@ def parse_screener_peers_section(
             "cmp": cell(tds, "cmp"),
             "high_52w": cell(tds, "high_52w"),
             "low_52w": cell(tds, "low_52w"),
-            "h52_corr": _calc_52wh(cell(tds, "cmp"), cell(tds, "high_52w"), cell(tds, "low_52w")),
+            "dma_50": cell(tds, "dma_50"),
+            "dma_200": cell(tds, "dma_200"),
             "is_target": is_target,
             "is_median": is_median,
         }

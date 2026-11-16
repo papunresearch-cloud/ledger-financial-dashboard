@@ -190,7 +190,9 @@ export type AboutPeerRow = {
   cmp?: string
   high_52w?: string
   low_52w?: string
-  h52_corr?: string
+  dma_50?: string
+  dma_200?: string
+  price_range?: string
   is_target?: boolean
   is_median?: boolean
 }

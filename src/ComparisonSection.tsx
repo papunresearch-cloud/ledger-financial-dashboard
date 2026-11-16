@@ -8,35 +8,142 @@ import {
 } from 'lucide-react'
 import {
   getPeerMetricColumns,
-  getPeerTableHeaders,
   resolvePeerComparison,
+  formatPePbDiff,
   type NormalizedPeerRow,
-  type PeerMetricKey,
+  type PeerMetricColumn,
   type ResolvedPeerComparison,
 } from './peerComparison'
 import type { AboutState } from './types'
 import './comparisonSection.css'
 
+function parseCleanNum(val: unknown): number | null {
+  if (val === null || val === undefined) return null
+  const s = String(val).replace(/,/g, '').replace(/₹/g, '').replace(/%/g, '').trim()
+  const n = parseFloat(s)
+  return isNaN(n) ? null : n
+}
+
+function formatInrPrice(n: number | null): string {
+  if (n === null || isNaN(n)) return '-'
+  return n >= 1000 ? n.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : n.toFixed(1)
+}
+
+function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
+  const low = parseCleanNum(row.low_52w)
+  const high = parseCleanNum(row.high_52w)
+  const cmp = parseCleanNum(row.cmp)
+  const d50 = parseCleanNum(row.dma_50)
+  const d200 = parseCleanNum(row.dma_200)
+
+  if (low === null || high === null || high <= low) {
+    return <span className="peer-range-fallback">{cmp !== null ? `₹${formatInrPrice(cmp)}` : '-'}</span>
+  }
+
+  const span = high - low
+  const getPct = (v: number | null) => {
+    if (v === null || isNaN(v)) return null
+    const pct = ((v - low) / span) * 100
+    return Math.max(0, Math.min(100, pct))
+  }
+
+  const cmpPct = getPct(cmp)
+  const d50Pct = getPct(d50)
+  const d200Pct = getPct(d200)
+
+  const tooltipParts = [
+    `52W Low: ₹${formatInrPrice(low)}`,
+    cmp !== null ? `CMP: ₹${formatInrPrice(cmp)}` : null,
+    d50 !== null ? `50 DMA: ₹${formatInrPrice(d50)}` : null,
+    d200 !== null ? `200 DMA: ₹${formatInrPrice(d200)}` : null,
+    `52W High: ₹${formatInrPrice(high)}`,
+  ].filter(Boolean)
+  const tooltip = tooltipParts.join('  ·  ')
+
+  return (
+    <div className="peer-range-widget" title={tooltip}>
+      {/* 1. Range bounds header */}
+      <div className="peer-range-bounds">
+        <span className="bound-low">
+          <span className="bound-tag">52L</span> {formatInrPrice(low)}
+        </span>
+        <span className="bound-high">
+          {formatInrPrice(high)} <span className="bound-tag">52H</span>
+        </span>
+      </div>
+
+      {/* 2. Gray horizontal track with markers */}
+      <div className="peer-range-track-wrap">
+        <div className="peer-range-track">
+          {d50Pct !== null && (
+            <span
+              className="peer-marker marker-dma50"
+              style={{ left: `${d50Pct}%` }}
+              title={`50 DMA: ₹${formatInrPrice(d50)}`}
+            />
+          )}
+          {d200Pct !== null && (
+            <span
+              className="peer-marker marker-dma200"
+              style={{ left: `${d200Pct}%` }}
+              title={`200 DMA: ₹${formatInrPrice(d200)}`}
+            />
+          )}
+          {cmpPct !== null && (
+            <span
+              className="peer-marker marker-cmp"
+              style={{ left: `${cmpPct}%` }}
+              title={`CMP: ₹${formatInrPrice(cmp)}`}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* 3. Key indicator values in mini chips */}
+      <div className="peer-range-chips">
+        {cmp !== null && (
+          <span className="chip-cmp" title={`CMP: ₹${formatInrPrice(cmp)}`}>
+            <span className="chip-icon">◆</span>{formatInrPrice(cmp)}
+          </span>
+        )}
+        {d50 !== null && (
+          <span className="chip-dma50" title={`50 DMA: ₹${formatInrPrice(d50)}`}>
+            <span className="chip-icon">●</span>50D {formatInrPrice(d50)}
+          </span>
+        )}
+        {d200 !== null && (
+          <span className="chip-dma200" title={`200 DMA: ₹${formatInrPrice(d200)}`}>
+            <span className="chip-icon">▲</span>200D {formatInrPrice(d200)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function renderPePbCell(val: string) {
   if (!val || val === '-') return '-'
 
   // Match pattern: "15.94 [25.69] (-37.95%)" or "15.94 [25.69] (+12.30%)"
-  const withDiffMatch = val.match(/^([\d.,]+\s*\[[\d.,]+\])\s*\(([+-]?[\d.,]+%?)\)$/)
+  const formatted = formatPePbDiff(val)
+  const withDiffMatch = formatted.match(/^([\d.,]+\s*\[[\d.,]+\])\s*\(([+-]?[\d.,]+%?)\)$/)
   if (withDiffMatch) {
     const base = withDiffMatch[1]
     const diffStr = withDiffMatch[2]
     const num = parseFloat(diffStr.replace(/,/g, '').replace(/%/g, ''))
     const isNeg = !isNaN(num) && num < 0
     return (
-      <span className="peer-diff-cell">
-        <span className="peer-diff-base">{base}</span>{' '}
-        <span className={isNeg ? 'peer-diff-neg' : 'peer-diff-pos'}>({diffStr})</span>
-      </span>
+      <div className="peer-val-twoline">
+        <span className="peer-val-line1">{base}</span>
+        <span className={`peer-val-line2 ${isNeg ? 'peer-diff-neg' : 'peer-diff-pos'}`}>
+          ({diffStr})
+        </span>
+      </div>
     )
   }
 
   // Fallback: If string is "X [Y]" without diff, compute it dynamically
-  const pairMatch = val.match(/^([\d.,]+)\s*\[([\d.,]+)\]$/)
+  const pairMatch = formatted.match(/^([\d.,]+)\s*\[([\d.,]+)\]$/)
   if (pairMatch) {
     const cStr = pairMatch[1]
     const aStr = pairMatch[2]
@@ -48,10 +155,12 @@ function renderPePbCell(val: string) {
       const diffStr = `${sign}${diff.toFixed(2)}%`
       const isNeg = diff < 0
       return (
-        <span className="peer-diff-cell">
-          <span className="peer-diff-base">{cStr} [{aStr}]</span>{' '}
-          <span className={isNeg ? 'peer-diff-neg' : 'peer-diff-pos'}>({diffStr})</span>
-        </span>
+        <div className="peer-val-twoline">
+          <span className="peer-val-line1">{cStr} [{aStr}]</span>
+          <span className={`peer-val-line2 ${isNeg ? 'peer-diff-neg' : 'peer-diff-pos'}`}>
+            ({diffStr})
+          </span>
+        </div>
       )
     }
   }
@@ -64,7 +173,7 @@ function PeerTableRow({
   columns,
 }: {
   row: NormalizedPeerRow
-  columns: ReadonlyArray<{ key: PeerMetricKey; label: string; tooltip?: string }>
+  columns: ReadonlyArray<PeerMetricColumn>
 }) {
   const rowClass = row.is_median
     ? 'about-peer-row-median'
@@ -90,6 +199,13 @@ function PeerTableRow({
         )}
       </td>
       {columns.map(col => {
+        if (col.key === 'price_range') {
+          return (
+            <td key={col.key} className="peer-td-range">
+              <PriceRange52WBar row={row} />
+            </td>
+          )
+        }
         const rawVal = row[col.key] || '-'
         const content = (col.key === 'pe' || col.key === 'pb') ? renderPePbCell(rawVal) : rawVal
         return <td key={col.key}>{content}</td>
@@ -101,11 +217,9 @@ function PeerTableRow({
 function PeerComparisonBlock({
   comp,
   columns,
-  headers,
 }: {
   comp: ResolvedPeerComparison
-  columns: ReadonlyArray<{ key: PeerMetricKey; label: string; tooltip?: string }>
-  headers: string[]
+  columns: ReadonlyArray<PeerMetricColumn>
 }) {
   if (comp.rows.length === 0) return null
 
@@ -121,14 +235,20 @@ function PeerComparisonBlock({
         <table className="about-peer-table">
           <thead>
             <tr>
-              {headers.map((header, idx) => {
-                const colInfo = idx > 0 ? columns[idx - 1] : null
-                return (
-                  <th key={header} title={colInfo?.tooltip || header}>
-                    {header}
-                  </th>
-                )
-              })}
+              <th>
+                <div className="peer-th-twoline">
+                  <span className="peer-th-line1">Company</span>
+                  <span className="peer-th-line2">Name</span>
+                </div>
+              </th>
+              {columns.map(col => (
+                <th key={col.key} title={col.tooltip || col.label}>
+                  <div className="peer-th-twoline">
+                    <span className="peer-th-line1">{col.headerLine1}</span>
+                    {col.headerLine2 && <span className="peer-th-line2">{col.headerLine2}</span>}
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -143,6 +263,16 @@ function PeerComparisonBlock({
           )}
         </table>
       </div>
+
+      {/* Visual Legend for 52W Range Track */}
+      <div className="peer-legend-strip">
+        <span className="legend-label">52W Range & DMAs:</span>
+        <span className="legend-item"><span className="legend-marker marker-track-sample">━━</span> 52-Week Low to High</span>
+        <span className="legend-item"><span className="legend-marker marker-cmp-sample">◆</span> CMP</span>
+        <span className="legend-item"><span className="legend-marker marker-dma50-sample">●</span> 50 DMA</span>
+        <span className="legend-item"><span className="legend-marker marker-dma200-sample">▲</span> 200 DMA</span>
+      </div>
+
       <p className="about-peer-footnote">{comp.footnote}</p>
     </div>
   )
@@ -161,7 +291,6 @@ export function ComparisonSection({
 }) {
   const comp = useMemo(() => resolvePeerComparison(about, isBank), [about, isBank])
   const columns = useMemo(() => getPeerMetricColumns(isBank), [isBank])
-  const headers = useMemo(() => getPeerTableHeaders(isBank), [isBank])
   const isLoading = about.status === 'loading'
   const isError = about.status === 'error' && !comp.rows.length
 
@@ -189,7 +318,7 @@ export function ComparisonSection({
 
       {/* ONLY COMPARISON TABLE */}
       {comp.rows.length > 0 ? (
-        <PeerComparisonBlock comp={comp} columns={columns} headers={headers} />
+        <PeerComparisonBlock comp={comp} columns={columns} />
       ) : (
         !isLoading && (
           <div className="about-peer-empty">

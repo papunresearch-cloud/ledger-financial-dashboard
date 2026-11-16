@@ -56,20 +56,76 @@
 }
 
 .about-peer-table th {
-  padding: 13px 14px;
+  padding: 8px 10px;
   text-align: right;
   white-space: nowrap;
   border-bottom: 2.5px solid #14b8a6;
   font-family: Cambria, Georgia, serif;
+  vertical-align: bottom;
+}
+
+/* 2-Line Column Header */
+.peer-th-twoline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 2px;
+  line-height: 1.15;
+}
+
+.about-peer-table th:first-child .peer-th-twoline {
+  align-items: flex-start;
+}
+
+.peer-th-line1 {
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.peer-th-line2 {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 
 .about-peer-table td {
-  padding: 12px 14px;
+  padding: 7px 10px;
   text-align: right;
   white-space: nowrap;
   border-bottom: 1px dotted rgba(71, 85, 105, 0.45);
   font-weight: 700;
   transition: background 0.15s ease;
+  vertical-align: middle;
+}
+
+/* 2-Line Value Cells (PE, PB, etc.) */
+.peer-val-twoline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.18;
+}
+
+.peer-val-line1 {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.peer-val-line2 {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
 }
 
 /* PE / PB Multiple & Diff Styling */
@@ -89,31 +145,174 @@
 .peer-diff-neg {
   color: #f87171 !important;
   font-family: 'DM Mono', monospace;
-  font-weight: 800;
-  font-size: 11.5px;
+  font-weight: 850;
+  font-size: 11px;
   letter-spacing: 0.1px;
 }
 
 .peer-diff-pos {
   color: #4ade80 !important;
   font-family: 'DM Mono', monospace;
-  font-weight: 800;
-  font-size: 11.5px;
+  font-weight: 850;
+  font-size: 11px;
   letter-spacing: 0.1px;
 }
 
-/* Sticky First Column (Company Name) */
+/* 52W RANGE & DMA COLUMN WIDGET */
+.peer-td-range {
+  min-width: 170px;
+  max-width: 200px;
+  width: 180px;
+  padding: 5px 8px !important;
+}
+
+.peer-range-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  cursor: default;
+  user-select: none;
+}
+
+.peer-range-bounds {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 750;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.bound-tag {
+  display: inline-block;
+  font-size: 8.5px;
+  font-weight: 850;
+  padding: 0.5px 3px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  letter-spacing: 0.2px;
+}
+
+/* Gray Horizontal Track */
+.peer-range-track-wrap {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.peer-range-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Markers on Track */
+.peer-marker {
+  position: absolute;
+  top: 50%;
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+/* 50 DMA: Amber Circle */
+.marker-dma50 {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 1.5px solid #0f172a;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.85);
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* 200 DMA: Purple Rounded Diamond */
+.marker-dma200 {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: #a855f7;
+  border: 1.5px solid #0f172a;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.85);
+  transform: translate(-50%, -50%) rotate(45deg);
+  z-index: 3;
+}
+
+/* CMP: Glowing Cyan Diamond */
+.marker-cmp {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: #06b6d4;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 9px rgba(6, 182, 212, 0.95);
+  transform: translate(-50%, -50%) rotate(45deg);
+  z-index: 4;
+}
+
+/* Bottom Chips */
+.peer-range-chips {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.chip-cmp {
+  color: #38bdf8;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5px;
+}
+
+.chip-dma50 {
+  color: #fbbf24;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5px;
+}
+
+.chip-dma200 {
+  color: #c084fc;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5px;
+}
+
+.chip-icon {
+  font-size: 8px;
+}
+
+.peer-range-fallback {
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+/* Sticky First Column (Company Name) - Reduced Width */
 .about-peer-table th:first-child,
 .about-peer-table td:first-child {
   text-align: left;
   position: sticky;
   left: 0;
   z-index: 2;
-  min-width: 210px;
-  max-width: 280px;
+  min-width: 125px;
+  max-width: 150px;
+  width: 135px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 8px 10px;
 }
 
 .about-peer-table thead th:first-child {
@@ -300,6 +499,60 @@
   border: 1.5px dashed rgba(255, 255, 255, 0.15);
 }
 
+/* Peer Legend Strip */
+.peer-legend-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  border-radius: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11.5px;
+  color: #cbd5e1;
+}
+
+.legend-label {
+  font-weight: 850;
+  color: #5eead4;
+  letter-spacing: 0.3px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 650;
+}
+
+.legend-marker {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.marker-track-sample {
+  color: #94a3b8;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+.marker-cmp-sample {
+  color: #38bdf8;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+}
+
+.marker-dma50-sample {
+  color: #fbbf24;
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+.marker-dma200-sample {
+  color: #c084fc;
+  text-shadow: 0 0 6px rgba(192, 132, 252, 0.6);
+}
+
 /* =========================================================
    2. BRIGHT THEME EXOTIC STYLING
    Signature: Light green headers with dark deep blue text
@@ -434,4 +687,84 @@
 .theme-bright .peer-diff-pos {
   color: #15803d !important;
   font-weight: 850;
+}
+
+/* Bright Theme 52W Range & Legend Overrides */
+.theme-bright .about-peer-table th:first-child,
+.theme-bright .about-peer-table td:first-child {
+  min-width: 125px;
+  max-width: 150px;
+  width: 135px;
+}
+
+.theme-bright .peer-range-bounds {
+  color: #475569;
+}
+
+.theme-bright .bound-tag {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.theme-bright .peer-range-track {
+  background: #cbd5e1;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.theme-bright .marker-dma50 {
+  background: #d97706;
+  border-color: #ffffff;
+  box-shadow: 0 0 4px rgba(217, 119, 6, 0.5);
+}
+
+.theme-bright .marker-dma200 {
+  background: #7c3aed;
+  border-color: #ffffff;
+  box-shadow: 0 0 4px rgba(124, 58, 237, 0.5);
+}
+
+.theme-bright .marker-cmp {
+  background: #0284c7;
+  border-color: #ffffff;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.6);
+}
+
+.theme-bright .chip-cmp {
+  color: #0369a1;
+  font-weight: 850;
+}
+
+.theme-bright .chip-dma50 {
+  color: #b45309;
+  font-weight: 850;
+}
+
+.theme-bright .chip-dma200 {
+  color: #6d28d9;
+  font-weight: 850;
+}
+
+.theme-bright .peer-legend-strip {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.theme-bright .legend-label {
+  color: #0f766e;
+}
+
+.theme-bright .marker-cmp-sample {
+  color: #0284c7;
+  text-shadow: none;
+}
+
+.theme-bright .marker-dma50-sample {
+  color: #d97706;
+  text-shadow: none;
+}
+
+.theme-bright .marker-dma200-sample {
+  color: #7c3aed;
+  text-shadow: none;
 }

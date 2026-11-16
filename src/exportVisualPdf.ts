@@ -325,6 +325,126 @@ export function buildStandaloneWebReportHtml(
       font-weight: 850 !important;
     }
 
+    .peer-th-twoline {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-end !important;
+      justify-content: flex-end !important;
+      gap: 2px !important;
+      line-height: 1.15 !important;
+    }
+    .about-peer-table th:first-child .peer-th-twoline {
+      align-items: flex-start !important;
+    }
+    .peer-th-line1 {
+      font-size: 11px !important;
+      font-weight: 850 !important;
+      white-space: nowrap !important;
+    }
+    .peer-th-line2 {
+      font-size: 9.5px !important;
+      font-weight: 700 !important;
+      opacity: 0.85 !important;
+      white-space: nowrap !important;
+    }
+    .peer-val-twoline {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-end !important;
+      justify-content: center !important;
+      gap: 2px !important;
+      line-height: 1.18 !important;
+    }
+    .peer-td-range {
+      min-width: 170px !important;
+      max-width: 200px !important;
+      width: 180px !important;
+      padding: 5px 8px !important;
+    }
+    .peer-range-widget {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 3px !important;
+      width: 100% !important;
+    }
+    .peer-range-bounds {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      font-family: 'DM Mono', monospace !important;
+      font-size: 10px !important;
+      font-weight: 750 !important;
+      color: #475569 !important;
+    }
+    .peer-range-track {
+      position: relative !important;
+      width: 100% !important;
+      height: 6px !important;
+      background: #cbd5e1 !important;
+      border-radius: 999px !important;
+    }
+    .peer-marker {
+      position: absolute !important;
+      top: 50% !important;
+    }
+    .marker-dma50 {
+      width: 9px !important;
+      height: 9px !important;
+      border-radius: 50% !important;
+      background: #d97706 !important;
+      border: 1.5px solid #ffffff !important;
+      transform: translate(-50%, -50%) !important;
+      z-index: 2 !important;
+    }
+    .marker-dma200 {
+      width: 9px !important;
+      height: 9px !important;
+      border-radius: 2px !important;
+      background: #7c3aed !important;
+      border: 1.5px solid #ffffff !important;
+      transform: translate(-50%, -50%) rotate(45deg) !important;
+      z-index: 3 !important;
+    }
+    .marker-cmp {
+      width: 11px !important;
+      height: 11px !important;
+      border-radius: 3px !important;
+      background: #0284c7 !important;
+      border: 2px solid #ffffff !important;
+      transform: translate(-50%, -50%) rotate(45deg) !important;
+      z-index: 4 !important;
+    }
+    .peer-range-chips {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 3px !important;
+      font-family: 'DM Mono', monospace !important;
+      font-size: 9.5px !important;
+      font-weight: 800 !important;
+    }
+    .chip-cmp { color: #0369a1 !important; }
+    .chip-dma50 { color: #b45309 !important; }
+    .chip-dma200 { color: #6d28d9 !important; }
+    .peer-legend-strip {
+      display: flex !important;
+      align-items: center !important;
+      gap: 16px !important;
+      flex-wrap: wrap !important;
+      padding: 8px 14px !important;
+      background: #f8fafc !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 10px !important;
+      font-family: 'DM Mono', monospace !important;
+      font-size: 11.5px !important;
+      color: #334155 !important;
+    }
+    .legend-label { color: #0f766e !important; font-weight: 850 !important; }
+    .marker-track-sample { color: #94a3b8 !important; font-weight: 900 !important; }
+    .marker-cmp-sample { color: #0284c7 !important; }
+    .marker-dma50-sample { color: #d97706 !important; }
+    .marker-dma200-sample { color: #7c3aed !important; }
+
     /* Recharts Chart Grid & Card Styling */
     .chart-grid {
       display: grid !important;
