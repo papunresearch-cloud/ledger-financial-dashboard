@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, Layers, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2, TrendingUp, Zap } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { ComparisonSection } from './ComparisonSection'
 import { BankDashboard } from './BankDashboard'
@@ -16,6 +16,7 @@ import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
 import type { AboutState, AppTheme, FinancialData, ScreenerAboutData, Section } from './types'
 import './cloud-download.css'
+import './frontpage3d.css'
 
 type Mode = 'nonbank' | 'bank'
 const compact = (n: number | null | undefined, digits = 1) => n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(n)
@@ -312,13 +313,228 @@ function App() {
     </header>
     <main id="top" className="main-wrap">
       {!data ? <section className="welcome-view">
-        <div className="welcome-copy"><div className="hero-kicker"><Sparkles size={15}/> FINANCIAL STATEMENTS, MADE CLEAR</div><h1>See the story<br/>behind the <em>numbers.</em></h1><p className="hero-description">Choose an analysis mode, upload its Data Sheet workbook or fetch a supported Screener export, then explore the financials and export a report.</p><div className="promise-row"><span><Check size={15}/> Workbook stays local</span><span><Check size={15}/> No Ledger account</span><span><Check size={15}/> Clear formulas</span></div></div>
-        <div className="setup-card"><div className="step-label">START HERE <span>01 / 02</span></div><h2>Choose analysis mode</h2><p className="muted">The selected mode controls which financial ratios are calculated.</p>
-          <div className="mode-options"><button className={`mode-option ${mode === 'nonbank' ? 'selected' : ''}`} onClick={() => setMode('nonbank')}><span className="mode-icon"><BarChart3 size={18}/></span><span className="mode-copy"><strong>Non-bank company</strong><small>Manufacturers, IT, FMCG and other companies</small></span><span className="radio-dot"/></button><button className={`mode-option ${mode === 'bank' ? 'selected' : ''}`} onClick={() => setMode('bank')}><span className="mode-icon bank"><Landmark size={18}/></span><span className="mode-copy"><strong>Bank</strong><small>Bank-specific calculations from the project prompt</small></span><span className="radio-dot"/></button></div>
-          {supportsLocalScreener || supportsCloudScreener ? <div className="download-card"><div className="download-card-head"><span className="download-icon"><ArrowDownToLine size={18}/></span><div><strong>Fetch directly from Screener</strong><small>Type a company name to choose a match, or enter its code directly.</small></div></div>{!supportsLocalScreener && <><label htmlFor="ledger-access-key">Ledger access key</label><input id="ledger-access-key" type="password" value={accessKey} onChange={event => setAccessKey(event.target.value)} autoComplete="current-password" className="access-key-input" placeholder="Enter your private access key"/></>}<label htmlFor="company-code">Screener company code or ticker</label><div className="company-code-picker"><div className="company-code-field"><span>screener.in/company/</span><input id="company-code" value={companyCode} onChange={event => { setCompanyCode(event.target.value); setCompanySuggestionsOpen(true); setActiveCompanySuggestion(0) }} onFocus={() => setCompanySuggestionsOpen(true)} onBlur={() => window.setTimeout(() => setCompanySuggestionsOpen(false), 150)} onKeyDown={event => { if (event.key === 'ArrowDown' && companySuggestions.length) { event.preventDefault(); setCompanySuggestionsOpen(true); setActiveCompanySuggestion(index => (index + 1) % companySuggestions.length) } else if (event.key === 'ArrowUp' && companySuggestions.length) { event.preventDefault(); setActiveCompanySuggestion(index => (index - 1 + companySuggestions.length) % companySuggestions.length) } else if (event.key === 'Escape') setCompanySuggestionsOpen(false); else if (event.key === 'Enter' && !busy) { event.preventDefault(); void fetchFromScreener() } }} placeholder="Company name or code (e.g. INFY)" autoComplete="off" aria-autocomplete="list" aria-controls="company-suggestions"/><span>/</span></div>{companySuggestionsOpen && companySuggestions.length > 0 && <ul id="company-suggestions" className="company-suggestions" role="listbox">{companySuggestions.map((company, index) => <li key={`${company.name}-${company.nse}-${company.bse}`} role="option" aria-selected={index === activeCompanySuggestion}><button type="button" onMouseDown={event => event.preventDefault()} onClick={() => chooseCompany(company)}><span>{company.name}</span><small>{company.nse ? `NSE: ${company.nse}` : `BSE: ${company.bse}`}{company.nse && company.bse ? ` · BSE: ${company.bse}` : ''}</small></button></li>)}</ul>}</div><button className="button button-primary fetch-button" disabled={busy || (!supportsLocalScreener && !accessKey)} onClick={() => { setCompanySuggestionsOpen(false); void fetchFromScreener() }}>{busy ? <><LoaderCircle className="spin" size={16}/> Downloading & analyzing…</> : <><Sparkles size={16}/> Download & analyze</>}</button><p className="browser-note"><ShieldCheck size={14}/>{supportsLocalScreener ? 'A Chrome window will open. Sign in there if prompted; the browser profile is reused.' : 'The cloud service downloads through your configured proxy; the selected analysis mode is applied to the workbook after download.'}</p></div> : <div className="download-card"><div className="download-card-head"><span className="download-icon"><CloudOff size={18}/></span><div><strong>Cloud version: upload a workbook</strong><small>Direct Screener download uses a Chrome session on your own computer.</small></div></div><p className="browser-note"><ShieldCheck size={14}/>Save the Screener export as an .xlsx file, then choose it below. The workbook is analyzed in this browser and is not uploaded to a server.</p></div>}
-          <div className="upload-divider"><span>OR USE A SAVED WORKBOOK</span></div><div className={`upload-zone manual-upload ${dragging ? 'dragging' : ''} ${busy ? 'loading' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); void processFile(event.dataTransfer.files[0]) }}><input ref={fileInput} type="file" accept=".xlsx" hidden onChange={event => void processFile(event.target.files?.[0])}/><span className="upload-icon">{busy ? <LoaderCircle className="spin" size={20}/> : <FileUp size={20}/>}</span><strong>{busy ? 'Working…' : 'Drop a workbook here or choose a file'}</strong><small>Must include a <b>Data Sheet</b> worksheet</small><button className="button button-soft upload-button" disabled={busy} onClick={() => fileInput.current?.click()}>Choose .xlsx file <ChevronRight size={15}/></button><span className="file-note">MANUAL FALLBACK · PROCESSED ON YOUR DEVICE</span></div>
-          <div className="local-note"><CloudOff size={15}/><span>Workbook is processed in browser memory and is not saved to a permanent file.</span></div>{error && <div className="error-box"><AlertTriangle size={16}/>{error}</div>}
-        </div><div className="welcome-foot"><span>BUILT FOR CLARITY</span><span>Annual trends <b>·</b> Quarterly movement <b>·</b> Ratio analysis</span></div>
+        <div className="welcome-copy">
+          <div className="hero-kicker">
+            <span className="hero-kicker-dot" />
+            <Sparkles size={14} className="hero-kicker-sparkle" />
+            <span>FINANCIAL STATEMENTS, MADE CRYSTAL CLEAR</span>
+          </div>
+          <h1>See the story<br/>behind the <span className="hero-em-gradient">numbers.</span></h1>
+          <p className="hero-description">
+            Transform raw Screener workbooks into luminous financial intelligence. High-definition quarterly trends, interactive valuation ratios, and deep balance sheet analysis — rendered instantly on your device.
+          </p>
+          <div className="promise-row">
+            <span className="promise-pill"><Check size={14} /> 100% Private & In-Memory</span>
+            <span className="promise-pill"><Check size={14} /> Zero Cloud Account</span>
+            <span className="promise-pill"><Check size={14} /> Transparent Formulas</span>
+          </div>
+          <div className="hero-metrics-ribbon">
+            <div className="hero-metric-tile accent-emerald">
+              <div className="metric-tile-icon"><TrendingUp size={16} /></div>
+              <div className="metric-tile-content">
+                <strong>4,500+</strong>
+                <span>Equities Indexed</span>
+              </div>
+            </div>
+            <div className="hero-metric-tile accent-cyan">
+              <div className="metric-tile-icon"><Zap size={16} /></div>
+              <div className="metric-tile-content">
+                <strong>Instant</strong>
+                <span>Local Analysis</span>
+              </div>
+            </div>
+            <div className="hero-metric-tile accent-indigo">
+              <div className="metric-tile-icon"><Layers size={16} /></div>
+              <div className="metric-tile-content">
+                <strong>Dual Engine</strong>
+                <span>Non-Bank & Bank</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="setup-card">
+          <div className="step-label">
+            <span className="setup-step-tag"><span className="status-dot-glow" /> READY TO ANALYZE</span>
+            <span className="setup-step-num">STEP 01 / 02</span>
+          </div>
+          <h2 className="setup-card-title">Choose analysis mode</h2>
+          <p className="setup-card-subtitle">Select company profile to apply specialized accounting models & ratios.</p>
+          <div className="mode-options">
+            <button
+              type="button"
+              className={`mode-option mode-nonbank ${mode === 'nonbank' ? 'selected' : ''}`}
+              onClick={() => setMode('nonbank')}
+            >
+              <span className="mode-icon nonbank"><BarChart3 size={20}/></span>
+              <span className="mode-copy">
+                <strong>Non-bank company</strong>
+                <small>Manufacturing, IT, FMCG, Pharma & General Corporates</small>
+              </span>
+              <span className="radio-dot"/>
+            </button>
+            <button
+              type="button"
+              className={`mode-option mode-bank ${mode === 'bank' ? 'selected' : ''}`}
+              onClick={() => setMode('bank')}
+            >
+              <span className="mode-icon bank"><Landmark size={20}/></span>
+              <span className="mode-copy">
+                <strong>Banking & Financials</strong>
+                <small>Interest spread, Advances, Deposits & specialized bank metrics</small>
+              </span>
+              <span className="radio-dot"/>
+            </button>
+          </div>
+
+          {supportsLocalScreener || supportsCloudScreener ? (
+            <div className="download-card">
+              <div className="download-card-head">
+                <span className="download-icon"><ArrowDownToLine size={20}/></span>
+                <div>
+                  <strong>Direct Screener Sync</strong>
+                  <small>Search by company name or ticker symbol for instant fetching</small>
+                </div>
+              </div>
+              {!supportsLocalScreener && (
+                <>
+                  <label htmlFor="ledger-access-key">Ledger access key</label>
+                  <input
+                    id="ledger-access-key"
+                    type="password"
+                    value={accessKey}
+                    onChange={event => setAccessKey(event.target.value)}
+                    autoComplete="current-password"
+                    className="access-key-input"
+                    placeholder="Enter your private access key"
+                  />
+                </>
+              )}
+              <label htmlFor="company-code">Screener company code or ticker</label>
+              <div className="company-code-picker">
+                <div className="company-code-field">
+                  <span>screener.in/company/</span>
+                  <input
+                    id="company-code"
+                    value={companyCode}
+                    onChange={event => {
+                      setCompanyCode(event.target.value)
+                      setCompanySuggestionsOpen(true)
+                      setActiveCompanySuggestion(0)
+                    }}
+                    onFocus={() => setCompanySuggestionsOpen(true)}
+                    onBlur={() => window.setTimeout(() => setCompanySuggestionsOpen(false), 150)}
+                    onKeyDown={event => {
+                      if (event.key === 'ArrowDown' && companySuggestions.length) {
+                        event.preventDefault()
+                        setCompanySuggestionsOpen(true)
+                        setActiveCompanySuggestion(index => (index + 1) % companySuggestions.length)
+                      } else if (event.key === 'ArrowUp' && companySuggestions.length) {
+                        event.preventDefault()
+                        setActiveCompanySuggestion(index => (index - 1 + companySuggestions.length) % companySuggestions.length)
+                      } else if (event.key === 'Escape') {
+                        setCompanySuggestionsOpen(false)
+                      } else if (event.key === 'Enter' && !busy) {
+                        event.preventDefault()
+                        void fetchFromScreener()
+                      }
+                    }}
+                    placeholder="Company name or code (e.g. INFY, TCS)"
+                    autoComplete="off"
+                    aria-autocomplete="list"
+                    aria-controls="company-suggestions"
+                  />
+                  <span>/</span>
+                </div>
+                {companySuggestionsOpen && companySuggestions.length > 0 && (
+                  <ul id="company-suggestions" className="company-suggestions" role="listbox">
+                    {companySuggestions.map((company, index) => (
+                      <li key={`${company.name}-${company.nse}-${company.bse}`} role="option" aria-selected={index === activeCompanySuggestion}>
+                        <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => chooseCompany(company)}>
+                          <span>{company.name}</span>
+                          <small>{company.nse ? `NSE: ${company.nse}` : `BSE: ${company.bse}`}{company.nse && company.bse ? ` · BSE: ${company.bse}` : ''}</small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <button
+                type="button"
+                className="button button-primary fetch-button"
+                disabled={busy || (!supportsLocalScreener && !accessKey)}
+                onClick={() => {
+                  setCompanySuggestionsOpen(false)
+                  void fetchFromScreener()
+                }}
+              >
+                {busy ? (
+                  <><LoaderCircle className="spin" size={16}/> Downloading & analyzing…</>
+                ) : (
+                  <><Sparkles size={16}/> Download & analyze</>
+                )}
+              </button>
+              <p className="browser-note">
+                <ShieldCheck size={14}/>
+                {supportsLocalScreener
+                  ? 'A Chrome window will open. Sign in there if prompted; the browser profile is securely reused.'
+                  : 'The cloud service downloads through your configured proxy; selected analysis mode is applied automatically.'}
+              </p>
+            </div>
+          ) : (
+            <div className="download-card">
+              <div className="download-card-head">
+                <span className="download-icon"><CloudOff size={20}/></span>
+                <div>
+                  <strong>Cloud version: upload a workbook</strong>
+                  <small>Direct Screener download uses a Chrome session on your own computer.</small>
+                </div>
+              </div>
+              <p className="browser-note">
+                <ShieldCheck size={14}/>
+                Save the Screener export as an .xlsx file, then choose it below. The workbook is analyzed in this browser and never uploaded to any external server.
+              </p>
+            </div>
+          )}
+
+          <div className="upload-divider"><span>OR UPLOAD A SAVED WORKBOOK</span></div>
+
+          <div
+            className={`upload-zone manual-upload ${dragging ? 'dragging' : ''} ${busy ? 'loading' : ''}`}
+            onDragOver={event => {
+              event.preventDefault()
+              setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={event => {
+              event.preventDefault()
+              setDragging(false)
+              void processFile(event.dataTransfer.files[0])
+            }}
+          >
+            <input ref={fileInput} type="file" accept=".xlsx" hidden onChange={event => void processFile(event.target.files?.[0])}/>
+            <span className="upload-icon">
+              {busy ? <LoaderCircle className="spin" size={22}/> : <FileUp size={22}/>}
+            </span>
+            <strong>{busy ? 'Processing Workbook…' : 'Drop a workbook here or choose a file'}</strong>
+            <small>Must include a <b>Data Sheet</b> worksheet</small>
+            <button type="button" className="button button-soft upload-button" disabled={busy} onClick={() => fileInput.current?.click()}>
+              Choose .xlsx file <ChevronRight size={15}/>
+            </button>
+            <span className="file-note">MANUAL FALLBACK · 100% SECURE ON YOUR DEVICE</span>
+          </div>
+
+          <div className="local-note">
+            <CloudOff size={15}/>
+            <span>Workbook is processed strictly in browser memory and is never saved to a permanent file.</span>
+          </div>
+          {error && <div className="error-box"><AlertTriangle size={16}/>{error}</div>}
+        </div>
+
+        <div className="welcome-foot">
+          <span className="foot-brand">⚡ LEDGER INTELLIGENCE</span>
+          <span className="foot-caps">Annual trends <b className="foot-dot">·</b> Quarterly movements <b className="foot-dot">·</b> Advanced ratios <b className="foot-dot">·</b> Peer Medians</span>
+        </div>
       </section> : <>
         <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1><p className="muted">Source: {data.sourceFileName}{data.faceValue !== null ? ` · Face value ₹${compact(data.faceValue)}` : ''}</p></div></div><div className="company-actions"><button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
         <nav className="section-nav" aria-label="Analysis sections">{sections.map(({key,label,icon:Icon})=><button key={key} className={section===key?'active':''} onClick={()=>setSection(key)}><Icon size={16}/>{label}{section===key&&<span className="nav-active-mark"/>}</button>)}</nav>
