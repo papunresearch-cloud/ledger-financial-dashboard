@@ -1,49 +1,52 @@
 /* ==========================================================================
-   VIBRANT ARTISTIC 3D FRONT PAGE & HIGH-CONTRAST TYPOGRAPHY
+   SOOTHING EYE-COMFORT 3D ARTISTIC FRONT PAGE & HIGH-CONTRAST TYPOGRAPHY
+   Tuned for zero-glare, relaxed reading, and vibrant artistic elegance
    ========================================================================== */
 
-/* Outer Shell: Luminous Slate-Pearl Canvas with Ambient Aurora Glows
-   Balanced tone: neither extremely bright nor extremely dark */
+/* Outer Shell: Eye-Soothing Scenic Ambient Canvas
+   Calming mist, gentle cyan/emerald aurora glow, and zero blinding stark white */
 .app-shell:not(.company-theme):not(.bank-theme) {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse 70% 55% at 10% 12%, rgba(16, 185, 129, 0.15) 0%, transparent 60%),
-    radial-gradient(ellipse 65% 50% at 90% 10%, rgba(14, 165, 233, 0.16) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 55% at 50% 88%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 45% 45% at 75% 75%, rgba(245, 158, 11, 0.08) 0%, transparent 55%),
-    linear-gradient(168deg, #f1f5f9 0%, #e6eef6 48%, #dde5f0 100%) !important;
-  color: #0f172a !important;
+    url('./assets/hero-bg.svg') center center / cover no-repeat fixed,
+    radial-gradient(ellipse 70% 55% at 10% 12%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 65% 50% at 90% 10%, rgba(14, 165, 233, 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 55% at 50% 88%, rgba(99, 102, 241, 0.09) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 45% at 75% 75%, rgba(245, 158, 11, 0.07) 0%, transparent 55%),
+    linear-gradient(165deg, #e6edf5 0%, #dbe5f0 50%, #ccd8e6 100%) !important;
+  color: #0d1e33 !important;
 }
 
-/* Bright Theme Palette (Consistent with luminous frontpage) */
+/* Bright Theme Palette (Harmonized with eye-comfort soothing frontpage) */
 .app-shell.theme-bright:not(.company-theme):not(.bank-theme) {
   background:
-    radial-gradient(ellipse 70% 55% at 10% 12%, rgba(16, 185, 129, 0.14) 0%, transparent 60%),
-    radial-gradient(ellipse 65% 50% at 90% 10%, rgba(14, 165, 233, 0.15) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 55% at 50% 88%, rgba(99, 102, 241, 0.11) 0%, transparent 60%),
-    linear-gradient(168deg, #f8fafc 0%, #edf2f7 50%, #e2e8f0 100%) !important;
-  color: #0f172a !important;
+    url('./assets/hero-bg.svg') center center / cover no-repeat fixed,
+    radial-gradient(ellipse 70% 55% at 10% 12%, rgba(16, 185, 129, 0.11) 0%, transparent 60%),
+    radial-gradient(ellipse 65% 50% at 90% 10%, rgba(14, 165, 233, 0.13) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 55% at 50% 88%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+    linear-gradient(165deg, #ebf1f8 0%, #e0e9f3 50%, #d4e0ee 100%) !important;
+  color: #0d1e33 !important;
 }
 
-/* Topbar: Frosted Translucent Glass with Crisp Bevel */
+/* Topbar: Frosted Eye-Comfort Satin Glass with Subtle Bevel */
 .app-shell:not(.company-theme):not(.bank-theme) .topbar {
-  background: rgba(255, 255, 255, 0.86) !important;
+  background: rgba(228, 237, 247, 0.90) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  border-bottom: 1.5px solid rgba(226, 232, 240, 0.9) !important;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04) !important;
+  border-bottom: 1.5px solid #c0d2e5 !important;
+  box-shadow: 0 4px 20px -2px rgba(20, 40, 70, 0.06) !important;
 }
 
 .app-shell:not(.company-theme):not(.bank-theme) .brand {
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   font-weight: 800 !important;
   letter-spacing: -0.8px !important;
 }
 
 .app-shell:not(.company-theme):not(.bank-theme) .brand-mark {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+  background: linear-gradient(135deg, #102642 0%, #1c3658 100%) !important;
   color: #38bdf8 !important;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 4px 10px rgba(16, 38, 66, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
   border-radius: 10px !important;
 }
 
@@ -52,7 +55,7 @@
 }
 
 .app-shell:not(.company-theme):not(.bank-theme) .privacy-label {
-  color: #334155 !important;
+  color: #344862 !important;
   font-weight: 650 !important;
   font-size: 12.5px !important;
 }
@@ -62,7 +65,7 @@
   stroke-width: 2.2 !important;
 }
 
-/* 3D Topbar Vault Button */
+/* 3D Topbar Vault Button (Warm Amber) */
 .vault-topbar-button {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
   border: 1px solid rgba(253, 224, 71, 0.6) !important;
@@ -79,15 +82,16 @@
 }
 
 .vault-topbar-badge {
-  background: #ffffff;
+  background: #fdfaf0;
   color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
   font-size: 11px;
   font-weight: 800;
   padding: 1px 7px;
   border-radius: 9999px;
   margin-left: 5px;
   font-family: 'DM Mono', monospace;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
 /* 3D Hero Layout Grid */
@@ -113,12 +117,12 @@
   gap: 8px !important;
   padding: 6px 14px !important;
   border-radius: 999px !important;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(14, 165, 233, 0.12)) !important;
-  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(14, 165, 233, 0.14)) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
   color: #047857 !important;
   font: 700 11px/1 'DM Mono', monospace !important;
   letter-spacing: 1.2px !important;
-  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
   margin-bottom: 18px !important;
 }
 
@@ -142,13 +146,13 @@
   flex-shrink: 0 !important;
 }
 
-/* Hero Typography: High Contrast Slate-900 & Multi-Tone Gradient */
+/* Hero Typography: High Contrast Charcoal-Navy & Multi-Tone Gradient */
 .welcome-copy h1 {
   font: 800 clamp(42px, 4.8vw, 68px)/1.06 Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   letter-spacing: -2.8px !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   margin: 12px 0 20px !important;
-  text-shadow: 0 2px 4px rgba(15, 23, 42, 0.05) !important;
+  text-shadow: 0 2px 4px rgba(15, 30, 55, 0.05) !important;
 }
 
 .welcome-copy h1 .hero-em-gradient {
@@ -160,17 +164,17 @@
   filter: drop-shadow(0 3px 12px rgba(14, 165, 233, 0.28)) !important;
 }
 
-/* High Contrast Description Text */
+/* High Contrast Eye-Soothing Description Text */
 .hero-description {
   max-width: 520px !important;
-  color: #334155 !important;
+  color: #33465e !important;
   font-size: 16px !important;
   font-weight: 550 !important;
   line-height: 1.72 !important;
   margin: 0 !important;
 }
 
-/* 3D Promise Pills */
+/* 3D Promise Pills (Eye-Comfort Soft Satin) */
 .promise-row {
   display: flex !important;
   flex-wrap: wrap !important;
@@ -184,20 +188,21 @@
   gap: 7px !important;
   padding: 7px 14px !important;
   border-radius: 999px !important;
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(234, 241, 249, 0.92) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
-  color: #1e293b !important;
+  border: 1.5px solid #c2d4e6 !important;
+  color: #1e2e42 !important;
   font-size: 12.5px !important;
   font-weight: 650 !important;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 4px 12px rgba(15, 30, 55, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
 
 .promise-pill:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.09) !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 6px 16px rgba(15, 30, 55, 0.09) !important;
 }
 
 .promise-pill svg {
@@ -206,21 +211,21 @@
   flex-shrink: 0 !important;
 }
 
-/* Vibrant 3D Vault Feature Card on Front Page (Luminous Glass Edition) */
+/* Vibrant 3D Vault Feature Card on Front Page (Eye-Soothing Glass Edition) */
 .vault-hero-card {
   position: relative;
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 249, 255, 0.92) 50%, rgba(254, 243, 199, 0.88) 100%) !important;
-  border: 1.5px solid rgba(14, 165, 233, 0.35) !important;
+  background: linear-gradient(135deg, rgba(238, 244, 252, 0.95) 0%, rgba(228, 238, 248, 0.92) 50%, rgba(254, 242, 218, 0.88) 100%) !important;
+  border: 1.5px solid rgba(14, 165, 233, 0.45) !important;
   border-radius: 20px !important;
   padding: 18px 22px !important;
   margin: 22px 0 24px !important;
   cursor: pointer;
   box-shadow:
-    0 12px 30px -6px rgba(15, 23, 42, 0.1),
-    0 4px 14px rgba(14, 165, 233, 0.12),
-    inset 0 1px 0 #ffffff !important;
+    0 14px 34px -6px rgba(20, 40, 70, 0.1),
+    0 4px 14px rgba(14, 165, 233, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
   transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
   overflow: hidden;
 }
@@ -229,9 +234,9 @@
   transform: translateY(-3px) scale(1.01) !important;
   border-color: #0284c7 !important;
   box-shadow:
-    0 18px 40px -8px rgba(15, 23, 42, 0.14),
-    0 6px 20px rgba(14, 165, 233, 0.22),
-    inset 0 1px 0 #ffffff !important;
+    0 18px 40px -8px rgba(20, 40, 70, 0.15),
+    0 6px 20px rgba(14, 165, 233, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
 }
 
 .vault-hero-bg-glow {
@@ -312,7 +317,7 @@
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: #0369a1;
-  background: #e0f2fe;
+  background: #dbeefd;
   padding: 2px 8px;
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(2, 132, 199, 0.15);
@@ -322,7 +327,7 @@
   font-size: 11.5px;
   font-weight: 800;
   color: #047857;
-  background: #d1fae5;
+  background: #cbf5df;
   padding: 2px 8px;
   border-radius: 6px;
   font-family: 'DM Mono', monospace;
@@ -334,14 +339,14 @@
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.3px;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
 }
 
 .vault-hero-desc {
   margin: 3px 0 0;
   font-size: 13px;
   font-weight: 500;
-  color: #334155 !important;
+  color: #384c66 !important;
   line-height: 1.45;
 }
 
@@ -366,7 +371,7 @@
   box-shadow: 0 6px 18px rgba(245, 158, 11, 0.5) !important;
 }
 
-/* 3D Hero Metrics Ribbon */
+/* 3D Hero Metrics Ribbon (Eye-Comfort Soft Satin Tiles) */
 .hero-metrics-ribbon {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
@@ -376,14 +381,14 @@
 }
 
 .hero-metric-tile {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 250, 252, 0.9) 100%) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+  background: linear-gradient(145deg, rgba(238, 244, 252, 0.94) 0%, rgba(228, 237, 247, 0.90) 100%) !important;
+  border: 1.5px solid rgba(190, 208, 228, 0.85) !important;
   border-radius: 14px !important;
   padding: 12px 14px !important;
   display: flex !important;
   align-items: center !important;
   gap: 11px !important;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 6px 16px rgba(15, 30, 55, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease !important;
@@ -391,7 +396,8 @@
 
 .hero-metric-tile:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.09), inset 0 1px 0 #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 10px 22px rgba(15, 30, 55, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
 }
 
 .metric-tile-icon {
@@ -430,28 +436,28 @@
 
 .metric-tile-content strong {
   font: 800 15px/1.2 Manrope, sans-serif !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   letter-spacing: -0.3px !important;
 }
 
 .metric-tile-content span {
   font-size: 11px !important;
-  color: #475569 !important;
+  color: #435872 !important;
   font-weight: 600 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
-/* 3D Tactile Setup Card */
+/* 3D Tactile Setup Card (Eye-Soothing Soft Pearl-Satin) */
 .setup-card {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.93) 100%) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+  background: linear-gradient(145deg, rgba(243, 247, 252, 0.95) 0%, rgba(232, 239, 248, 0.92) 100%) !important;
+  border: 1.5px solid rgba(180, 200, 222, 0.85) !important;
   border-radius: 26px !important;
   box-shadow:
-    0 30px 65px -12px rgba(15, 23, 42, 0.14),
-    0 12px 28px -6px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 #ffffff !important;
+    0 24px 55px -10px rgba(15, 35, 65, 0.12),
+    0 8px 22px -4px rgba(15, 35, 65, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75) !important;
   padding: 28px 28px 24px !important;
   max-width: 560px !important;
   width: 100% !important;
@@ -464,7 +470,7 @@
 .step-label {
   font: 700 11px 'DM Mono', monospace !important;
   letter-spacing: 1px !important;
-  color: #334155 !important;
+  color: #344862 !important;
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
@@ -475,11 +481,11 @@
   display: inline-flex !important;
   align-items: center !important;
   gap: 7px !important;
-  background: #e2e8f0 !important;
+  background: #d6e2ee !important;
   padding: 4px 10px !important;
   border-radius: 999px !important;
   font-size: 10px !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   font-weight: 700 !important;
 }
 
@@ -493,26 +499,26 @@
 }
 
 .setup-step-num {
-  color: #64748b !important;
+  color: #5c728e !important;
   font-weight: 700 !important;
 }
 
 .setup-card-title {
   font: 800 24px/1.2 Manrope, sans-serif !important;
   letter-spacing: -0.7px !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   margin: 6px 0 4px !important;
 }
 
 .setup-card-subtitle {
   font-size: 13px !important;
-  color: #475569 !important;
+  color: #40546e !important;
   font-weight: 500 !important;
   margin: 0 0 20px !important;
   line-height: 1.5 !important;
 }
 
-/* 3D Tactile Mode Buttons */
+/* 3D Tactile Mode Buttons (Eye-Comfort Muted Satin) */
 .mode-options {
   display: grid !important;
   gap: 11px !important;
@@ -525,11 +531,11 @@
   text-align: left !important;
   gap: 14px !important;
   padding: 13px 15px !important;
-  border: 1.5px solid #e2e8f0 !important;
+  border: 1.5px solid #c4d5e7 !important;
   border-radius: 15px !important;
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%) !important;
-  color: #0f172a !important;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff !important;
+  background: linear-gradient(145deg, #eaf0f7 0%, #dfeaf5 100%) !important;
+  color: #0d1e33 !important;
+  box-shadow: 0 4px 10px rgba(15, 30, 55, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
   position: relative !important;
   cursor: pointer !important;
@@ -537,20 +543,20 @@
 
 .mode-option:hover {
   transform: translateY(-2px) !important;
-  border-color: #cbd5e1 !important;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08), inset 0 1px 0 #ffffff !important;
+  border-color: #9cb6d1 !important;
+  box-shadow: 0 8px 20px rgba(15, 30, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
 }
 
 .mode-option.mode-nonbank.selected {
   border-color: #059669 !important;
-  background: linear-gradient(145deg, #f0fdf4 0%, #e6f9ed 100%) !important;
-  box-shadow: 0 8px 22px rgba(5, 150, 105, 0.16), inset 0 1px 0 #ffffff, 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+  background: linear-gradient(145deg, #e0f4ea 0%, #cfeddc 100%) !important;
+  box-shadow: 0 8px 22px rgba(5, 150, 105, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
 }
 
 .mode-option.mode-bank.selected {
   border-color: #d97706 !important;
-  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%) !important;
-  box-shadow: 0 8px 22px rgba(217, 119, 6, 0.16), inset 0 1px 0 #ffffff, 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+  background: linear-gradient(145deg, #fef2d8 0%, #fbe6ba 100%) !important;
+  box-shadow: 0 8px 22px rgba(217, 119, 6, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
 }
 
 .mode-icon {
@@ -568,9 +574,9 @@
 }
 
 .mode-icon.nonbank {
-  background: linear-gradient(135deg, #dcfce7, #bbf7d0) !important;
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
   color: #047857 !important;
-  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.2), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
 }
 
 .selected.mode-nonbank .mode-icon.nonbank {
@@ -582,7 +588,7 @@
 .mode-icon.bank {
   background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
   color: #b45309 !important;
-  box-shadow: 0 3px 8px rgba(217, 119, 6, 0.2), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 3px 8px rgba(217, 119, 6, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
 }
 
 .selected.mode-bank .mode-icon.bank {
@@ -601,12 +607,12 @@
 
 .mode-copy strong {
   font: 700 14px Manrope, sans-serif !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
 }
 
 .mode-copy small {
   font-size: 11px !important;
-  color: #475569 !important;
+  color: #435872 !important;
   font-weight: 500 !important;
   line-height: 1.4 !important;
 }
@@ -615,9 +621,9 @@
   width: 18px !important;
   height: 18px !important;
   border-radius: 50% !important;
-  border: 2px solid #cbd5e1 !important;
+  border: 2px solid #b8cbdf !important;
   position: relative !important;
-  background: #ffffff !important;
+  background: #dce7f3 !important;
   flex-shrink: 0 !important;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08) !important;
   transition: all 0.2s ease !important;
@@ -649,13 +655,13 @@
   box-shadow: 0 0 6px rgba(217, 119, 6, 0.5) !important;
 }
 
-/* 3D Screener Sync Card */
+/* 3D Screener Sync Card (Eye-Comfort Soft Satin Card) */
 .download-card {
-  border: 1.5px solid #e2e8f0 !important;
+  border: 1.5px solid #c2d4e6 !important;
   border-radius: 16px !important;
-  background: linear-gradient(155deg, #ffffff 0%, #f8fafc 100%) !important;
+  background: linear-gradient(150deg, #eaf0f7 0%, #dfebf6 100%) !important;
   padding: 18px !important;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 8px 24px rgba(15, 30, 55, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
 }
 
 .download-card-head {
@@ -669,29 +675,29 @@
   width: 38px !important;
   height: 38px !important;
   border-radius: 11px !important;
-  background: linear-gradient(135deg, #e0f2fe, #bae6fd) !important;
+  background: linear-gradient(135deg, #dbeefd, #bae6fd) !important;
   color: #0284c7 !important;
   display: grid !important;
   place-items: center !important;
-  box-shadow: 0 3px 8px rgba(14, 165, 233, 0.2), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 3px 8px rgba(14, 165, 233, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
   flex-shrink: 0 !important;
 }
 
 .download-card-head strong {
   font: 700 13px Manrope, sans-serif !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   display: block !important;
 }
 
 .download-card-head small {
   font-size: 11px !important;
-  color: #475569 !important;
+  color: #435872 !important;
   font-weight: 500 !important;
 }
 
 .download-card > label {
   display: block !important;
-  color: #334155 !important;
+  color: #344862 !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   margin-bottom: 7px !important;
@@ -700,12 +706,12 @@
 .company-code-field {
   display: flex !important;
   align-items: center !important;
-  background: #ffffff !important;
-  border: 1.5px solid #cbd5e1 !important;
+  background: #dde8f4 !important;
+  border: 1.5px solid #b2c6dc !important;
   border-radius: 10px !important;
   padding: 0 12px !important;
   height: 44px !important;
-  color: #475569 !important;
+  color: #344862 !important;
   font: 600 11px 'DM Mono', monospace !important;
   box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.04) !important;
   transition: all 0.2s ease !important;
@@ -713,17 +719,18 @@
 
 .company-code-field:focus-within {
   border-color: #0284c7 !important;
-  box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.03), 0 0 0 4px rgba(14, 165, 233, 0.18) !important;
+  background: #f1f6fc !important;
+  box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.03), 0 0 0 4px rgba(14, 165, 233, 0.2) !important;
 }
 
 .company-code-field input {
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   font: 700 13px 'DM Mono', monospace !important;
   letter-spacing: 0.5px !important;
 }
 
 .company-code-field input::placeholder {
-  color: #94a3b8 !important;
+  color: #7b92ad !important;
   font-weight: 500 !important;
 }
 
@@ -747,7 +754,7 @@
 }
 
 .browser-note {
-  color: #475569 !important;
+  color: #435872 !important;
   font-size: 11px !important;
   line-height: 1.5 !important;
   margin-top: 10px !important;
@@ -764,7 +771,7 @@
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  color: #64748b !important;
+  color: #5c728e !important;
   font: 700 10px 'DM Mono', monospace !important;
   letter-spacing: 1.2px !important;
   margin: 18px 0 16px !important;
@@ -773,29 +780,29 @@
 .upload-divider:before, .upload-divider:after {
   content: '' !important;
   height: 1.5px !important;
-  background: #e2e8f0 !important;
+  background: #c4d5e7 !important;
   flex: 1 !important;
 }
 
 .manual-upload {
   min-height: 165px !important;
-  border: 2px dashed #cbd5e1 !important;
+  border: 2px dashed #b5cadf !important;
   border-radius: 16px !important;
-  background: linear-gradient(155deg, #ffffff 0%, #f8fafc 100%) !important;
+  background: linear-gradient(150deg, #eaf0f7 0%, #dfebf6 100%) !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 18px !important;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 6px 18px rgba(15, 30, 55, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   transition: all 0.2s ease !important;
   cursor: pointer !important;
 }
 
 .manual-upload:hover, .manual-upload.dragging {
   border-color: #059669 !important;
-  background: #f0fdf4 !important;
-  box-shadow: 0 10px 25px rgba(5, 150, 105, 0.12), inset 0 1px 0 #ffffff !important;
+  background: #e0f4ea !important;
+  box-shadow: 0 10px 25px rgba(5, 150, 105, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -803,28 +810,28 @@
   width: 44px !important;
   height: 44px !important;
   border-radius: 12px !important;
-  background: linear-gradient(135deg, #dcfce7, #a7f3d0) !important;
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
   color: #047857 !important;
   display: grid !important;
   place-items: center !important;
-  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.2), inset 0 1px 0 #ffffff !important;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
   margin-bottom: 8px !important;
 }
 
 .manual-upload strong {
   font: 700 14px Manrope, sans-serif !important;
-  color: #0f172a !important;
+  color: #0d1e33 !important;
 }
 
 .manual-upload small {
-  color: #475569 !important;
+  color: #435872 !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   margin-top: 4px !important;
 }
 
 .manual-upload small b {
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   font-weight: 700 !important;
 }
 
@@ -834,23 +841,23 @@
   font-size: 12px !important;
   font-weight: 700 !important;
   border-radius: 10px !important;
-  background: #ffffff !important;
-  border: 1.5px solid #cbd5e1 !important;
-  color: #1e293b !important;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff !important;
+  background: #dde8f4 !important;
+  border: 1.5px solid #b8cbdf !important;
+  color: #1a2c42 !important;
+  box-shadow: 0 3px 8px rgba(15, 30, 55, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   transition: all 0.18s ease !important;
 }
 
 .upload-button:hover {
-  background: #f8fafc !important;
-  border-color: #94a3b8 !important;
+  background: #d4e2ef !important;
+  border-color: #8fa6c0 !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 5px 12px rgba(15, 30, 55, 0.08) !important;
 }
 
 .file-note {
   font: 700 9px 'DM Mono', monospace !important;
-  color: #64748b !important;
+  color: #5c728e !important;
   letter-spacing: 0.6px !important;
   margin-top: 10px !important;
 }
@@ -859,7 +866,7 @@
   display: flex !important;
   align-items: center !important;
   gap: 9px !important;
-  color: #475569 !important;
+  color: #435872 !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   margin-top: 15px !important;
@@ -871,27 +878,27 @@
   flex-shrink: 0 !important;
 }
 
-/* High Contrast Welcome Foot */
+/* High Contrast Eye-Comfort Welcome Foot */
 .welcome-foot {
   grid-column: 1 / -1 !important;
-  border-top: 1.5px solid #cbd5e1 !important;
+  border-top: 1.5px solid #c0d2e5 !important;
   padding: 18px 12px 6px !important;
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  color: #334155 !important;
+  color: #384c66 !important;
   font: 700 11px 'DM Mono', monospace !important;
   letter-spacing: 0.5px !important;
 }
 
 .foot-brand {
-  color: #0f172a !important;
+  color: #0d1e33 !important;
   font-weight: 800 !important;
   letter-spacing: 1px !important;
 }
 
 .foot-caps {
-  color: #475569 !important;
+  color: #435872 !important;
 }
 
 .foot-caps b, .foot-dot {
