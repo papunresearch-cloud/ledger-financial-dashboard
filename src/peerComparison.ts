@@ -1,10 +1,10 @@
 import type { AboutPeerComparison, AboutPeerRow, AboutState } from './types'
 
 export const DEFAULT_NON_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = 52W Range Position % [100 × (CMP − 52W Low) / (52W High − 52W Low)]'
+  'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = [200 × (52W High − 52W Low) / (52W High + 52W Low)]'
 
 export const DEFAULT_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = 52W Range Position % [100 × (CMP − 52W Low) / (52W High − 52W Low)]'
+  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = [200 × (52W High − 52W Low) / (52W High + 52W Low)]'
 
 export const DEFAULT_PEER_FOOTNOTE = DEFAULT_NON_BANK_FOOTNOTE
 
@@ -169,11 +169,13 @@ function normalizePeerRow(raw: AboutPeerRow | Record<string, unknown>, isMedian 
   const cNum = parseFloat(cmp.replace(/,/g, ''))
   const lNum = parseFloat(low_52w.replace(/,/g, ''))
   const hNum = parseFloat(high_52w.replace(/,/g, ''))
-  if (!isNaN(cNum) && !isNaN(lNum) && !isNaN(hNum) && hNum > lNum) {
-    const rPct = Math.max(0, Math.min(100, ((cNum - lNum) / (hNum - lNum)) * 100))
-    price_range = `${Math.round(rPct)}%`
-  } else if (cmp !== '-') {
+  if (!isNaN(lNum) && !isNaN(hNum) && hNum > lNum && (hNum + lNum) > 0) {
+    const rPct = Math.round((200 * (hNum - lNum)) / (hNum + lNum))
+    price_range = `${rPct}%`
+  } else if (!isNaN(cNum)) {
     price_range = `₹${cmp}`
+  } else if (cmp !== '-') {
+    price_range = cmp
   }
 
   return {

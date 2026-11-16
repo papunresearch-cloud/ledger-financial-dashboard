@@ -42,8 +42,14 @@ function PriceRange52WBar({
   const d50 = parseCleanNum(row.dma_50)
   const d200 = parseCleanNum(row.dma_200)
 
-  if (low === null || high === null || high <= low || cmp === null) {
-    return <span className="peer-range-fallback">{cmp !== null ? `₹${formatInrPrice(cmp)}` : '-'}</span>
+  if (low === null || high === null || high <= low) {
+    if (cmp !== null) {
+      return <span className="peer-range-fallback">₹{formatInrPrice(cmp)}</span>
+    }
+    if (row.price_range && row.price_range !== '-') {
+      return <span className="peer-range-fallback">{row.price_range}</span>
+    }
+    return <span className="peer-range-fallback">-</span>
   }
 
   const span = high - low
@@ -53,19 +59,21 @@ function PriceRange52WBar({
     return Math.max(0, Math.min(100, pct))
   }
 
-  const cmpPct = getPct(cmp) ?? 0
+  const cmpPct = cmp !== null ? getPct(cmp) : null
   const d50Pct = getPct(d50)
   const d200Pct = getPct(d200)
 
-  const rangePctInt = `${Math.round(cmpPct)}%`
+  // Formula: [200 × (52W High − 52W Low) / (52W High + 52W Low)]
+  const rangeSpreadPct = (high + low > 0) ? (200 * (high - low)) / (high + low) : 0
+  const rangePctInt = `${Math.round(rangeSpreadPct)}%`
 
   const tooltipParts = [
     `52W Low: ₹${formatInrPrice(low)}`,
-    `CMP: ₹${formatInrPrice(cmp)} (${rangePctInt})`,
+    cmp !== null ? `CMP: ₹${formatInrPrice(cmp)}` : null,
     d50 !== null ? `50 DMA: ₹${formatInrPrice(d50)}` : null,
     d200 !== null ? `200 DMA: ₹${formatInrPrice(d200)}` : null,
     `52W High: ₹${formatInrPrice(high)}`,
-    `52W Range Position: ${rangePctInt}`,
+    `52W Range: ${rangePctInt} [200 × (52W High − 52W Low) / (52W High + 52W Low)]`,
   ].filter(Boolean)
   const cellTooltip = tooltipParts.join('  ·  ')
 
@@ -100,11 +108,13 @@ function PriceRange52WBar({
 
         {/* Bottom Marker Area: Lower Arrow / Triangle pointing UP (CMP) */}
         <div className="peer-markers-bottom">
-          <span
-            className="peer-marker marker-cmp-arrow"
-            style={{ left: `${cmpPct}%` }}
-            title={`CMP: ₹${formatInrPrice(cmp)} · Range: ${rangePctInt}`}
-          />
+          {cmpPct !== null && (
+            <span
+              className="peer-marker marker-cmp-arrow"
+              style={{ left: `${cmpPct}%` }}
+              title={`CMP: ₹${formatInrPrice(cmp)} · Range: ${rangePctInt}`}
+            />
+          )}
         </div>
       </div>
 
@@ -294,7 +304,7 @@ function PeerComparisonBlock({
         <span className="legend-item"><span className="legend-marker marker-cmp-arrow-sample">▲</span> Lower Arrow = CMP</span>
         <span className="legend-item"><span className="legend-marker marker-dma50-sample">▼</span> Small Blue Triangle = 50 DMA</span>
         <span className="legend-item"><span className="legend-marker marker-dma200-sample">▼</span> Big Orange Triangle = 200 DMA</span>
-        <span className="legend-item"><span className="legend-code">XX%</span> = 52W Range Position [100 × (CMP − 52W Low) / (52W High − 52W Low)]</span>
+        <span className="legend-item"><span className="legend-code">XX%</span> = [200 × (52W High − 52W Low) / (52W High + 52W Low)]</span>
       </div>
 
       <p className="about-peer-footnote">{comp.footnote}</p>
