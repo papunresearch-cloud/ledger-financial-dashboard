@@ -10,7 +10,7 @@ import { QuarterlyRatioSection } from './QuarterlyRatioSection'
 import { YearlyRatioSection } from './YearlyRatioSection'
 import { DataChecksView } from './DataChecksView'
 import { makeBankChartSpecs, makeChartSpecs } from './Charts'
-import { exportExcel, exportPdf } from './exportReports'
+import { exportExcel } from './exportReports'
 import { exportStandaloneHtmlReport } from './exportVisualPdf'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
@@ -271,13 +271,11 @@ function App() {
   }
 
   const reset = () => { aboutReqIdRef.current++; setData(null); setActiveCode(''); setAbout(emptyAboutState()); setError(''); setSection('about'); if (fileInput.current) fileInput.current.value = '' }
-  const handleExport = (kind: 'pdf' | 'excel' | 'html') => async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleExport = (kind: 'excel' | 'html') => async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!data) return
     const buttonEl = event.currentTarget
     try {
-      if (kind === 'pdf') {
-        await exportPdf(data, buttonEl, about)
-      } else if (kind === 'excel') {
+      if (kind === 'excel') {
         await exportExcel(data, buttonEl, about)
       } else {
         const stageEl = printStageRef.current
@@ -308,7 +306,6 @@ function App() {
         <button type="button" className="button button-soft theme-toggle-button" onClick={() => setTheme(current => current === 'dark' ? 'bright' : 'dark')} title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}>
           {theme === 'dark' ? <><Sun size={16}/> Bright mode</> : <><Moon size={16}/> Dark mode</>}
         </button>
-        <button className="button report-action-button" onClick={handleExport('pdf')}><ArrowDownToLine size={16}/> PDF report</button>
         <button className="button report-action-button" onClick={handleExport('excel')}><FileSpreadsheet size={16}/> Excel report</button>
         <button className="button report-action-button" onClick={handleExport('html')}><Globe size={16}/> Web report</button>
       </>}</div>

@@ -112,7 +112,7 @@ function PriceRange52WBar({
             <span
               className="peer-marker marker-cmp-arrow"
               style={{ left: `${cmpPct}%` }}
-              title={`CMP: ₹${formatInrPrice(cmp)} · Range: ${rangePctInt}`}
+              title={`CMP: ₹${formatInrPrice(cmp)} · 52W Range: ${rangePctInt}`}
             />
           )}
         </div>

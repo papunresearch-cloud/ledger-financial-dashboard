@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
-import type { AboutState, ShareholdingPattern, ShareholdingTable } from './types'
+import type { AboutState, ShareholdingRow, ShareholdingTable } from './types'
 import './holdingSection.css'
 
 type Props = {
@@ -176,13 +176,43 @@ function ShareholdingTableView({
   )
 }
 
+function normalizeShareholdingTable(rawTable: unknown): ShareholdingTable | null {
+  if (!rawTable || typeof rawTable !== 'object') return null
+  const tbl = rawTable as Record<string, unknown>
+  const periodsRaw = tbl.periods ?? tbl.headers
+  if (!Array.isArray(periodsRaw) || periodsRaw.length === 0) return null
+  const periods = periodsRaw.map(String)
+
+  const rowsRaw = tbl.rows
+  if (!Array.isArray(rowsRaw) || rowsRaw.length === 0) return null
+
+  const rows: ShareholdingRow[] = rowsRaw.map((r: unknown) => {
+    const rowObj = (r && typeof r === 'object') ? (r as Record<string, unknown>) : {}
+    const category = String(rowObj.category || rowObj.label || '').trim()
+    const lower = category.toLowerCase()
+    const values = Array.isArray(rowObj.values) ? rowObj.values.map(v => String(v ?? '—')) : []
+    const is_total = Boolean(rowObj.is_total || lower.includes('total'))
+    const is_shareholders = Boolean(rowObj.is_shareholders || rowObj.is_count || lower.includes('shareholder'))
+    return {
+      category,
+      values,
+      is_total,
+      is_shareholders,
+    }
+  })
+
+  return { periods, rows }
+}
+
 export function HoldingSection({ about, companyName, symbol, onRetry }: Props) {
   const isLoading = about.status === 'loading' || about.status === 'loading-sources'
-  const isError = about.status === 'error' && !about.data
-  const shareholding: ShareholdingPattern | undefined = about.data?.shareholding
+  const rawPattern = (about as any)?.data?.shareholding ??
+    (about as any)?.sources?.shareholding_pattern ??
+    (about as any)?.sources?.shareholding
 
-  const quarterly = shareholding?.quarterly
-  const yearly = shareholding?.yearly
+  const quarterly = useMemo(() => normalizeShareholdingTable(rawPattern?.quarterly), [rawPattern])
+  const yearly = useMemo(() => normalizeShareholdingTable(rawPattern?.yearly), [rawPattern])
+  const isError = Boolean((about.status === 'error' || about.status === 'needs-key' || (about.status as string) === 'needs-local-key') && !quarterly && !yearly)
 
   // Extract latest KPIs from latest quarterly (or fallback to yearly)
   const kpis = useMemo(() => {
