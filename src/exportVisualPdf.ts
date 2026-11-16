@@ -193,7 +193,7 @@ export function buildStandaloneWebReportHtml(
       padding: 0;
       background: #f8fafc !important;
       color: #000000 !important;
-      font-family: 'Bahnschrift', 'Trebuchet MS', 'Segoe UI', Arial, sans-serif !important;
+      font-family: Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       -webkit-font-smoothing: antialiased;
       line-height: 1.5;
     }

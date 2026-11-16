@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, Settings, ShieldCheck, Sparkles, Sun, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, LoaderCircle, Moon, PieChart, RefreshCw, Settings, ShieldCheck, Sparkles, Sun, Trash2, Vault } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { ComparisonSection } from './ComparisonSection'
 import { BankDashboard } from './BankDashboard'
@@ -15,11 +15,12 @@ import { buildStandaloneWebReportHtml, exportStandaloneHtmlReport, waitForPrintS
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import { GoogleDrivePromptModal } from './GoogleDrivePromptModal'
 import { SavedReportViewer } from './SavedReportViewer'
-import { DriveHistoryShelf } from './DriveHistoryShelf'
+import { ReportVaultModal } from './ReportVaultModal'
 import companies from './companies.json'
 import { DataChecksView } from './DataChecksView'
 import type { AboutAiData, AboutSourcesResponse, AboutState, AppTheme, FinancialData, LocalSettingsSummary, SavedReportInfo, SavedReportItem, Section } from './types'
 import './cloud-download.css'
+import './frontpage3d.css'
 
 type Mode = 'nonbank' | 'bank'
 const supportsLocalScreener = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
@@ -163,6 +164,7 @@ function App() {
   } | null>(null)
   const [driveHistory, setDriveHistory] = useState<SavedReportItem[]>([])
   const [driveHistoryLoading, setDriveHistoryLoading] = useState(false)
+  const [vaultOpen, setVaultOpen] = useState(false)
   const [historyPrompt, setHistoryPrompt] = useState<{
     info: SavedReportInfo
     targetCode: string
@@ -670,6 +672,18 @@ function App() {
       <a className="brand" href="#top" aria-label="Ledger home"><span className="brand-mark"><Activity size={18}/></span><span>ledger<span className="brand-dot">.</span></span></a>
       <div className="topbar-right">
         <span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>
+        {supportsLocalScreener && (
+          <button
+            type="button"
+            className="button button-soft vault-topbar-button"
+            onClick={() => setVaultOpen(true)}
+            title="Open Secure Company Research & Report Vault"
+          >
+            <Vault size={16} />
+            <span>Vault</span>
+            {driveHistory.length > 0 && <span className="vault-topbar-badge">{driveHistory.length}</span>}
+          </button>
+        )}
         {supportsLocalScreener && <button type="button" className="button button-soft" onClick={() => setSettingsOpen(true)} title="Gemini API key, Screener browser & disk cache settings"><Settings size={16}/> Settings{localSettings && !localSettings.hasGeminiApiKey && <span className="settings-button-dot" aria-label="Gemini API key not configured"/>}</button>}{data && <>
         <button className="button forecast-ribbon-button" onClick={() => setCalculatorOpen(true)}><Calculator size={16}/> Forecast calculator</button>
         <button type="button" className="button button-soft theme-toggle-button" onClick={() => setTheme(current => current === 'dark' ? 'bright' : 'dark')} title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}>
@@ -681,22 +695,60 @@ function App() {
     </header>
     <main id="top" className="main-wrap">
       {!data ? <section className="welcome-view">
-        <div className="welcome-copy"><div className="hero-kicker"><Sparkles size={15}/> FINANCIAL STATEMENTS, MADE CLEAR</div><h1>See the story<br/>behind the <em>numbers.</em></h1><p className="hero-description">Choose an analysis mode, upload its Data Sheet workbook or fetch a supported Screener export, then explore the financials and export a report.</p><div className="promise-row"><span><Check size={15}/> Workbook stays local</span><span><Check size={15}/> No Ledger account</span><span><Check size={15}/> Clear formulas</span></div></div>
+        <div className="welcome-copy">
+          <div className="hero-kicker"><Sparkles size={15}/> FINANCIAL STATEMENTS, MADE CLEAR</div>
+          <h1>See the story<br/>behind the <em>numbers.</em></h1>
+          <p className="hero-description">Choose an analysis mode, upload its Data Sheet workbook or fetch a supported Screener export, then explore the financials and export a report.</p>
+          <div className="promise-row">
+            <span><Check size={15}/> Workbook stays local</span>
+            <span><Check size={15}/> No Ledger account</span>
+            <span><Check size={15}/> Clear formulas</span>
+          </div>
+
+          {supportsLocalScreener && (
+            <div
+              className="vault-hero-card"
+              onClick={() => setVaultOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setVaultOpen(true)
+                }
+              }}
+              title="Open Financial Intelligence & Report Vault"
+            >
+              <div className="vault-hero-bg-glow" />
+              <div className="vault-hero-content">
+                <div className="vault-hero-icon-3d">
+                  <Vault size={30} />
+                  <span className="vault-hero-pulse" />
+                </div>
+                <div className="vault-hero-text">
+                  <div className="vault-hero-badge-row">
+                    <span className="vault-hero-tag"><Sparkles size={11} /> REPORT VAULT</span>
+                    <span className="vault-hero-count">{driveHistory.length} {driveHistory.length === 1 ? 'Report' : 'Reports'} Secured</span>
+                  </div>
+                  <h3 className="vault-hero-title">Financial Intelligence Vault</h3>
+                  <p className="vault-hero-desc">
+                    Access existing company reports with update dates, open in-app full screen Web Reports, or trigger live data updates.
+                  </p>
+                </div>
+                <div className="vault-hero-cta">
+                  <span>Open Vault</span>
+                  <ChevronRight size={16} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="setup-card"><div className="step-label">START HERE <span>01 / 02</span></div><h2>Choose analysis mode</h2><p className="muted">The selected mode controls which financial ratios are calculated.</p>
           <div className="mode-options"><button className={`mode-option ${mode === 'nonbank' ? 'selected' : ''}`} onClick={() => setMode('nonbank')}><span className="mode-icon"><BarChart3 size={18}/></span><span className="mode-copy"><strong>Non-bank company</strong><small>Manufacturers, IT, FMCG and other companies</small></span><span className="radio-dot"/></button><button className={`mode-option ${mode === 'bank' ? 'selected' : ''}`} onClick={() => setMode('bank')}><span className="mode-icon bank"><Landmark size={18}/></span><span className="mode-copy"><strong>Bank</strong><small>Bank-specific calculations from the project prompt</small></span><span className="radio-dot"/></button></div>
           {supportsLocalScreener || supportsCloudScreener ? <div className="download-card"><div className="download-card-head"><span className="download-icon"><ArrowDownToLine size={18}/></span><div><strong>Fetch directly from Screener</strong><small>Type a company name to choose a match, or enter its code directly.</small></div></div>{!supportsLocalScreener && <><label htmlFor="ledger-access-key">Ledger access key</label><input id="ledger-access-key" type="password" value={accessKey} onChange={event => setAccessKey(event.target.value)} autoComplete="current-password" className="access-key-input" placeholder="Enter your private access key"/></>}<label htmlFor="company-code">Screener company code or ticker</label><div className="company-code-picker"><div className="company-code-field"><span>screener.in/company/</span><input id="company-code" value={companyCode} onChange={event => { setCompanyCode(event.target.value); setCompanySuggestionsOpen(true); setActiveCompanySuggestion(0) }} onFocus={() => setCompanySuggestionsOpen(true)} onBlur={() => window.setTimeout(() => setCompanySuggestionsOpen(false), 150)} onKeyDown={event => { if (event.key === 'ArrowDown' && companySuggestions.length) { event.preventDefault(); setCompanySuggestionsOpen(true); setActiveCompanySuggestion(index => (index + 1) % companySuggestions.length) } else if (event.key === 'ArrowUp' && companySuggestions.length) { event.preventDefault(); setActiveCompanySuggestion(index => (index - 1 + companySuggestions.length) % companySuggestions.length) } else if (event.key === 'Escape') setCompanySuggestionsOpen(false); else if (event.key === 'Enter' && !busy) { event.preventDefault(); void fetchFromScreener() } }} placeholder="Company name or code (e.g. INFY)" autoComplete="off" aria-autocomplete="list" aria-controls="company-suggestions"/><span>/</span></div>{companySuggestionsOpen && companySuggestions.length > 0 && <ul id="company-suggestions" className="company-suggestions" role="listbox">{companySuggestions.map((company, index) => <li key={`${company.name}-${company.nse}-${company.bse}`} role="option" aria-selected={index === activeCompanySuggestion}><button type="button" onMouseDown={event => event.preventDefault()} onClick={() => chooseCompany(company)}><span>{company.name}</span><small>{company.nse ? `NSE: ${company.nse}` : `BSE: ${company.bse}`}{company.nse && company.bse ? ` · BSE: ${company.bse}` : ''}</small></button></li>)}</ul>}</div><button className="button button-primary fetch-button" disabled={busy || (!supportsLocalScreener && !accessKey)} onClick={() => { setCompanySuggestionsOpen(false); void fetchFromScreener() }}>{busy ? <><LoaderCircle className="spin" size={16}/> Downloading & analyzing…</> : <><Sparkles size={16}/> Download & analyze</>}</button><p className="browser-note"><ShieldCheck size={14}/>{supportsLocalScreener ? (localSettings?.hasScreenerCredentials ? 'Screener automatic login is active from Settings; Ledger downloads silently in the background.' : 'A Chrome or Edge window will open. Sign in there if prompted (or save your Screener login in Settings).') : 'The cloud service downloads through your configured proxy; the selected analysis mode is applied to the workbook after download.'}</p></div> : <div className="download-card"><div className="download-card-head"><span className="download-icon"><CloudOff size={18}/></span><div><strong>Cloud version: upload a workbook</strong><small>Direct Screener download uses a Chrome session on your own computer.</small></div></div><p className="browser-note"><ShieldCheck size={14}/>Save the Screener export as an .xlsx file, then choose it below. The workbook is analyzed in this browser and is not uploaded to a server.</p></div>}
           <div className="upload-divider"><span>OR USE A SAVED WORKBOOK</span></div><div className={`upload-zone manual-upload ${dragging ? 'dragging' : ''} ${busy ? 'loading' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); void processFile(event.dataTransfer.files[0]) }}><input ref={fileInput} type="file" accept=".xlsx" hidden onChange={event => void processFile(event.target.files?.[0])}/><span className="upload-icon">{busy ? <LoaderCircle className="spin" size={20}/> : <FileUp size={20}/>}</span><strong>{busy ? 'Working…' : 'Drop a workbook here or choose a file'}</strong><small>Must include a <b>Data Sheet</b> worksheet</small><button className="button button-soft upload-button" disabled={busy} onClick={() => fileInput.current?.click()}>Choose .xlsx file <ChevronRight size={15}/></button><span className="file-note">MANUAL FALLBACK · PROCESSED ON YOUR DEVICE</span></div>
           <div className="local-note"><CloudOff size={15}/><span>Workbook is processed in browser memory and is not saved to a permanent file.</span></div>{error && <div className="error-box"><AlertTriangle size={16}/>{error}</div>}
         </div>
-        {supportsLocalScreener && driveHistory.length > 0 && (
-          <DriveHistoryShelf
-            reports={driveHistory}
-            loading={driveHistoryLoading}
-            onViewReport={code => void handleViewSavedReport(code)}
-            onUpdateReport={code => void fetchFromScreener(true, code)}
-            onRefreshList={loadDriveHistory}
-          />
-        )}
         <div className="welcome-foot"><span>BUILT FOR CLARITY</span><span>Annual trends <b>·</b> Quarterly movement <b>·</b> Ratio analysis</span></div>
       </section> : <>
         <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1></div></div><div className="company-actions"><button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
@@ -831,6 +883,16 @@ function App() {
         onCancel={() => setHistoryPrompt(null)}
       />
     )}
+    {vaultOpen && (
+      <ReportVaultModal
+        reports={driveHistory}
+        loading={driveHistoryLoading}
+        onClose={() => setVaultOpen(false)}
+        onViewReport={(code, compName) => void handleViewSavedReport(code, compName)}
+        onUpdateReport={(code, compName) => void fetchFromScreener(true, code, compName)}
+        onRefreshList={loadDriveHistory}
+      />
+    )}
     {viewingSavedReport && (
       <SavedReportViewer
         html={viewingSavedReport.html}
@@ -843,7 +905,6 @@ function App() {
       <SettingsModal
         initialSettings={localSettings}
         onClose={() => setSettingsOpen(false)}
-        onViewSavedReport={code => void handleViewSavedReport(code)}
         onSettingsUpdated={(summary, savedNewKey) => {
           setLocalSettings(summary)
           if (savedNewKey && data && (about.status === 'needs-local-key' || about.aiError)) {

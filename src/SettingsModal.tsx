@@ -12,13 +12,12 @@ import {
   HardDrive,
   KeyRound,
   LoaderCircle,
-  RefreshCw,
   Settings,
   Trash2,
   UserCheck,
   X,
 } from 'lucide-react'
-import type { GoogleDriveSyncStatus, LocalSettingsSummary, SavedReportItem } from './types'
+import type { GoogleDriveSyncStatus, LocalSettingsSummary } from './types'
 import './settingsModal.css'
 
 type Props = {
@@ -26,7 +25,6 @@ type Props = {
   onClose: () => void
   onSettingsUpdated: (summary: LocalSettingsSummary, savedNewKey: boolean) => void
   onCacheCleared: () => void
-  onViewSavedReport?: (code: string) => void
 }
 
 function formatBytes(bytes: number): string {
@@ -41,7 +39,6 @@ export function SettingsModal({
   onClose,
   onSettingsUpdated,
   onCacheCleared,
-  onViewSavedReport,
 }: Props) {
   const [summary, setSummary] = useState<LocalSettingsSummary | null>(initialSettings)
   const [apiKeyInput, setApiKeyInput] = useState('')
@@ -52,22 +49,15 @@ export function SettingsModal({
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [driveStatus, setDriveStatus] = useState<GoogleDriveSyncStatus | null>(null)
-  const [driveReports, setDriveReports] = useState<SavedReportItem[]>([])
   const [driveLoading, setDriveLoading] = useState(false)
 
   const fetchDriveData = () => {
     setDriveLoading(true)
-    Promise.all([
-      fetch('/api/drive/status')
-        .then(r => (r.ok ? r.json() : null))
-        .catch(() => null),
-      fetch('/api/drive/history')
-        .then(r => (r.ok ? r.json() : []))
-        .catch(() => []),
-    ])
-      .then(([statusData, historyData]) => {
+    fetch('/api/drive/status')
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then(statusData => {
         if (statusData) setDriveStatus(statusData)
-        if (Array.isArray(historyData)) setDriveReports(historyData)
       })
       .finally(() => setDriveLoading(false))
   }
@@ -454,66 +444,6 @@ export function SettingsModal({
               </div>
             )}
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', marginBottom: '8px' }}>
-            <strong style={{ fontSize: '13px', color: '#0f172a' }}>
-              Saved Research Reports ({driveReports.length})
-            </strong>
-            <button
-              type="button"
-              className="button button-soft"
-              style={{ fontSize: '12px', padding: '3px 8px', height: '26px' }}
-              onClick={fetchDriveData}
-              disabled={driveLoading}
-            >
-              <RefreshCw size={12} className={driveLoading ? 'spin' : ''} /> Refresh
-            </button>
-          </div>
-
-          {driveReports.length === 0 ? (
-            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '12.5px', color: '#64748b', textAlign: 'center' }}>
-              No saved company reports yet. Open or search any company to automatically save its web report!
-            </div>
-          ) : (
-            <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px' }}>
-              {driveReports.map(item => (
-                <div
-                  key={item.code}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '6px 10px',
-                    background: '#ffffff',
-                    borderRadius: '6px',
-                    border: '1px solid #f1f5f9',
-                    fontSize: '12px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontWeight: '800', color: '#0284c7', background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>
-                      {item.code}
-                    </span>
-                    <span style={{ color: '#64748b' }}>{item.formattedDate}</span>
-                    <span style={{ color: '#94a3b8' }}>{formatBytes(item.sizeBytes)}</span>
-                  </div>
-                  {onViewSavedReport && (
-                    <button
-                      type="button"
-                      className="button button-soft"
-                      style={{ fontSize: '11px', padding: '2px 8px', height: '24px' }}
-                      onClick={() => {
-                        onClose()
-                        onViewSavedReport(item.code)
-                      }}
-                    >
-                      <Eye size={12} /> View
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </section>
 
         {message && (
