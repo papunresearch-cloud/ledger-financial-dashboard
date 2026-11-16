@@ -36,7 +36,7 @@ function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
   const d50 = parseCleanNum(row.dma_50)
   const d200 = parseCleanNum(row.dma_200)
 
-  if (low === null || high === null || high <= low) {
+  if (low === null || high === null || high <= low || cmp === null) {
     return <span className="peer-range-fallback">{cmp !== null ? `₹${formatInrPrice(cmp)}` : '-'}</span>
   }
 
@@ -47,76 +47,61 @@ function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
     return Math.max(0, Math.min(100, pct))
   }
 
-  const cmpPct = getPct(cmp)
+  const cmpPct = getPct(cmp) ?? 0
   const d50Pct = getPct(d50)
   const d200Pct = getPct(d200)
 
+  const rangePctStr = `${cmpPct.toFixed(1)}%`
+
   const tooltipParts = [
     `52W Low: ₹${formatInrPrice(low)}`,
-    cmp !== null ? `CMP: ₹${formatInrPrice(cmp)}` : null,
+    `CMP: ₹${formatInrPrice(cmp)} (R: ${rangePctStr})`,
     d50 !== null ? `50 DMA: ₹${formatInrPrice(d50)}` : null,
     d200 !== null ? `200 DMA: ₹${formatInrPrice(d200)}` : null,
     `52W High: ₹${formatInrPrice(high)}`,
+    `Range Position: ${rangePctStr}`,
   ].filter(Boolean)
-  const tooltip = tooltipParts.join('  ·  ')
+  const cellTooltip = tooltipParts.join('  ·  ')
 
   return (
-    <div className="peer-range-widget" title={tooltip}>
-      {/* 1. Range bounds header */}
-      <div className="peer-range-bounds">
-        <span className="bound-low">
-          <span className="bound-tag">52L</span> {formatInrPrice(low)}
-        </span>
-        <span className="bound-high">
-          {formatInrPrice(high)} <span className="bound-tag">52H</span>
-        </span>
-      </div>
-
-      {/* 2. Gray horizontal track with markers */}
-      <div className="peer-range-track-wrap">
-        <div className="peer-range-track">
+    <div className="peer-range-compact-cell" title={cellTooltip}>
+      {/* Visual Range Bar System with Markers */}
+      <div className="peer-range-track-system">
+        {/* Top Markers Area: Small Blue Triangle (50 DMA) & Big Orange Triangle (200 DMA) */}
+        <div className="peer-markers-top">
           {d50Pct !== null && (
             <span
-              className="peer-marker marker-dma50"
+              className="peer-marker marker-dma50-tri"
               style={{ left: `${d50Pct}%` }}
               title={`50 DMA: ₹${formatInrPrice(d50)}`}
             />
           )}
           {d200Pct !== null && (
             <span
-              className="peer-marker marker-dma200"
+              className="peer-marker marker-dma200-tri"
               style={{ left: `${d200Pct}%` }}
               title={`200 DMA: ₹${formatInrPrice(d200)}`}
             />
           )}
-          {cmpPct !== null && (
-            <span
-              className="peer-marker marker-cmp"
-              style={{ left: `${cmpPct}%` }}
-              title={`CMP: ₹${formatInrPrice(cmp)}`}
-            />
-          )}
+        </div>
+
+        {/* Gray Horizontal Range Bar Track */}
+        <div className="peer-range-bar-track" />
+
+        {/* Bottom Marker Area: Lower Arrow / Triangle pointing UP (CMP) */}
+        <div className="peer-markers-bottom">
+          <span
+            className="peer-marker marker-cmp-arrow"
+            style={{ left: `${cmpPct}%` }}
+            title={`CMP: ₹${formatInrPrice(cmp)} · Range: ${rangePctStr}`}
+          />
         </div>
       </div>
 
-      {/* 3. Key indicator values in mini chips */}
-      <div className="peer-range-chips">
-        {cmp !== null && (
-          <span className="chip-cmp" title={`CMP: ₹${formatInrPrice(cmp)}`}>
-            <span className="chip-icon">◆</span>{formatInrPrice(cmp)}
-          </span>
-        )}
-        {d50 !== null && (
-          <span className="chip-dma50" title={`50 DMA: ₹${formatInrPrice(d50)}`}>
-            <span className="chip-icon">●</span>50D {formatInrPrice(d50)}
-          </span>
-        )}
-        {d200 !== null && (
-          <span className="chip-dma200" title={`200 DMA: ₹${formatInrPrice(d200)}`}>
-            <span className="chip-icon">▲</span>200D {formatInrPrice(d200)}
-          </span>
-        )}
-      </div>
+      {/* Only Range Information Required: R: xx.x% */}
+      <span className="peer-range-pct-text">
+        R: {rangePctStr}
+      </span>
     </div>
   )
 }
@@ -266,11 +251,12 @@ function PeerComparisonBlock({
 
       {/* Visual Legend for 52W Range Track */}
       <div className="peer-legend-strip">
-        <span className="legend-label">52W Range & DMAs:</span>
-        <span className="legend-item"><span className="legend-marker marker-track-sample">━━</span> 52-Week Low to High</span>
-        <span className="legend-item"><span className="legend-marker marker-cmp-sample">◆</span> CMP</span>
-        <span className="legend-item"><span className="legend-marker marker-dma50-sample">●</span> 50 DMA</span>
-        <span className="legend-item"><span className="legend-marker marker-dma200-sample">▲</span> 200 DMA</span>
+        <span className="legend-label">52W Range Legend:</span>
+        <span className="legend-item"><span className="legend-marker marker-track-sample">━━</span> 52W Range Track (52W Low to High)</span>
+        <span className="legend-item"><span className="legend-marker marker-cmp-arrow-sample">▲</span> Lower Arrow = CMP</span>
+        <span className="legend-item"><span className="legend-marker marker-dma50-sample">▼</span> Small Blue Triangle = 50 DMA</span>
+        <span className="legend-item"><span className="legend-marker marker-dma200-sample">▼</span> Big Orange Triangle = 200 DMA</span>
+        <span className="legend-item"><span className="legend-code">R: xx.x%</span> = Range Position %</span>
       </div>
 
       <p className="about-peer-footnote">{comp.footnote}</p>

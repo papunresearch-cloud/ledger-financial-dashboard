@@ -356,76 +356,89 @@ export function buildStandaloneWebReportHtml(
       line-height: 1.18 !important;
     }
     .peer-td-range {
-      min-width: 170px !important;
-      max-width: 200px !important;
-      width: 180px !important;
+      min-width: 140px !important;
+      max-width: 170px !important;
+      width: 155px !important;
       padding: 5px 8px !important;
     }
-    .peer-range-widget {
+    .peer-range-compact-cell {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 8px !important;
+      width: 100% !important;
+    }
+    .peer-range-track-system {
       display: flex !important;
       flex-direction: column !important;
-      gap: 3px !important;
-      width: 100% !important;
+      position: relative !important;
+      flex: 1 !important;
+      min-width: 65px !important;
+      max-width: 95px !important;
+      padding: 0 4px !important;
     }
-    .peer-range-bounds {
-      display: flex !important;
-      justify-content: space-between !important;
-      align-items: center !important;
-      font-family: 'DM Mono', monospace !important;
-      font-size: 10px !important;
-      font-weight: 750 !important;
-      color: #475569 !important;
-    }
-    .peer-range-track {
+    .peer-markers-top {
       position: relative !important;
       width: 100% !important;
-      height: 6px !important;
+      height: 9px !important;
+    }
+    .peer-range-bar-track {
+      position: relative !important;
+      width: 100% !important;
+      height: 4.5px !important;
       background: #cbd5e1 !important;
       border-radius: 999px !important;
     }
+    .peer-markers-bottom {
+      position: relative !important;
+      width: 100% !important;
+      height: 9px !important;
+    }
     .peer-marker {
       position: absolute !important;
-      top: 50% !important;
+      transform: translateX(-50%) !important;
     }
-    .marker-dma50 {
-      width: 9px !important;
-      height: 9px !important;
-      border-radius: 50% !important;
-      background: #d97706 !important;
-      border: 1.5px solid #ffffff !important;
-      transform: translate(-50%, -50%) !important;
+    .marker-dma50-tri {
+      width: 0 !important;
+      height: 0 !important;
+      border-left: 3.5px solid transparent !important;
+      border-right: 3.5px solid transparent !important;
+      border-top: 6.5px solid #0284c7 !important;
+      bottom: 0px !important;
       z-index: 2 !important;
     }
-    .marker-dma200 {
-      width: 9px !important;
-      height: 9px !important;
-      border-radius: 2px !important;
-      background: #7c3aed !important;
-      border: 1.5px solid #ffffff !important;
-      transform: translate(-50%, -50%) rotate(45deg) !important;
+    .marker-dma200-tri {
+      width: 0 !important;
+      height: 0 !important;
+      border-left: 5px solid transparent !important;
+      border-right: 5px solid transparent !important;
+      border-top: 8.5px solid #ea580c !important;
+      bottom: 0px !important;
       z-index: 3 !important;
     }
-    .marker-cmp {
-      width: 11px !important;
-      height: 11px !important;
-      border-radius: 3px !important;
-      background: #0284c7 !important;
-      border: 2px solid #ffffff !important;
-      transform: translate(-50%, -50%) rotate(45deg) !important;
+    .marker-cmp-arrow {
+      width: 0 !important;
+      height: 0 !important;
+      border-left: 4.5px solid transparent !important;
+      border-right: 4.5px solid transparent !important;
+      border-bottom: 7.5px solid #16a34a !important;
+      top: 0px !important;
       z-index: 4 !important;
     }
-    .peer-range-chips {
-      display: flex !important;
-      align-items: center !important;
-      justify-content: space-between !important;
-      gap: 3px !important;
+    .peer-range-pct-text {
       font-family: 'DM Mono', monospace !important;
-      font-size: 9.5px !important;
-      font-weight: 800 !important;
+      font-size: 11.5px !important;
+      font-weight: 900 !important;
+      color: #034574 !important;
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
     }
-    .chip-cmp { color: #0369a1 !important; }
-    .chip-dma50 { color: #b45309 !important; }
-    .chip-dma200 { color: #6d28d9 !important; }
+    .peer-range-fallback {
+      font-family: 'DM Mono', monospace !important;
+      font-weight: 700 !important;
+      color: #94a3b8 !important;
+      font-size: 11px !important;
+    }
     .peer-legend-strip {
       display: flex !important;
       align-items: center !important;
@@ -441,9 +454,10 @@ export function buildStandaloneWebReportHtml(
     }
     .legend-label { color: #0f766e !important; font-weight: 850 !important; }
     .marker-track-sample { color: #94a3b8 !important; font-weight: 900 !important; }
-    .marker-cmp-sample { color: #0284c7 !important; }
-    .marker-dma50-sample { color: #d97706 !important; }
-    .marker-dma200-sample { color: #7c3aed !important; }
+    .marker-cmp-arrow-sample { color: #16a34a !important; font-weight: 900 !important; }
+    .marker-dma50-sample { color: #0284c7 !important; font-weight: 900 !important; }
+    .marker-dma200-sample { color: #ea580c !important; font-weight: 900 !important; font-size: 13px !important; }
+    .legend-code { background: #e2e8f0 !important; padding: 1px 5px !important; border-radius: 4px !important; color: #034574 !important; font-weight: 850 !important; }
 
     /* Recharts Chart Grid & Card Styling */
     .chart-grid {
