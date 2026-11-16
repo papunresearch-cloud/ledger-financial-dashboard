@@ -405,7 +405,7 @@ export function buildStandaloneWebReportHtml(
       border-right: 3.5px solid transparent !important;
       border-top: 6.5px solid #0284c7 !important;
       bottom: 0px !important;
-      z-index: 2 !important;
+      z-index: 3 !important;
     }
     .marker-dma200-tri {
       width: 0 !important;
@@ -414,7 +414,7 @@ export function buildStandaloneWebReportHtml(
       border-right: 5px solid transparent !important;
       border-top: 8.5px solid #ea580c !important;
       bottom: 0px !important;
-      z-index: 3 !important;
+      z-index: 2 !important;
     }
     .marker-cmp-arrow {
       width: 0 !important;

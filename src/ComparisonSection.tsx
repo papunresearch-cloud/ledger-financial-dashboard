@@ -67,20 +67,20 @@ function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
     <div className="peer-range-compact-cell" title={cellTooltip}>
       {/* Visual Range Bar System with Markers */}
       <div className="peer-range-track-system">
-        {/* Top Markers Area: Small Blue Triangle (50 DMA) & Big Orange Triangle (200 DMA) */}
+        {/* Top Markers Area: 200 DMA (larger orange) underneath, 50 DMA (smaller blue) on top */}
         <div className="peer-markers-top">
-          {d50Pct !== null && (
-            <span
-              className="peer-marker marker-dma50-tri"
-              style={{ left: `${d50Pct}%` }}
-              title={`50 DMA: ₹${formatInrPrice(d50)}`}
-            />
-          )}
           {d200Pct !== null && (
             <span
               className="peer-marker marker-dma200-tri"
               style={{ left: `${d200Pct}%` }}
               title={`200 DMA: ₹${formatInrPrice(d200)}`}
+            />
+          )}
+          {d50Pct !== null && (
+            <span
+              className="peer-marker marker-dma50-tri"
+              style={{ left: `${d50Pct}%` }}
+              title={`50 DMA: ₹${formatInrPrice(d50)}`}
             />
           )}
         </div>
