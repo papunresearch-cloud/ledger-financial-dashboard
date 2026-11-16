@@ -904,3 +904,96 @@
   border-top-color: #e2e8f0;
   color: #64748b;
 }
+
+/* =========================================================
+   6. MOBILE RESPONSIVENESS: WRAPPING ROW HEADERS (DOUBLE LINES)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .holding-page-container {
+    padding: 6px 8px 32px 8px;
+    gap: 14px;
+  }
+
+  .holding-top-banner {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .holding-company-name {
+    font-size: 16px;
+  }
+
+  /* Compact row header on smaller displays: wrap onto double lines */
+  .sh-th-category,
+  .sh-td-category {
+    min-width: 110px !important;
+    max-width: 135px !important;
+    width: 125px !important;
+    padding: 8px 8px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.25 !important;
+    box-sizing: border-box !important;
+  }
+
+  .sh-cat-badge {
+    display: inline-flex !important;
+    align-items: flex-start !important;
+    gap: 5px !important;
+    padding: 4px 6px !important;
+    font-size: 11.5px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    border-radius: 7px !important;
+    box-sizing: border-box !important;
+  }
+
+  .sh-cat-icon {
+    flex-shrink: 0 !important;
+    width: 12px !important;
+    height: 12px !important;
+    margin-top: 1.5px !important;
+  }
+
+  .sh-cat-name {
+    display: inline-block !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+    word-break: break-word !important;
+  }
+
+  .sh-data-table {
+    min-width: 580px !important;
+    font-size: 12.5px !important;
+  }
+
+  .sh-th-period {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    min-width: 80px !important;
+  }
+
+  .sh-td-cell {
+    padding: 8px 8px !important;
+  }
+
+  .sh-cell-value {
+    font-size: 13px !important;
+  }
+
+  .sh-delta-chip {
+    font-size: 11px !important;
+    padding: 1.5px 5px !important;
+  }
+
+  .sh-table-header {
+    padding: 12px 14px;
+  }
+
+  .sh-table-title {
+    font-size: 15px;
+  }
+}

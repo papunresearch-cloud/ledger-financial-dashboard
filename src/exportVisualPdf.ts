@@ -556,6 +556,22 @@ export function buildStandaloneWebReportHtml(
         padding: 5px 6px !important;
         font-size: 11px !important;
       }
+      .sh-th-category,
+      .sh-td-category {
+        min-width: 110px !important;
+        max-width: 135px !important;
+        width: 125px !important;
+        padding: 8px 8px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.25 !important;
+      }
+      .sh-cat-badge {
+        font-size: 11.5px !important;
+        padding: 4px 6px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+      }
     }
 
     /* Print optimization if user prints HTML directly */
