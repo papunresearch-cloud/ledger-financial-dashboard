@@ -1,0 +1,325 @@
+.exist-file-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 10, 8, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 16px;
+  animation: existFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes existFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes existScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.exist-file-modal {
+  position: relative;
+  width: min(520px, 94vw);
+  background: linear-gradient(160deg, #0e1e1a 0%, #112520 50%, #0a1714 100%);
+  border: 1px solid rgba(82, 219, 178, 0.28);
+  border-radius: 24px;
+  padding: 34px 32px 30px;
+  box-shadow: 0 32px 75px rgba(0, 0, 0, 0.75), 0 0 40px rgba(46, 204, 150, 0.14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #e5f6ee;
+  animation: existScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.exist-file-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #9cb6aa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+}
+
+.exist-file-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.exist-file-icon-wrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.exist-file-icon-glow {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(46, 204, 150, 0.45) 0%, transparent 70%);
+  filter: blur(10px);
+}
+
+.exist-file-icon {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(22, 139, 114, 0.4) 0%, rgba(46, 204, 150, 0.22) 100%);
+  border: 1px solid rgba(82, 219, 178, 0.55);
+  color: #4ee2be;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exist-file-badge-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: rgba(82, 219, 178, 0.12);
+  border: 1px solid rgba(82, 219, 178, 0.24);
+  margin-bottom: 16px;
+}
+
+.exist-file-code {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  color: #5ce4c1;
+}
+
+.exist-file-company {
+  font-size: 12px;
+  color: #c2dad0;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exist-file-title {
+  margin: 0 0 10px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #f1fcf7;
+  letter-spacing: -0.3px;
+}
+
+.exist-file-date-pill {
+  display: inline-block;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-weight: 800;
+  font-size: 17px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: rgba(46, 204, 150, 0.16);
+  color: #4ee2be;
+  border: 1px solid rgba(46, 204, 150, 0.35);
+  letter-spacing: 0.5px;
+}
+
+.exist-file-question {
+  margin: 0 0 18px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #a8c5b9;
+  line-height: 1.45;
+}
+
+.exist-file-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: #7d9a8e;
+  max-width: 100%;
+}
+
+.exist-file-meta-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.exist-file-storage-tag {
+  color: #5ce4c1;
+  font-weight: 600;
+  flex: none;
+}
+
+.exist-file-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+}
+
+.exist-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+}
+
+.exist-btn-main-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.exist-btn-subtext {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.exist-btn-yes {
+  background: linear-gradient(135deg, #16a37f 0%, #10b981 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+}
+
+.exist-btn-yes:hover {
+  background: linear-gradient(135deg, #149372 0%, #059669 100%);
+  box-shadow: 0 8px 26px rgba(16, 185, 129, 0.5);
+  transform: translateY(-2px);
+}
+
+.exist-btn-yes:active {
+  transform: translateY(0);
+}
+
+.exist-btn-no {
+  background: rgba(255, 255, 255, 0.08);
+  color: #c2dad0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.exist-btn-no:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.exist-btn-no:active {
+  transform: translateY(0);
+}
+
+/* Bright theme adaptations */
+.theme-bright .exist-file-backdrop {
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.theme-bright .exist-file-modal {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.25);
+}
+
+.theme-bright .exist-file-close {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.theme-bright .exist-file-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-bright .exist-file-icon {
+  background: #e7f4ed;
+  border-color: #9fe2cb;
+  color: #168b72;
+}
+
+.theme-bright .exist-file-badge-row {
+  background: #e7f4ed;
+  border-color: #bbf0dd;
+}
+
+.theme-bright .exist-file-code {
+  color: #0d6b55;
+}
+
+.theme-bright .exist-file-company {
+  color: #475569;
+}
+
+.theme-bright .exist-file-title {
+  color: #0f172a;
+}
+
+.theme-bright .exist-file-date-pill {
+  background: #e7f4ed;
+  color: #0d6b55;
+  border-color: #9fe2cb;
+}
+
+.theme-bright .exist-file-question {
+  color: #475569;
+}
+
+.theme-bright .exist-file-meta-bar {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.theme-bright .exist-file-storage-tag {
+  color: #0d6b55;
+}
+
+.theme-bright .exist-btn-no {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.theme-bright .exist-btn-no:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
