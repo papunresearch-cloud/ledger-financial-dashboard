@@ -68,11 +68,11 @@ function PriceRange52WBar({
   const rangePctInt = `${Math.round(rangeSpreadPct)}%`
 
   const tooltipParts = [
-    `52W Low: ₹{formatInrPrice(low)}`,
-    cmp !== null ? `CMP: ₹{formatInrPrice(cmp)}` : null,
-    d50 !== null ? `50 DMA: ₹{formatInrPrice(d50)}` : null,
-    d200 !== null ? `200 DMA: ₹{formatInrPrice(d200)}` : null,
-    `52W High: ₹{formatInrPrice(high)}`,
+    `52W Low: ₹${formatInrPrice(low)}`,
+    cmp !== null ? `CMP: ₹${formatInrPrice(cmp)}` : null,
+    d50 !== null ? `50 DMA: ₹${formatInrPrice(d50)}` : null,
+    d200 !== null ? `200 DMA: ₹${formatInrPrice(d200)}` : null,
+    `52W High: ₹${formatInrPrice(high)}`,
     `52W Range: ${rangePctInt} [200 × (52W High − 52W Low) / (52W High + 52W Low)]`,
   ].filter(Boolean)
   const cellTooltip = tooltipParts.join('  ·  ')

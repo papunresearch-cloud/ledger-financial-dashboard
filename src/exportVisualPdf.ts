@@ -277,9 +277,9 @@ export function buildStandaloneWebReportHtml(
 
     /* Fluid Outer Container */
     .web-report-container {
-      max-width: 1440px;
+      max-width: 1620px;
       margin: 0 auto;
-      padding: 24px 24px 80px;
+      padding: 20px clamp(12px, 2vw, 24px) 80px;
       width: 100%;
     }
 
@@ -436,14 +436,180 @@ export function buildStandaloneWebReportHtml(
     .bank-growth-scroll,
     .about-peer-wrap,
     .about-ratio-wrap,
+    .peer-table-scroll-wrap,
+    .sh-table-scroll-wrap,
+    .ratio-table-wrapper,
     .company-source-scroll,
     .bank-source-scroll,
+    .checks-table-wrapper,
     .table-container {
       width: 100% !important;
       max-width: 100% !important;
       overflow-x: auto !important;
       -webkit-overflow-scrolling: touch !important;
       display: block !important;
+    }
+
+    /* Ultra-Compact Shareholding Tables (Quarterly & Yearly) so all recent periods fit on screen & print */
+    .holding-page-container {
+      padding: 4px 0 24px !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      gap: 16px !important;
+    }
+    .sh-table-card {
+      border-radius: 10px !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+      background: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      overflow: hidden !important;
+      margin-bottom: 20px !important;
+      width: 100% !important;
+    }
+    .sh-table-header {
+      padding: 8px 12px !important;
+      background: #f8fafc !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+    }
+    .sh-table-title {
+      font-size: 14px !important;
+      color: #0f172a !important;
+      margin: 1px 0 !important;
+      font-weight: 800 !important;
+    }
+    .sh-table-subtitle {
+      font-size: 10px !important;
+      color: #64748b !important;
+    }
+    .sh-kicker {
+      font-size: 8px !important;
+      color: #0284c7 !important;
+      letter-spacing: 0.8px !important;
+    }
+    .sh-col-count-pill {
+      font-size: 8.5px !important;
+      padding: 2px 6px !important;
+      background: #e2e8f0 !important;
+      color: #334155 !important;
+    }
+    .sh-table-scroll-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+    .sh-data-table {
+      width: 100% !important;
+      min-width: 0 !important;
+      table-layout: auto !important;
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+      font-size: 9.5px !important;
+    }
+    .sh-th-category,
+    .sh-td-category {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 10 !important;
+      min-width: 95px !important;
+      max-width: 120px !important;
+      width: 105px !important;
+      padding: 3.5px 6px !important;
+      background: #f8fafc !important;
+      color: #0f172a !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      border-right: 1.5px solid #cbd5e1 !important;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05) !important;
+    }
+    .sh-cat-badge {
+      padding: 2px 5px !important;
+      font-size: 9px !important;
+      gap: 3px !important;
+      border-radius: 5px !important;
+      box-shadow: none !important;
+      font-weight: 750 !important;
+    }
+    .sh-cat-icon {
+      width: 9px !important;
+      height: 9px !important;
+    }
+    .sh-th-period {
+      min-width: 36px !important;
+      max-width: none !important;
+      padding: 3.5px 2px !important;
+      text-align: right !important;
+      background: #f1f5f9 !important;
+      color: #1e293b !important;
+      border-bottom: 1px solid #cbd5e1 !important;
+      border-right: 1px solid #f1f5f9 !important;
+    }
+    .sh-period-text {
+      font-size: 8.5px !important;
+      font-weight: 800 !important;
+      letter-spacing: -0.3px !important;
+      display: block !important;
+      white-space: nowrap !important;
+    }
+    .sh-latest-tag {
+      font-size: 6.5px !important;
+      padding: 0 2px !important;
+      letter-spacing: 0.2px !important;
+      border-radius: 2px !important;
+      line-height: 1 !important;
+      margin-top: 1px !important;
+      display: inline-block !important;
+    }
+    .sh-td-cell {
+      min-width: 36px !important;
+      max-width: none !important;
+      padding: 2px 2px !important;
+      text-align: right !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      border-right: 1px solid #f8fafc !important;
+    }
+    .sh-cell-content {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-end !important;
+      justify-content: center !important;
+      gap: 0.5px !important;
+      line-height: 1 !important;
+    }
+    .sh-cell-value {
+      font-size: 9px !important;
+      font-weight: 700 !important;
+      font-family: 'DM Mono', monospace !important;
+      color: #0f172a !important;
+      white-space: nowrap !important;
+    }
+    .sh-delta-chip {
+      font-size: 7px !important;
+      padding: 0 2px !important;
+      border-radius: 2px !important;
+      gap: 1px !important;
+      line-height: 1 !important;
+      white-space: nowrap !important;
+      font-weight: 700 !important;
+      box-shadow: none !important;
+    }
+    .sh-delta-chip svg {
+      width: 6px !important;
+      height: 6px !important;
+    }
+    .delta-zero {
+      color: #0369a1 !important;
+      background: #e0f2fe !important;
+      border: 1px solid #bae6fd !important;
+    }
+    .delta-up {
+      color: #15803d !important;
+      background: #dcfce7 !important;
+      border: 1px solid #bbf7d0 !important;
+    }
+    .delta-down {
+      color: #b91c1c !important;
+      background: #fee2e2 !important;
+      border: 1px solid #fecaca !important;
     }
 
     .company-data-sheet,
@@ -603,10 +769,60 @@ export function buildStandaloneWebReportHtml(
       .web-report-container {
         padding: 0 !important;
         max-width: 100% !important;
+        margin: 0 !important;
+      }
+      .sh-table-scroll-wrap {
+        overflow: visible !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .sh-data-table {
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: auto !important;
+        font-size: 9px !important;
+      }
+      .sh-th-category,
+      .sh-td-category {
+        min-width: 90px !important;
+        max-width: 115px !important;
+        width: 105px !important;
+        padding: 3px 4px !important;
+      }
+      .sh-cat-badge {
+        font-size: 8.5px !important;
+        padding: 1.5px 4px !important;
+      }
+      .sh-cat-icon {
+        width: 9px !important;
+        height: 9px !important;
+      }
+      .sh-th-period,
+      .sh-td-cell {
+        min-width: 36px !important;
+        max-width: none !important;
+        padding: 3px 2px !important;
+      }
+      .sh-period-text {
+        font-size: 8.5px !important;
+      }
+      .sh-latest-tag {
+        font-size: 6.5px !important;
+      }
+      .sh-cell-value {
+        font-size: 9px !important;
+      }
+      .sh-delta-chip {
+        font-size: 7px !important;
+        padding: 0 1.5px !important;
+      }
+      .sh-delta-chip svg {
+        width: 6.5px !important;
+        height: 6.5px !important;
       }
       @page {
         size: landscape;
-        margin: 10mm;
+        margin: 6mm;
       }
     }
   `

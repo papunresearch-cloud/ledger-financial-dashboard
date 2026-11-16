@@ -212,7 +212,7 @@ export function HoldingSection({ about, companyName, symbol, onRetry }: Props) {
 
   const quarterly = useMemo(() => normalizeShareholdingTable(rawPattern?.quarterly), [rawPattern])
   const yearly = useMemo(() => normalizeShareholdingTable(rawPattern?.yearly), [rawPattern])
-  const isError = Boolean((about.status === 'error' || about.status === 'needs-key' || about.status === 'needs-local-key') && !quarterly && !yearly)
+  const isError = Boolean((about.status === 'error' || about.status === 'needs-key' || (about.status as string) === 'needs-local-key') && !quarterly && !yearly)
 
   // Extract latest KPIs from latest quarterly (or fallback to yearly)
   const kpis = useMemo(() => {
