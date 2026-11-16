@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Deep Vibrant Cosmic Sky Gradient -->
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a192f"/>
+      <stop offset="35%" stop-color="#0e3464"/>
+      <stop offset="65%" stop-color="#1e2258"/>
+      <stop offset="100%" stop-color="#0d1b3a"/>
+    </linearGradient>
+
+    <!-- Radiant Aurora Light Streaks -->
+    <radialGradient id="auroraCyan" cx="25%" cy="20%" r="55%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.45"/>
+      <stop offset="45%" stop-color="#0ea5e9" stop-opacity="0.28"/>
+      <stop offset="80%" stop-color="#0284c7" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#081226" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="auroraViolet" cx="80%" cy="25%" r="60%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="0.42"/>
+      <stop offset="35%" stop-color="#9333ea" stop-opacity="0.28"/>
+      <stop offset="70%" stop-color="#4f46e5" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#081226" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="auroraEmerald" cx="50%" cy="75%" r="55%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.4"/>
+      <stop offset="40%" stop-color="#059669" stop-opacity="0.22"/>
+      <stop offset="75%" stop-color="#047857" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#081226" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="goldenSpark" cx="35%" cy="45%" r="40%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.35"/>
+      <stop offset="45%" stop-color="#f59e0b" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#081226" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glowing Grid Pattern -->
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(56, 189, 248, 0.12)" stroke-width="1"/>
+      <circle cx="0" cy="0" r="1.5" fill="rgba(56, 189, 248, 0.35)"/>
+    </pattern>
+
+    <!-- Wave Gradients -->
+    <linearGradient id="waveGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.32"/>
+      <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.28"/>
+    </linearGradient>
+
+    <linearGradient id="waveGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.28"/>
+      <stop offset="50%" stop-color="#06b6d4" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky Base -->
+  <rect width="100%" height="100%" fill="url(#skyGrad)"/>
+
+  <!-- Aurora Blooms -->
+  <rect width="100%" height="100%" fill="url(#auroraCyan)"/>
+  <rect width="100%" height="100%" fill="url(#auroraViolet)"/>
+  <rect width="100%" height="100%" fill="url(#auroraEmerald)"/>
+  <rect width="100%" height="100%" fill="url(#goldenSpark)"/>
+
+  <!-- Perspective Perspective Grid at Bottom -->
+  <g opacity="0.75">
+    <rect width="100%" height="100%" fill="url(#grid)"/>
+  </g>
+
+  <!-- Flowing Organic Radiant Wave Ribbons -->
+  <path d="M-100,550 C300,420 650,720 1100,560 C1550,400 1800,680 2100,540 L2100,1200 L-100,1200 Z" fill="url(#waveGrad1)"/>
+  <path d="M-100,680 C350,560 700,800 1200,640 C1650,520 1850,760 2100,620 L2100,1200 L-100,1200 Z" fill="url(#waveGrad2)"/>
+
+  <!-- Celestial Stars and Golden Flares -->
+  <g fill="#ffffff">
+    <circle cx="180" cy="140" r="2.5" opacity="0.9"/>
+    <circle cx="420" cy="80" r="2" opacity="0.8"/>
+    <circle cx="720" cy="190" r="2.5" opacity="0.85"/>
+    <circle cx="1150" cy="110" r="3.2" opacity="0.95"/>
+    <circle cx="1450" cy="160" r="2" opacity="0.75"/>
+    <circle cx="1720" cy="90" r="2.8" opacity="0.9"/>
+    <circle cx="260" cy="320" r="1.8" opacity="0.7"/>
+    <circle cx="890" cy="280" r="2.4" opacity="0.8"/>
+    <circle cx="1320" cy="340" r="2" opacity="0.7"/>
+    <circle cx="1620" cy="260" r="3" opacity="0.85"/>
+  </g>
+
+  <!-- Sparkling Golden Cross Stars -->
+  <g stroke="#fbbf24" stroke-width="1.8" opacity="0.85">
+    <line x1="1150" y1="98" x2="1150" y2="122"/>
+    <line x1="1138" y1="110" x2="1162" y2="110"/>
+
+    <line x1="380" y1="218" x2="380" y2="236"/>
+    <line x1="371" y1="227" x2="389" y2="227"/>
+
+    <line x1="1580" y1="178" x2="1580" y2="198"/>
+    <line x1="1570" y1="188" x2="1590" y2="188"/>
+  </g>
+</svg>
