@@ -35,7 +35,6 @@ export type PeerMetricColumn = {
 }
 
 export const NON_BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
-  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (%)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
   { key: 'mcap', label: 'MCAP', headerLine1: 'MCAP', headerLine2: '(₹ Cr)', tooltip: 'Market Capitalization (₹ Cr)' },
   { key: 'ttm_sales', label: 'TTM sales', headerLine1: 'TTM Sales', headerLine2: '(₹ Cr)', tooltip: 'Trailing 12-Month Sales (₹ Cr)' },
   { key: 'sales_growth', label: 'Sales growth', headerLine1: 'Sales', headerLine2: 'Growth', tooltip: '3-Year Sales Growth (%)' },
@@ -49,10 +48,10 @@ export const NON_BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
   { key: 'pb', label: 'PB', headerLine1: 'P/B', headerLine2: '[3Y Avg]', tooltip: 'Current PB [3-Year Historical PB] and % Diff' },
   { key: 'ps', label: 'PS', headerLine1: 'P/S', headerLine2: 'Ratio', tooltip: 'Price to Sales' },
   { key: 'd_yield', label: 'D.Yield', headerLine1: 'Div', headerLine2: 'Yield', tooltip: 'Dividend Yield (%)' },
+  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (%)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
 ]
 
 export const BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
-  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (%)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
   { key: 'mcap', label: 'MCAP', headerLine1: 'MCAP', headerLine2: '(₹ Cr)', tooltip: 'Market Capitalization (₹ Cr)' },
   { key: 'ttm_sales', label: 'TTM sales', headerLine1: 'TTM Sales', headerLine2: '(₹ Cr)', tooltip: 'Trailing 12-Month Total Revenue / Sales (₹ Cr)' },
   { key: 'sales_growth', label: 'Sales growth', headerLine1: 'Sales', headerLine2: 'Growth', tooltip: '3-Year Sales Growth (%)' },
@@ -66,6 +65,7 @@ export const BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
   { key: 'pb', label: 'PB', headerLine1: 'P/B', headerLine2: '[3Y Avg]', tooltip: 'Current PB [3-Year Historical PB] and % Diff' },
   { key: 'ps', label: 'PS', headerLine1: 'P/S', headerLine2: 'Ratio', tooltip: 'Price to Sales' },
   { key: 'd_yield', label: 'D.Yield', headerLine1: 'Div', headerLine2: 'Yield', tooltip: 'Dividend Yield (%)' },
+  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (%)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
 ]
 
 export function getPeerMetricColumns(isBank: boolean = false) {
