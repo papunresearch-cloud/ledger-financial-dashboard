@@ -250,7 +250,7 @@ def parse_shareholding_pattern(soup: BeautifulSoup) -> dict[str, Any]:
 
 PEER_COMPARISON_FOOTNOTE = (
     "Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · "
-    "52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · R: xx.x% = Range Position %"
+    "52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = 52W Range Position % [100 × (CMP − 52W Low) / (52W High − 52W Low)]"
 )
 
 

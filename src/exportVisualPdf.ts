@@ -356,9 +356,9 @@ export function buildStandaloneWebReportHtml(
       line-height: 1.18 !important;
     }
     .peer-td-range {
-      min-width: 140px !important;
-      max-width: 170px !important;
-      width: 155px !important;
+      min-width: 175px !important;
+      max-width: 220px !important;
+      width: 195px !important;
       padding: 5px 8px !important;
     }
     .peer-range-compact-cell {
@@ -373,8 +373,8 @@ export function buildStandaloneWebReportHtml(
       flex-direction: column !important;
       position: relative !important;
       flex: 1 !important;
-      min-width: 65px !important;
-      max-width: 95px !important;
+      min-width: 100px !important;
+      max-width: 150px !important;
       padding: 0 4px !important;
     }
     .peer-markers-top {
@@ -427,11 +427,13 @@ export function buildStandaloneWebReportHtml(
     }
     .peer-range-pct-text {
       font-family: 'DM Mono', monospace !important;
-      font-size: 11.5px !important;
+      font-size: 10.5px !important;
       font-weight: 900 !important;
       color: #034574 !important;
       white-space: nowrap !important;
       flex-shrink: 0 !important;
+      min-width: 28px !important;
+      text-align: right !important;
     }
     .peer-range-fallback {
       font-family: 'DM Mono', monospace !important;
@@ -458,6 +460,21 @@ export function buildStandaloneWebReportHtml(
     .marker-dma50-sample { color: #0284c7 !important; font-weight: 900 !important; }
     .marker-dma200-sample { color: #ea580c !important; font-weight: 900 !important; font-size: 13px !important; }
     .legend-code { background: #e2e8f0 !important; padding: 1px 5px !important; border-radius: 4px !important; color: #034574 !important; font-weight: 850 !important; }
+
+    /* Freeze row headers in all tables */
+    .company-growth-table th:first-child,
+    .bank-growth-table th:first-child,
+    .ratio-table th.col-sticky,
+    .ratio-table td.col-sticky,
+    .sh-th-category,
+    .sh-td-category,
+    .about-peer-table th:first-child,
+    .about-peer-table td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 5 !important;
+      background: #ffffff !important;
+    }
 
     /* Recharts Chart Grid & Card Styling */
     .chart-grid {

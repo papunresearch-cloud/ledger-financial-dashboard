@@ -67,3 +67,28 @@
 .forecast-bright .multiples-card tbody td{color:#0369a1}
 .forecast-bright .yields-card tbody td{color:#be123c}
 .forecast-bright .forecast-empty{background:#ffffff;color:#334155;border-color:#cbd5e1}
+
+/* Freeze First Column (Year / Metric) */
+.forecast-table-scroll table th:first-child,
+.forecast-table-scroll table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  text-align: left;
+  background: #08231c;
+  box-shadow: 2px 0 6px rgba(0,0,0,0.4);
+}
+.forecast-table-scroll table thead th:first-child {
+  z-index: 4;
+  background: #061c16;
+}
+.forecast-bright .forecast-table-scroll table th:first-child,
+.forecast-bright .forecast-table-scroll table td:first-child {
+  background: #ffffff !important;
+  color: #000000;
+  box-shadow: 2px 0 6px rgba(15,23,42,0.08);
+}
+.forecast-bright .forecast-table-scroll table thead th:first-child {
+  background: #f1f5f9 !important;
+  color: #0f172a;
+}

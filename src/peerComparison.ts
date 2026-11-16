@@ -1,10 +1,10 @@
 import type { AboutPeerComparison, AboutPeerRow, AboutState } from './types'
 
 export const DEFAULT_NON_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · R: xx.x% = Range Position %'
+  'Sales growth, Profit growth, OPM, ROE, ROA, D.Payout, CFO/EBIT%, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = 52W Range Position % [100 × (CMP − 52W Low) / (52W High − 52W Low)]'
 
 export const DEFAULT_BANK_FOOTNOTE =
-  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · R: xx.x% = Range Position %'
+  'Sales growth, Profit growth, BV Growth, D.Payout, DE, ROE, ROA, PE, PB => 3 years average data · 52W Range Bar: ━━ Track = 52W Low to High · ▲ Lower Arrow = CMP · ▼ Small Blue Triangle = 50 DMA · ▼ Big Orange Triangle = 200 DMA · XX% = 52W Range Position % [100 × (CMP − 52W Low) / (52W High − 52W Low)]'
 
 export const DEFAULT_PEER_FOOTNOTE = DEFAULT_NON_BANK_FOOTNOTE
 
@@ -35,7 +35,7 @@ export type PeerMetricColumn = {
 }
 
 export const NON_BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
-  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (R %)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
+  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (%)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
   { key: 'mcap', label: 'MCAP', headerLine1: 'MCAP', headerLine2: '(₹ Cr)', tooltip: 'Market Capitalization (₹ Cr)' },
   { key: 'ttm_sales', label: 'TTM sales', headerLine1: 'TTM Sales', headerLine2: '(₹ Cr)', tooltip: 'Trailing 12-Month Sales (₹ Cr)' },
   { key: 'sales_growth', label: 'Sales growth', headerLine1: 'Sales', headerLine2: 'Growth', tooltip: '3-Year Sales Growth (%)' },
@@ -52,7 +52,7 @@ export const NON_BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
 ]
 
 export const BANK_PEER_COLUMNS: ReadonlyArray<PeerMetricColumn> = [
-  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (R %)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
+  { key: 'price_range', label: '52W Range', headerLine1: '52W Range', headerLine2: 'Track (%)', tooltip: '52-Week Price Range with CMP (Lower Arrow), 50 DMA (Small Blue Triangle), and 200 DMA (Big Orange Triangle)' },
   { key: 'mcap', label: 'MCAP', headerLine1: 'MCAP', headerLine2: '(₹ Cr)', tooltip: 'Market Capitalization (₹ Cr)' },
   { key: 'ttm_sales', label: 'TTM sales', headerLine1: 'TTM Sales', headerLine2: '(₹ Cr)', tooltip: 'Trailing 12-Month Total Revenue / Sales (₹ Cr)' },
   { key: 'sales_growth', label: 'Sales growth', headerLine1: 'Sales', headerLine2: 'Growth', tooltip: '3-Year Sales Growth (%)' },
@@ -171,7 +171,7 @@ function normalizePeerRow(raw: AboutPeerRow | Record<string, unknown>, isMedian 
   const hNum = parseFloat(high_52w.replace(/,/g, ''))
   if (!isNaN(cNum) && !isNaN(lNum) && !isNaN(hNum) && hNum > lNum) {
     const rPct = Math.max(0, Math.min(100, ((cNum - lNum) / (hNum - lNum)) * 100))
-    price_range = `R: ${rPct.toFixed(1)}%`
+    price_range = `${Math.round(rPct)}%`
   } else if (cmp !== '-') {
     price_range = `₹${cmp}`
   }

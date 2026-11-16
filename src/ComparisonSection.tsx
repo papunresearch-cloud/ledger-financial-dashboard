@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   AlertTriangle,
   LoaderCircle,
@@ -29,7 +29,13 @@ function formatInrPrice(n: number | null): string {
   return n >= 1000 ? n.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : n.toFixed(1)
 }
 
-function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
+function PriceRange52WBar({
+  row,
+  onShowTooltip,
+}: {
+  row: NormalizedPeerRow
+  onShowTooltip?: (info: { company: string; text: string }) => void
+}) {
   const low = parseCleanNum(row.low_52w)
   const high = parseCleanNum(row.high_52w)
   const cmp = parseCleanNum(row.cmp)
@@ -51,20 +57,24 @@ function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
   const d50Pct = getPct(d50)
   const d200Pct = getPct(d200)
 
-  const rangePctStr = `${cmpPct.toFixed(1)}%`
+  const rangePctInt = `${Math.round(cmpPct)}%`
 
   const tooltipParts = [
     `52W Low: ₹${formatInrPrice(low)}`,
-    `CMP: ₹${formatInrPrice(cmp)} (R: ${rangePctStr})`,
+    `CMP: ₹${formatInrPrice(cmp)} (${rangePctInt})`,
     d50 !== null ? `50 DMA: ₹${formatInrPrice(d50)}` : null,
     d200 !== null ? `200 DMA: ₹${formatInrPrice(d200)}` : null,
     `52W High: ₹${formatInrPrice(high)}`,
-    `Range Position: ${rangePctStr}`,
+    `52W Range Position: ${rangePctInt}`,
   ].filter(Boolean)
   const cellTooltip = tooltipParts.join('  ·  ')
 
   return (
-    <div className="peer-range-compact-cell" title={cellTooltip}>
+    <div
+      className="peer-range-compact-cell"
+      title={cellTooltip}
+      onClick={() => onShowTooltip?.({ company: row.company, text: cellTooltip })}
+    >
       {/* Visual Range Bar System with Markers */}
       <div className="peer-range-track-system">
         {/* Top Markers Area: 200 DMA (larger orange) underneath, 50 DMA (smaller blue) on top */}
@@ -93,14 +103,14 @@ function PriceRange52WBar({ row }: { row: NormalizedPeerRow }) {
           <span
             className="peer-marker marker-cmp-arrow"
             style={{ left: `${cmpPct}%` }}
-            title={`CMP: ₹${formatInrPrice(cmp)} · Range: ${rangePctStr}`}
+            title={`CMP: ₹${formatInrPrice(cmp)} · Range: ${rangePctInt}`}
           />
         </div>
       </div>
 
-      {/* Only Range Information Required: R: xx.x% */}
+      {/* Only Range Information Required: XX% with small font */}
       <span className="peer-range-pct-text">
-        R: {rangePctStr}
+        {rangePctInt}
       </span>
     </div>
   )
@@ -156,9 +166,11 @@ function renderPePbCell(val: string) {
 function PeerTableRow({
   row,
   columns,
+  onShowTooltip,
 }: {
   row: NormalizedPeerRow
   columns: ReadonlyArray<PeerMetricColumn>
+  onShowTooltip?: (info: { company: string; text: string }) => void
 }) {
   const rowClass = row.is_median
     ? 'about-peer-row-median'
@@ -187,7 +199,7 @@ function PeerTableRow({
         if (col.key === 'price_range') {
           return (
             <td key={col.key} className="peer-td-range">
-              <PriceRange52WBar row={row} />
+              <PriceRange52WBar row={row} onShowTooltip={onShowTooltip} />
             </td>
           )
         }
@@ -206,6 +218,14 @@ function PeerComparisonBlock({
   comp: ResolvedPeerComparison
   columns: ReadonlyArray<PeerMetricColumn>
 }) {
+  const [mobileTooltip, setMobileTooltip] = useState<{ company: string; text: string } | null>(null)
+
+  useEffect(() => {
+    if (!mobileTooltip) return
+    const timer = setTimeout(() => setMobileTooltip(null), 5000)
+    return () => clearTimeout(timer)
+  }, [mobileTooltip])
+
   if (comp.rows.length === 0) return null
 
   return (
@@ -238,16 +258,34 @@ function PeerComparisonBlock({
           </thead>
           <tbody>
             {comp.rows.map((row, idx) => (
-              <PeerTableRow key={`${row.company}-${idx}`} row={row} columns={columns} />
+              <PeerTableRow
+                key={`${row.company}-${idx}`}
+                row={row}
+                columns={columns}
+                onShowTooltip={setMobileTooltip}
+              />
             ))}
           </tbody>
           {comp.median && (
             <tfoot>
-              <PeerTableRow row={comp.median} columns={columns} />
+              <PeerTableRow row={comp.median} columns={columns} onShowTooltip={setMobileTooltip} />
             </tfoot>
           )}
         </table>
       </div>
+
+      {/* Mobile Tooltip Toast (Provides tap-to-inspect metrics for touchscreen devices) */}
+      {mobileTooltip && (
+        <div className="peer-mobile-tooltip-toast" onClick={() => setMobileTooltip(null)}>
+          <div className="peer-mobile-tooltip-head">
+            <strong>{mobileTooltip.company} · 52W Metrics</strong>
+            <span className="peer-mobile-tooltip-close" aria-label="Close">✕</span>
+          </div>
+          <div className="peer-mobile-tooltip-content">
+            {mobileTooltip.text}
+          </div>
+        </div>
+      )}
 
       {/* Visual Legend for 52W Range Track */}
       <div className="peer-legend-strip">
@@ -256,7 +294,7 @@ function PeerComparisonBlock({
         <span className="legend-item"><span className="legend-marker marker-cmp-arrow-sample">▲</span> Lower Arrow = CMP</span>
         <span className="legend-item"><span className="legend-marker marker-dma50-sample">▼</span> Small Blue Triangle = 50 DMA</span>
         <span className="legend-item"><span className="legend-marker marker-dma200-sample">▼</span> Big Orange Triangle = 200 DMA</span>
-        <span className="legend-item"><span className="legend-code">R: xx.x%</span> = Range Position %</span>
+        <span className="legend-item"><span className="legend-code">XX%</span> = 52W Range Position [100 × (CMP − 52W Low) / (52W High − 52W Low)]</span>
       </div>
 
       <p className="about-peer-footnote">{comp.footnote}</p>
