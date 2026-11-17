@@ -1,9 +1,12 @@
-import React from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import {
   Bar, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
+import { Minus, Plus, RotateCcw } from 'lucide-react'
 import type { AnnualRow, BankAnnualRow, BankQuarterRow, QuarterRow } from './types'
+
+const ZOOM_PRESETS = [1, 1.5, 2, 3, 5, 8, 15, 30, 60, 120, 250, 500]
 
 type Metric = { key: string; label: string; color: string; kind?: 'line'; axis?: 'right'; unit?: 'percent' | 'ratio' | 'rupee' }
 export type ChartSpec = { id: string; title: string; subtitle: string; data: Array<Record<string, unknown>>; metrics: Metric[]; type?: 'line' | 'bar' | 'combo'; category: 'annual' | 'quarterly'; yAxisMax?: number }
@@ -143,6 +146,9 @@ const legendWrapperStyle: React.CSSProperties = {
 }
 
 export function ChartPanel({ spec, exportMode = false, staticRender = false, gradientPrefix, theme = 'light' }: { spec: ChartSpec; exportMode?: boolean; staticRender?: boolean; gradientPrefix?: string; theme?: 'light' | 'dark' | 'bright' }) {
+  const [zoomIdx, setZoomIdx] = useState(0)
+  const zoomLevel = ZOOM_PRESETS[zoomIdx]
+
   const gradPrefix = gradientPrefix ?? (exportMode ? 'export-' : '')
   const hasData = spec.data.some(point => spec.metrics.some(metric => typeof point[metric.key] === 'number' && Number.isFinite(point[metric.key] as number)))
   const allLine = spec.type === 'line'
@@ -172,17 +178,160 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
     ? fmt(Number(value), metric.unit)
     : new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value))
 
+  const leftMetrics = useMemo(() => spec.metrics.filter(m => m.axis !== 'right'), [spec.metrics])
+
+  const leftValues = useMemo(() => {
+    const vals: number[] = []
+    spec.data.forEach(d => {
+      leftMetrics.forEach(m => {
+        const val = d[m.key]
+        if (typeof val === 'number' && Number.isFinite(val)) {
+          vals.push(val)
+        }
+      })
+    })
+    return vals
+  }, [spec.data, leftMetrics])
+
+  const rightValues = useMemo(() => {
+    if (!rightMetric) return []
+    const vals: number[] = []
+    spec.data.forEach(d => {
+      const val = d[rightMetric.key]
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        vals.push(val)
+      }
+    })
+    return vals
+  }, [spec.data, rightMetric])
+
+  const domainLeft = useMemo<[number, number] | undefined>(() => {
+    if (zoomLevel <= 1 && !spec.yAxisMax) return undefined
+    if (leftValues.length === 0) return undefined
+
+    const maxVal = spec.yAxisMax ?? Math.max(...leftValues)
+    const minVal = Math.min(...leftValues)
+
+    if (zoomLevel <= 1) {
+      return [minVal < 0 ? minVal : 0, maxVal]
+    }
+
+    const absMax = Math.abs(maxVal)
+    const absMin = Math.abs(minVal)
+
+    let sMin = minVal < 0 ? minVal : 0
+    let sMax = maxVal > 0 ? maxVal : 0
+
+    if (absMax >= absMin * 2) {
+      sMax = maxVal / zoomLevel
+      if (minVal < 0) sMin = Math.min(sMin, -sMax * 0.25)
+    } else if (absMin >= absMax * 2) {
+      sMin = minVal / zoomLevel
+      if (maxVal > 0) sMax = Math.max(sMax, -sMin * 0.25)
+    } else {
+      if (maxVal > 0) sMax = maxVal / zoomLevel
+      if (minVal < 0) sMin = minVal / zoomLevel
+    }
+
+    if (sMax <= sMin) {
+      sMax = sMin + (absMax > 0 ? absMax * 0.1 : 1)
+    }
+
+    return [sMin, sMax]
+  }, [zoomLevel, spec.yAxisMax, leftValues])
+
+  const domainRight = useMemo<[number, number] | undefined>(() => {
+    if (!rightMetric || zoomLevel <= 1) return undefined
+    if (rightValues.length === 0) return undefined
+
+    const maxVal = Math.max(...rightValues)
+    const minVal = Math.min(...rightValues)
+    const absMax = Math.abs(maxVal)
+    const absMin = Math.abs(minVal)
+
+    let sMin = minVal < 0 ? minVal : 0
+    let sMax = maxVal > 0 ? maxVal : 0
+
+    if (absMax >= absMin * 2) {
+      sMax = maxVal / zoomLevel
+    } else if (absMin >= absMax * 2) {
+      sMin = minVal / zoomLevel
+    } else {
+      if (maxVal > 0) sMax = maxVal / zoomLevel
+      if (minVal < 0) sMin = minVal / zoomLevel
+    }
+
+    if (sMax <= sMin) sMax = sMin + 1
+    return [sMin, sMax]
+  }, [zoomLevel, rightMetric, rightValues])
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey) {
+      e.preventDefault()
+      if (e.deltaY < 0) {
+        setZoomIdx(i => Math.min(ZOOM_PRESETS.length - 1, i + 1))
+      } else if (e.deltaY > 0) {
+        setZoomIdx(i => Math.max(0, i - 1))
+      }
+    }
+  }, [])
+
   return <article className={`chart-card ${isDark ? 'chart-card-dark' : 'chart-card-bright'}`} data-chart-card={spec.id} data-export-chart-card={exportMode ? spec.id : undefined}>
     <div className="chart-heading">
       <div><span className="eyebrow">{spec.category === 'annual' ? 'YEARLY' : 'QUARTERLY'}</span><h3>{spec.title}</h3><p>{spec.subtitle}</p></div>
-      <span className="chart-spark" aria-hidden="true">✳</span>
+      <div className="chart-heading-actions">
+        {hasData && (
+          <div className="chart-zoom-controls" data-zoom-controls title="Zoom Y-axis to expand small values compressed by sudden spike (or Ctrl+Scroll)">
+            <button
+              type="button"
+              className="chart-zoom-btn zoom-out"
+              onClick={() => setZoomIdx(i => Math.max(0, i - 1))}
+              disabled={zoomIdx === 0}
+              title="Zoom Out (-)"
+              aria-label="Zoom Out"
+            >
+              <Minus size={12} strokeWidth={2.5} />
+            </button>
+            <button
+              type="button"
+              className={`chart-zoom-badge ${zoomLevel > 1 ? 'is-zoomed' : ''}`}
+              onClick={() => setZoomIdx(i => (i + 1) % ZOOM_PRESETS.length)}
+              title={zoomLevel > 1 ? `Zoomed ${zoomLevel}× · Click to cycle or ↺ to reset` : 'Zoom: 1× (Click to cycle)'}
+            >
+              {zoomLevel}×
+            </button>
+            <button
+              type="button"
+              className="chart-zoom-btn zoom-in"
+              onClick={() => setZoomIdx(i => Math.min(ZOOM_PRESETS.length - 1, i + 1))}
+              disabled={zoomIdx === ZOOM_PRESETS.length - 1}
+              title="Zoom In (+)"
+              aria-label="Zoom In"
+            >
+              <Plus size={12} strokeWidth={2.5} />
+            </button>
+            {zoomLevel > 1 && (
+              <button
+                type="button"
+                className="chart-zoom-btn chart-zoom-reset"
+                onClick={() => setZoomIdx(0)}
+                title="Reset zoom to 1×"
+                aria-label="Reset zoom"
+              >
+                <RotateCcw size={11} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        )}
+        <span className="chart-spark" aria-hidden="true">✳</span>
+      </div>
     </div>
-    <div className="chart-snapshot">
+    <div className="chart-snapshot" onWheel={handleWheel}>
       {hasData ? <ResponsiveContainer width="100%" height={286}>
         {allLine ? <LineChart data={spec.data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
-          <YAxis yAxisId="left" domain={spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined} allowDataOverflow={Boolean(spec.yAxisMax)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
+          <YAxis yAxisId="left" domain={domainLeft || (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)} allowDataOverflow={Boolean(spec.yAxisMax || zoomLevel > 1)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ stroke: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.18)', strokeDasharray: '3 3' }} />
           <Legend wrapperStyle={activeLegendStyle} />
           {spec.metrics.map(metric => {
@@ -225,8 +374,8 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
           </defs>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
-          <YAxis yAxisId="left" domain={spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined} allowDataOverflow={Boolean(spec.yAxisMax)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
-          {rightMetric && <YAxis yAxisId="right" orientation="right" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
+          <YAxis yAxisId="left" domain={domainLeft || (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)} allowDataOverflow={Boolean(spec.yAxisMax || zoomLevel > 1)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
+          {rightMetric && <YAxis yAxisId="right" orientation="right" domain={domainRight} allowDataOverflow={Boolean(zoomLevel > 1)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.05)' }} />
           <Legend wrapperStyle={activeLegendStyle} />
           {spec.metrics.map(metric => {
