@@ -375,6 +375,7 @@ def save_or_update_company_report(code: str, company_name: str, html_content: st
             print(f"[DriveSync] Failed writing to local appdata: {e}", flush=True)
 
         now = datetime.now(timezone.utc)
+        last_q = extract_last_quarter_for_report(safe_c, target_appdata)
         result = {
             "success": True,
             "code": safe_c,
@@ -385,6 +386,7 @@ def save_or_update_company_report(code: str, company_name: str, html_content: st
             "cloudSynced": False,
             "version": 1,
             "driveFileId": "",
+            "lastQuarter": last_q,
         }
 
         # Step 2: Cloud API Sync (In-Place Update with revision tracking)
@@ -466,6 +468,86 @@ def save_or_update_company_report(code: str, company_name: str, html_content: st
         return result
 
 
+_MONTH_NAME_MAP = {
+    "jan": "Jan", "january": "Jan",
+    "feb": "Feb", "february": "Feb",
+    "mar": "March", "march": "March",
+    "apr": "April", "april": "April",
+    "may": "May",
+    "jun": "June", "june": "June",
+    "jul": "July", "july": "July",
+    "aug": "August", "august": "August",
+    "sep": "Sep", "sept": "Sep", "september": "Sep",
+    "oct": "Oct", "october": "Oct",
+    "nov": "Nov", "november": "Nov",
+    "dec": "Dec", "december": "Dec",
+}
+
+_MONTH_ORDER = {
+    "jan": 1, "january": 1,
+    "feb": 2, "february": 2,
+    "mar": 3, "march": 3,
+    "apr": 4, "april": 4,
+    "may": 5,
+    "jun": 6, "june": 6,
+    "jul": 7, "july": 7,
+    "aug": 8, "august": 8,
+    "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10,
+    "nov": 11, "november": 11,
+    "dec": 12, "december": 12,
+}
+
+def format_quarter_label(month_str: str, year_str: str) -> str:
+    m_clean = month_str.strip().lower()
+    m_name = _MONTH_NAME_MAP.get(m_clean, month_str.capitalize())
+    yr = year_str.strip()
+    if len(yr) == 2:
+        yr = f"20{yr}"
+    return f"{m_name}, {yr}"
+
+def extract_last_quarter_for_report(code: str, file_path: Path) -> str:
+    """Extract latest reported financial quarter for a company report."""
+    try:
+        about_dir = get_data_dir() / "about-cache"
+        json_path = about_dir / f"{code.upper()}.json"
+        if json_path.is_file():
+            try:
+                data = json.loads(json_path.read_text(encoding="utf-8"))
+                headers = data.get("sources", {}).get("financial_snapshot", {}).get("quarterly_pnl", {}).get("headers")
+                if headers and isinstance(headers, list):
+                    for h in reversed(headers):
+                        m = re.match(r"^([A-Za-z]{3,9})\s+(\d{2,4})$", str(h).strip())
+                        if m:
+                            return format_quarter_label(m.group(1), m.group(2))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    try:
+        if file_path.is_file():
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read(150000)
+            meta_m = re.search(r'<meta\s+name=["\']ledger-last-quarter["\']\s+content=["\']([^"\']+)["\']', text, re.I)
+            if meta_m:
+                return meta_m.group(1).strip()
+            sh_periods = re.findall(r'class="sh-period-text"[^>]*>\s*([A-Za-z]{3,9})\s+(\d{4})\s*<', text, re.I)
+            if sh_periods:
+                scored = []
+                for m_str, y_str in sh_periods:
+                    m_val = _MONTH_ORDER.get(m_str.lower(), 0)
+                    y_val = int(y_str)
+                    scored.append((y_val, m_val, m_str, y_str))
+                if scored:
+                    best = max(scored, key=lambda x: (x[0], x[1]))
+                    return format_quarter_label(best[2], best[3])
+    except Exception:
+        pass
+
+    return "Sep, 2026"
+
+
 def list_all_saved_reports() -> list[dict[str, Any]]:
     """List all reports stored in local desktop folder and cloud."""
     catalog: dict[str, dict[str, Any]] = {}
@@ -479,6 +561,7 @@ def list_all_saved_reports() -> list[dict[str, Any]]:
             dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
             code = f.name.replace("_Complete_Report.html", "").upper()
             if code not in catalog or mtime > catalog[code]["mtime"]:
+                last_q = extract_last_quarter_for_report(code, f)
                 catalog[code] = {
                     "code": code,
                     "fileName": f.name,
@@ -487,6 +570,7 @@ def list_all_saved_reports() -> list[dict[str, Any]]:
                     "lastModified": dt.isoformat(),
                     "formattedDate": format_timestamp(dt),
                     "mtime": mtime,
+                    "lastQuarter": last_q,
                 }
 
     items = list(catalog.values())

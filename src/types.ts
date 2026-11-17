@@ -557,4 +557,5 @@ export type SavedReportItem = {
   lastModified: string
   formattedDate: string
   mtime: number
+  lastQuarter?: string
 }

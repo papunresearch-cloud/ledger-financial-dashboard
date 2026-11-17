@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  ArrowDownAZ,
   Calendar,
+  Clock,
   Eye,
   FileText,
   HardDrive,
+  LayoutGrid,
+  List,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -66,6 +70,49 @@ function formatDdMmYy(lastModified?: string, fallbackFormatted?: string): string
   return `${dd}|${mm}|${yy}`
 }
 
+const MONTH_NAMES: Record<string, string> = {
+  jan: 'Jan',
+  feb: 'Feb',
+  mar: 'March',
+  apr: 'April',
+  may: 'May',
+  jun: 'June',
+  jul: 'July',
+  aug: 'August',
+  sep: 'Sep',
+  oct: 'Oct',
+  nov: 'Nov',
+  dec: 'Dec',
+}
+
+function normalizeQuarterDisplay(raw?: string): string {
+  if (!raw) return 'Sep, 2026'
+  const trimmed = raw.trim()
+  if (/^[A-Za-z]+,\s*\d{4}$/.test(trimmed)) return trimmed
+
+  const mMatch = trimmed.match(/([A-Za-z]{3,9})\s*['’,-]?\s*(?:20)?(\d{2,4})/)
+  if (mMatch) {
+    const key = mMatch[1].slice(0, 3).toLowerCase()
+    const month = MONTH_NAMES[key] || (mMatch[1].charAt(0).toUpperCase() + mMatch[1].slice(1))
+    let yr = parseInt(mMatch[2], 10)
+    if (yr < 100) yr += 2000
+    return `${month}, ${yr}`
+  }
+
+  const qMatch = trimmed.match(/Q([1-4])\s*(?:FY)?\s*(?:20)?(\d{2,4})/i)
+  if (qMatch) {
+    const qNum = parseInt(qMatch[1], 10)
+    let fy = parseInt(qMatch[2], 10)
+    if (fy < 100) fy += 2000
+    if (qNum === 1) return `June, ${fy - 1}`
+    if (qNum === 2) return `Sep, ${fy - 1}`
+    if (qNum === 3) return `Dec, ${fy - 1}`
+    if (qNum === 4) return `March, ${fy}`
+  }
+
+  return trimmed
+}
+
 export function ReportVaultModal({
   reports,
   loading,
@@ -76,6 +123,10 @@ export function ReportVaultModal({
   driveStatus,
 }: Props) {
   const [search, setSearch] = useState('')
+  // Requirement 1: View mode switch - default is "list" view
+  const [viewMode, setViewMode] = useState<'list' | 'tiles'>('list')
+  // Requirement 2: Sort order switch - default is "date" (Order by Date, newest on top)
+  const [sortBy, setSortBy] = useState<'date' | 'alpha'>('date')
 
   // Escape key closes modal
   useEffect(() => {
@@ -86,7 +137,7 @@ export function ReportVaultModal({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  // Map each report to its full company name from directory
+  // Map each report to its full company name from directory and normalize lastQuarter
   const enrichedReports = useMemo(() => {
     return reports.map(rep => {
       const cCode = rep.code.toUpperCase()
@@ -95,10 +146,12 @@ export function ReportVaultModal({
       )
       const companyName = match?.name || rep.code
       const ddMmYy = formatDdMmYy(rep.lastModified, rep.formattedDate)
+      const lastQuarter = normalizeQuarterDisplay(rep.lastQuarter)
       return {
         ...rep,
         companyName,
         ddMmYy,
+        lastQuarter,
       }
     })
   }, [reports])
@@ -112,6 +165,22 @@ export function ReportVaultModal({
     )
   }, [enrichedReports, search])
 
+  // Sort based on arrangement mode
+  const sortedReports = useMemo(() => {
+    const list = [...filteredReports]
+    if (sortBy === 'date') {
+      // Order by Date: newest on the top
+      return list.sort((a, b) => (b.mtime || 0) - (a.mtime || 0))
+    } else {
+      // Order by Alphabetic: A to Z
+      return list.sort((a, b) => {
+        const nameA = (a.companyName || a.code).toLowerCase()
+        const nameB = (b.companyName || b.code).toLowerCase()
+        return nameA.localeCompare(nameB)
+      })
+    }
+  }, [filteredReports, sortBy])
+
   const totalBytes = useMemo(() => {
     return reports.reduce((acc, r) => acc + (r.sizeBytes || 0), 0)
   }, [reports])
@@ -121,7 +190,7 @@ export function ReportVaultModal({
       <div className="vault-modal-container" onClick={e => e.stopPropagation()}>
         {/* Futuristic 3D Vault Rim & Dial Accent */}
         <div className="vault-dial-glow" />
-        
+
         {/* Top Header */}
         <header className="vault-modal-header">
           <div className="vault-header-left">
@@ -147,6 +216,29 @@ export function ReportVaultModal({
           </div>
 
           <div className="vault-header-right">
+            {/* Requirement 2: Arrangement toggle button (Before View button) */}
+            <button
+              type="button"
+              className={`vault-toggle-btn vault-sort-toggle ${sortBy === 'alpha' ? 'active' : ''}`}
+              onClick={() => setSortBy(prev => (prev === 'date' ? 'alpha' : 'date'))}
+              title={`Current order: ${sortBy === 'date' ? 'Newest on top (Order by Date)' : 'A to Z (Order by Alphabetic)'}. Click to toggle.`}
+            >
+              {sortBy === 'date' ? <Calendar size={14} /> : <ArrowDownAZ size={14} />}
+              <span>{sortBy === 'date' ? 'Order by Date' : 'Order by Alphabetic'}</span>
+            </button>
+
+            {/* Requirement 1: View mode toggle button (Before Refresh button) */}
+            <button
+              type="button"
+              className={`vault-toggle-btn vault-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode(prev => (prev === 'list' ? 'tiles' : 'list'))}
+              title={`Current view: ${viewMode === 'list' ? 'List View' : 'Tiles View'}. Click to toggle.`}
+            >
+              {viewMode === 'list' ? <List size={14} /> : <LayoutGrid size={14} />}
+              <span>{viewMode === 'list' ? 'List View' : 'Tiles View'}</span>
+            </button>
+
+            {/* Refresh Button */}
             <button
               type="button"
               className="vault-refresh-btn"
@@ -157,6 +249,8 @@ export function ReportVaultModal({
               <RefreshCw size={14} className={loading ? 'spin' : ''} />
               <span>{loading ? 'Scanning…' : 'Refresh'}</span>
             </button>
+
+            {/* Close Button */}
             <button
               type="button"
               className="vault-close-btn"
@@ -224,7 +318,7 @@ export function ReportVaultModal({
               <RefreshCw size={28} className="spin" />
               <span>Opening Vault Archives…</span>
             </div>
-          ) : filteredReports.length === 0 ? (
+          ) : sortedReports.length === 0 ? (
             <div className="vault-empty-state">
               <div className="vault-empty-icon-wrap">
                 <Vault size={42} />
@@ -236,9 +330,85 @@ export function ReportVaultModal({
                   : 'Analyze companies via the Screener downloader or upload a Data Sheet workbook. Every analysis is automatically secured in this vault with full revision history.'}
               </p>
             </div>
+          ) : viewMode === 'list' ? (
+            /* ==============================================================
+               LIST VIEW (Default)
+               Compact, sleek horizontal layout with all file metadata
+               ============================================================== */
+            <div className="vault-list-container">
+              {sortedReports.map(item => (
+                <div key={item.code} className="vault-list-row">
+                  <div className="vault-list-left">
+                    <div className="vault-list-avatar">
+                      {item.code.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="vault-list-name-block">
+                      <div className="vault-list-code-row">
+                        <span className="vault-stock-ticker">{item.code}</span>
+                        <span className="vault-type-tag">
+                          <FileText size={10} /> Web Report
+                        </span>
+                      </div>
+                      <h4 className="vault-list-title" title={item.companyName}>
+                        {item.companyName}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="vault-list-mid">
+                    <div className="vault-quarter-chip" title="Latest reported financial quarter results">
+                      <Clock size={12} />
+                      <span className="vault-quarter-label">Last Quarter:</span>
+                      <strong className="vault-quarter-val">{item.lastQuarter}</strong>
+                    </div>
+                    <div className="vault-date-chip" title={`Last updated: ${item.formattedDate}`}>
+                      <Calendar size={12} />
+                      <span className="vault-date-label">Updated:</span>
+                      <strong className="vault-date-val">{item.ddMmYy}</strong>
+                    </div>
+                    <div className="vault-size-chip">
+                      <HardDrive size={11} />
+                      <span>{formatBytes(item.sizeBytes)}</span>
+                    </div>
+                  </div>
+
+                  <div className="vault-list-actions">
+                    <button
+                      type="button"
+                      className="vault-action-btn vault-view-btn"
+                      onClick={() => {
+                        onClose()
+                        onViewReport(item.code, item.companyName)
+                      }}
+                      title={`Open complete web report for ${item.companyName} within the app`}
+                    >
+                      <Eye size={14} />
+                      <span>View</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="vault-action-btn vault-update-btn"
+                      onClick={() => {
+                        onClose()
+                        onUpdateReport(item.code, item.companyName)
+                      }}
+                      title={`Download fresh data from Screener and update ${item.code} in the vault`}
+                    >
+                      <Zap size={13} />
+                      <span>Update</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            /* ==============================================================
+               TILES VIEW (3D Card Grid)
+               3D tactile cards with ticker, name, last quarter, and updated date
+               ============================================================== */
             <div className="vault-grid">
-              {filteredReports.map(item => (
+              {sortedReports.map(item => (
                 <div key={item.code} className="vault-card">
                   <div className="vault-card-body">
                     <div className="vault-card-top">
@@ -261,6 +431,11 @@ export function ReportVaultModal({
                     </div>
 
                     <div className="vault-card-meta">
+                      <div className="vault-quarter-chip" title="Latest reported financial quarter results">
+                        <Clock size={12} />
+                        <span className="vault-quarter-label">Last Quarter:</span>
+                        <strong className="vault-quarter-val">{item.lastQuarter}</strong>
+                      </div>
                       <div className="vault-date-chip" title={`Last updated: ${item.formattedDate}`}>
                         <Calendar size={13} />
                         <span className="vault-date-label">Updated:</span>
@@ -315,7 +490,7 @@ export function ReportVaultModal({
           </div>
           <div className="vault-footer-right">
             <span className="vault-count-pill">
-              Showing {filteredReports.length} of {reports.length} {reports.length === 1 ? 'file' : 'files'}
+              Showing {sortedReports.length} of {reports.length} {reports.length === 1 ? 'file' : 'files'}
             </span>
             <button type="button" className="vault-dismiss-btn" onClick={onClose}>
               Done

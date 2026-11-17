@@ -827,11 +827,46 @@ export function buildStandaloneWebReportHtml(
     }
   `
 
+  const formatQuarterLabel = (period?: string): string => {
+    if (!period) return 'Sep, 2026'
+    const p = period.trim()
+    const qMatch = p.match(/Q([1-4])\s*(?:FY)?\s*(?:20)?(\d{2,4})/i)
+    if (qMatch) {
+      const qNum = parseInt(qMatch[1], 10)
+      let fy = parseInt(qMatch[2], 10)
+      if (fy < 100) fy += 2000
+      if (qNum === 1) return `June, ${fy - 1}`
+      if (qNum === 2) return `Sep, ${fy - 1}`
+      if (qNum === 3) return `Dec, ${fy - 1}`
+      if (qNum === 4) return `March, ${fy}`
+    }
+    const mMatch = p.match(/([A-Za-z]{3,9})\s*[\'’]?\s*(?:20)?(\d{2,4})/)
+    if (mMatch) {
+      const m = mMatch[1].toLowerCase()
+      let yr = parseInt(mMatch[2], 10)
+      if (yr < 100) yr += 2000
+      const nameMap: Record<string, string> = {
+        jan: 'Jan', feb: 'Feb', mar: 'March', apr: 'April', may: 'May', jun: 'June',
+        jul: 'July', aug: 'August', sep: 'Sep', oct: 'Oct', nov: 'Nov', dec: 'Dec',
+      }
+      const prefix = m.slice(0, 3)
+      const dispMonth = nameMap[prefix] || (m.charAt(0).toUpperCase() + m.slice(1))
+      return `${dispMonth}, ${yr}`
+    }
+    return p
+  }
+
+  const lastPeriod = data.quarterly && data.quarterly.length > 0
+    ? data.quarterly[data.quarterly.length - 1].period
+    : ''
+  const lastQuarterStr = formatQuarterLabel(lastPeriod)
+
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="ledger-last-quarter" content="${lastQuarterStr}"/>
 <title>${data.companyName.replace(/</g, '&lt;')} - Web Report</title>
 <style>${activeCss}</style>
 <style>${webReportCss}</style>
