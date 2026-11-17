@@ -219,6 +219,9 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
       const interestCoverage = ebit === null || interest === null || interest <= 0 ? null : ebit / interest
       const effCurrentAssets = currentAssets ?? otherAssets
       const effCurrentLiabilities = currentLiabilities ?? otherLiabilities
+      const workingCapital = (effCurrentAssets !== null && effCurrentLiabilities !== null)
+        ? effCurrentAssets - effCurrentLiabilities
+        : null
       const currentRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0 ? null : effCurrentAssets / effCurrentLiabilities
       const quickRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0
         ? null
@@ -242,7 +245,7 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
         payables: get(balance, 'Trade Payables', i, ['Payables', 'Trade Creditors', 'Creditors', 'Trade payables']) ?? otherLiabilities,
         netBlock, cwip,
         netBlockToCwip: cwip === null || cwip === 0 || netBlock === null || netBlock === 0 ? null : 100 * cwip / netBlock,
-        equity, borrowings, roce, interestCoverage, currentAssets, currentLiabilities, currentRatio, quickRatio, cashRatio,
+        equity, borrowings, roce, interestCoverage, currentAssets, currentLiabilities, workingCapital, currentRatio, quickRatio, cashRatio,
         debtToEquity: borrowings === null || equity === null || equity === 0 ? null : borrowings / equity,
         roe, roa, totalAssets, investments, otherAssets, otherLiabilities,
         currentAssetsToTotalAssets: otherAssets === null || totalAssets === null || totalAssets <= 0 ? null : 100 * otherAssets / totalAssets,

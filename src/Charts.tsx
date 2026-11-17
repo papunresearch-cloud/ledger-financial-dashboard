@@ -295,15 +295,17 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
       }
     }
     const [yLow, yHigh] = yRange
-    let sMax = maxVal > 0 ? maxVal * Math.pow(yHigh / 100, 2.2) : maxVal
+    const normHigh = Math.max(0.01, yHigh / 100)
+    let sMax = maxVal > 0 ? maxVal * Math.pow(normHigh, 3.0) : maxVal
+    const normLow = Math.max(0, yLow / 100)
     let sMin = 0
     if (minVal < 0) {
-      sMin = minVal * Math.pow((100 - yLow) / 100, 2.2)
+      sMin = minVal * Math.pow((100 - yLow) / 100, 3.0)
     } else {
-      sMin = (maxVal * 0.45) * Math.pow(yLow / 100, 2.2)
+      sMin = (sMax * 0.95) * Math.pow(normLow, 1.8)
     }
     if (sMax <= sMin) {
-      sMax = sMin + (Math.abs(maxVal) > 0 ? Math.abs(maxVal) * 0.05 : 1)
+      sMax = sMin + (Math.abs(maxVal) > 0 ? Math.abs(maxVal) * 0.005 : 1)
     }
     return { mappedYMin: sMin, mappedYMax: sMax }
   }, [yRange, minVal, maxVal])
@@ -321,8 +323,10 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
     const rMaxVal = Math.max(...rightValues)
     const rMinVal = Math.min(...rightValues)
 
-    let rMax = rMaxVal * Math.pow(yRange[1] / 100, 2.2)
-    let rMin = rMinVal < 0 ? rMinVal * Math.pow((100 - yRange[0]) / 100, 2.2) : 0
+    const normHigh = Math.max(0.01, yRange[1] / 100)
+    let rMax = rMaxVal * Math.pow(normHigh, 3.0)
+    const normLow = Math.max(0, yRange[0] / 100)
+    let rMin = rMinVal < 0 ? rMinVal * Math.pow((100 - yRange[0]) / 100, 3.0) : (rMax * 0.95) * Math.pow(normLow, 1.8)
     if (rMax <= rMin) rMax = rMin + 1
     return [rMin, rMax]
   }, [rightMetric, rightValues, yRange])
@@ -341,10 +345,6 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
     setYRange([0, 100])
   }
 
-  const xStartLabel = spec.data[xRange[0]]?.period ? String(spec.data[xRange[0]].period) : ''
-  const xEndLabel = spec.data[xRange[1]]?.period ? String(spec.data[xRange[1]].period) : ''
-  const yMinLabel = tickFormatter(mappedYMin, axisMetric)
-  const yMaxLabel = tickFormatter(mappedYMax, axisMetric)
   const allowOverflow = Boolean(spec.yAxisMax || yRange[0] > 0 || yRange[1] < 100)
 
   return <article className={`chart-card ${isDark ? 'chart-card-dark' : 'chart-card-bright'}`} data-chart-card={spec.id} data-export-chart-card={exportMode ? spec.id : undefined}>
@@ -481,8 +481,7 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
       >
         <div className="chart-slider-row">
           <div className="chart-slider-meta">
-            <span className="chart-slider-axis-badge axis-x">X-Axis</span>
-            <span className="chart-slider-range-text">{xStartLabel} → {xEndLabel}</span>
+            <span className="chart-slider-axis-badge axis-x">X-axis</span>
           </div>
           <DualRangeSlider
             min={0}
@@ -497,8 +496,7 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
 
         <div className="chart-slider-row">
           <div className="chart-slider-meta">
-            <span className="chart-slider-axis-badge axis-y">Y-Axis</span>
-            <span className="chart-slider-range-text">{yMinLabel} → {yMaxLabel}</span>
+            <span className="chart-slider-axis-badge axis-y">Y-axis</span>
           </div>
           <DualRangeSlider
             min={0}
@@ -506,7 +504,7 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
             value={yRange}
             onChange={setYRange}
             fillColor="#059669"
-            minGap={5}
+            minGap={1}
             idPrefix={`y-${spec.id}`}
           />
         </div>
@@ -601,6 +599,8 @@ export function makeChartSpecs(annual: AnnualRow[], quarterly: QuarterRow[]): { 
       annualSpec(annual, 'annual-eps-dividend', 'EPS, dividend per share & payout', 'EPS & dividend per share in ₹; payout ratio · %', [A('eps', 'EPS', '#00F5A0', undefined, undefined, 'rupee'), A('dividendPerShare', 'Dividend per share', '#FFB800', undefined, undefined, 'rupee'), A('dividendPayout', 'Payout ratio', '#FF2E93', 'line', 'right', 'percent')], 'combo'),
       annualSpec(annual, 'annual-cash-flow-activities', 'Cash flow activities', 'Operating, investing, financing and net cash flow · ₹ crore', [A('operatingCashFlow', 'Cash from Operating Activity', '#00F5A0'), A('investingCashFlow', 'Cash from Investing Activity', '#00D2FF'), A('financingCashFlow', 'Cash from Financing Activity', '#FFB800'), A('netCashFlow', 'Net Cash Flow', '#FF2E93')]),
       annualSpec(annual, 'annual-cash-profit', 'Profit & cash generation', 'Operating profit, OCF, FCF & net profit · ₹ crore', [A('operatingProfit', 'Operating profit', '#00D2FF'), A('operatingCashFlow', 'Operating cash flow', '#00F5A0'), A('freeCashFlow', 'Free cash flow', '#FFB800'), A('netProfit','Net profit','#FF2E93')]),
+      annualSpec(annual, 'annual-sales-wc-cfo', 'Sales vs Working capital vs Cash from operation', 'Sales, working capital & cash from operations · ₹ crore', [A('sales', 'Sales', '#00F5A0'), A('workingCapital', 'Working capital', '#00D2FF'), A('operatingCashFlow', 'Cash from operation', '#FFB800')]),
+      annualSpec(annual, 'annual-cfo-wc-breakdown', 'Cash from operation vs receivables vs inventory vs payables', 'CFO, receivables, inventory & payables · ₹ crore', [A('operatingCashFlow', 'Cash from operation', '#00F5A0'), A('receivables', 'Receivables', '#FFB800'), A('inventory', 'Inventory', '#00D2FF'), A('payables', 'Payables', '#FF2E93')]),
       annualSpec(annual, 'annual-working-capital', 'Sales, receivables & inventory', 'Sales, receivables & inventory in ₹ crore', [A('sales', 'Sales', '#00F5A0'), A('receivables', 'Receivables', '#FFB800'), A('inventory', 'Inventory', '#00D2FF')]),
       annualSpec(annual, 'annual-net-block', 'Net block & CWIP / net block', 'Net block · ₹ crore; CWIP / net block · %', [A('netBlock', 'Net block', '#00D2FF'), A('netBlockToCwip', 'CWIP / net block', '#FF5353', 'line', 'right', 'percent')], 'combo'),
       annualSpec(annual, 'annual-cwip', 'Capital work in progress', 'CWIP in ₹ crore', [A('cwip', 'CWIP', '#FF2E93')]),

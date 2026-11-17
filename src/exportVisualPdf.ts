@@ -344,8 +344,8 @@ export function buildStandaloneWebReportHtml(
       display: flex !important;
       align-items: center !important;
       gap: 8px !important;
-      min-width: 140px !important;
-      max-width: 180px !important;
+      min-width: 56px !important;
+      max-width: 65px !important;
       flex-shrink: 0 !important;
     }
     .chart-slider-axis-badge {
@@ -1133,13 +1133,13 @@ export function buildStandaloneWebReportHtml(
         box.dataset.totalPeriods = totalPeriods;
         box.dataset.periods = JSON.stringify(xTicks);
         box.innerHTML = '<div class="chart-slider-row">' +
-          '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-x">X-Axis</span><span class="chart-slider-range-text">' + startLabel + ' → ' + endLabel + '</span></div>' +
+          '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-x">X-axis</span></div>' +
           '<div class="dual-slider-container"><div class="dual-slider-track"></div><div class="dual-slider-fill" style="left:0%;width:100%;"></div>' +
           '<input type="range" min="0" max="' + (totalPeriods - 1) + '" value="0" class="dual-slider-input slider-min">' +
           '<input type="range" min="0" max="' + (totalPeriods - 1) + '" value="' + (totalPeriods - 1) + '" class="dual-slider-input slider-max">' +
           '</div></div>' +
           '<div class="chart-slider-row">' +
-          '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-y">Y-Axis</span><span class="chart-slider-range-text">0 → Full</span></div>' +
+          '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-y">Y-axis</span></div>' +
           '<div class="dual-slider-container"><div class="dual-slider-track"></div><div class="dual-slider-fill" style="left:0%;width:100%;background:#059669;"></div>' +
           '<input type="range" min="0" max="100" value="0" class="dual-slider-input slider-min">' +
           '<input type="range" min="0" max="100" value="100" class="dual-slider-input slider-max">' +
@@ -1165,7 +1165,7 @@ export function buildStandaloneWebReportHtml(
 
         var yMin = parseInt(yMinInput.value, 10);
         var yMax = parseInt(yMaxInput.value, 10);
-        if (yMin > yMax - 5) { yMin = yMax - 5; yMinInput.value = yMin; }
+        if (yMin > yMax - 1) { yMin = yMax - 1; yMinInput.value = yMin; }
 
         // Update fill bars
         var xSpan = parseInt(xMinInput.max, 10) || 1;
@@ -1178,14 +1178,6 @@ export function buildStandaloneWebReportHtml(
         if (yFill) {
           yFill.style.left = yMin + '%';
           yFill.style.width = (yMax - yMin) + '%';
-        }
-
-        // Update labels
-        var periods = [];
-        try { periods = JSON.parse(box.dataset.periods || '[]'); } catch(e){}
-        var xRangeText = rows[0].querySelector('.chart-slider-range-text');
-        if (xRangeText && periods.length) {
-          xRangeText.textContent = (periods[xMin] || '') + ' → ' + (periods[xMax] || '');
         }
 
         // Check if adjusted
@@ -1212,10 +1204,11 @@ export function buildStandaloneWebReportHtml(
         var origStartX = plotX + (xMin / xSpan) * plotW;
         var tx = plotX - origStartX * scaleX;
 
-        // Y scaling
-        var fracY = (yMax - yMin) / 100;
-        var scaleY = 1 / Math.max(0.01, Math.pow(fracY, 2.2));
-        var ty = baselineY * (1 - scaleY);
+        // Y scaling with high dynamic range and enhanced play
+        var fracY = Math.max(0.01, (yMax - yMin) / 100);
+        var scaleY = 1 / Math.pow(fracY, 2.8);
+        var normLow = yMin / 100;
+        var ty = baselineY * (1 - scaleY) + (normLow * plotH * scaleY * 0.9);
 
         var clipPath = svg.querySelector('defs clipPath');
         var clipId = clipPath ? clipPath.getAttribute('id') : '';

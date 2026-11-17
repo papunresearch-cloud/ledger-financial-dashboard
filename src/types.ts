@@ -30,6 +30,7 @@ export type AnnualRow = {
   interestCoverage: number | null
   currentAssets: number | null
   currentLiabilities: number | null
+  workingCapital: number | null
   currentRatio: number | null
   quickRatio: number | null
   cashRatio: number | null

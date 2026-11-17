@@ -48,7 +48,7 @@ export function SavedReportViewer({
       '.chart-slider-toggle-btn.active{background:#e0f2fe!important;color:#0284c7!important;border-color:#bae6fd!important;}' +
       '.chart-sliders-box{margin-top:10px!important;padding:8px 12px!important;background:#f8fafc!important;border:1px solid #e2e8f0!important;border-radius:12px!important;display:flex!important;flex-direction:column!important;gap:7px!important;box-shadow:inset 0 1px 3px rgba(15,23,42,.04)!important;}' +
       '.chart-slider-row{display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;}' +
-      '.chart-slider-meta{display:flex!important;align-items:center!important;gap:8px!important;min-width:140px!important;max-width:180px!important;flex-shrink:0!important;}' +
+      '.chart-slider-meta{display:flex!important;align-items:center!important;gap:8px!important;min-width:56px!important;max-width:65px!important;flex-shrink:0!important;}' +
       '.chart-slider-axis-badge{font-size:10px!important;font-weight:800!important;font-family:\'DM Mono\',monospace!important;padding:2px 6px!important;border-radius:4px!important;color:#fff!important;text-transform:uppercase!important;}' +
       '.chart-slider-axis-badge.axis-x{background:#0284c7!important;}' +
       '.chart-slider-axis-badge.axis-y{background:#059669!important;}' +
@@ -146,13 +146,13 @@ export function SavedReportViewer({
           box.dataset.totalPeriods = totalPeriods;
           box.dataset.periods = JSON.stringify(xTicks);
           box.innerHTML = '<div class="chart-slider-row">' +
-            '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-x">X-Axis</span><span class="chart-slider-range-text">' + startLabel + ' → ' + endLabel + '</span></div>' +
+            '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-x">X-axis</span></div>' +
             '<div class="dual-slider-container"><div class="dual-slider-track"></div><div class="dual-slider-fill" style="left:0%;width:100%;"></div>' +
             '<input type="range" min="0" max="' + (totalPeriods - 1) + '" value="0" class="dual-slider-input slider-min">' +
             '<input type="range" min="0" max="' + (totalPeriods - 1) + '" value="' + (totalPeriods - 1) + '" class="dual-slider-input slider-max">' +
             '</div></div>' +
             '<div class="chart-slider-row">' +
-            '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-y">Y-Axis</span><span class="chart-slider-range-text">0 → Full</span></div>' +
+            '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-y">Y-axis</span></div>' +
             '<div class="dual-slider-container"><div class="dual-slider-track"></div><div class="dual-slider-fill" style="left:0%;width:100%;background:#059669;"></div>' +
             '<input type="range" min="0" max="100" value="0" class="dual-slider-input slider-min">' +
             '<input type="range" min="0" max="100" value="100" class="dual-slider-input slider-max">' +
@@ -174,7 +174,7 @@ export function SavedReportViewer({
           if (xMin > xMax - 1) { xMin = xMax - 1; xMinInput.value = xMin; }
           var yMin = parseInt(yMinInput.value, 10);
           var yMax = parseInt(yMaxInput.value, 10);
-          if (yMin > yMax - 5) { yMin = yMax - 5; yMinInput.value = yMin; }
+          if (yMin > yMax - 1) { yMin = yMax - 1; yMinInput.value = yMin; }
           var xSpan = parseInt(xMinInput.max, 10) || 1;
           var xFill = rows[0].querySelector('.dual-slider-fill');
           if (xFill) {
@@ -185,12 +185,6 @@ export function SavedReportViewer({
           if (yFill) {
             yFill.style.left = yMin + '%';
             yFill.style.width = (yMax - yMin) + '%';
-          }
-          var periods = [];
-          try { periods = JSON.parse(box.dataset.periods || '[]'); } catch(e){}
-          var xRangeText = rows[0].querySelector('.chart-slider-range-text');
-          if (xRangeText && periods.length) {
-            xRangeText.textContent = (periods[xMin] || '') + ' → ' + (periods[xMax] || '');
           }
           var isAdjusted = xMin > 0 || xMax < xSpan || yMin > 0 || yMax < 100;
           var resetBtn = card.querySelector('.chart-reset-range-btn');
@@ -211,9 +205,10 @@ export function SavedReportViewer({
           var scaleX = fracX > 0 ? (1 / fracX) : 1;
           var origStartX = plotX + (xMin / xSpan) * plotW;
           var tx = plotX - origStartX * scaleX;
-          var fracY = (yMax - yMin) / 100;
-          var scaleY = 1 / Math.max(0.01, Math.pow(fracY, 2.2));
-          var ty = baselineY * (1 - scaleY);
+          var fracY = Math.max(0.01, (yMax - yMin) / 100);
+          var scaleY = 1 / Math.pow(fracY, 2.8);
+          var normLow = yMin / 100;
+          var ty = baselineY * (1 - scaleY) + (normLow * plotH * scaleY * 0.9);
           var clipPath = svg.querySelector('defs clipPath');
           var clipId = clipPath ? clipPath.getAttribute('id') : '';
           var plotLayers = svg.querySelectorAll('.recharts-bar, .recharts-line, .recharts-area');
