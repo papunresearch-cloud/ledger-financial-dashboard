@@ -123,15 +123,13 @@
 .ratio-table-wrapper {
   width: 100%;
   overflow: auto;
-  max-height: clamp(420px, 74vh, 820px);
+  max-height: calc(100vh - 160px);
   -webkit-overflow-scrolling: touch;
-  position: relative;
 }
 
 .ratio-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   font-family: Cambria, 'Segoe UI', Georgia, serif;
   font-size: 13.5px;
   color: #e2e8f0;
@@ -157,11 +155,14 @@
   background: #0f1c2e;
 }
 
-.ratio-table th {
+.ratio-table thead th {
   position: sticky;
   top: 0;
-  z-index: 15;
+  z-index: 6;
   background: #0f1c2e;
+}
+
+.ratio-table th {
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 800;
@@ -169,7 +170,6 @@
   color: #93c5fd;
   text-align: right;
   text-transform: uppercase;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .ratio-table th.col-sticky {
@@ -179,13 +179,13 @@
   position: sticky;
   top: 0;
   left: 0;
-  background: #0f1c2e !important;
-  z-index: 30;
-  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+  background: #0f1c2e;
+  z-index: 10;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.4);
 }
 
 .ratio-table th.col-header-ttm {
-  background: #112642;
+  background: rgba(14, 165, 233, 0.18);
   color: #38bdf8;
   font-weight: 900;
   border-left: 1px dotted #38bdf8;
@@ -346,34 +346,21 @@
 }
 
 .theme-bright .ratio-table thead tr {
-  background: #dcfce7 !important;
+  background: #f1f5f9 !important;
 }
 
 .theme-bright .ratio-table th {
-  position: sticky;
-  top: 0;
-  z-index: 15;
-  background: #dcfce7 !important;
-  color: #0f2b5c !important;
-  border-bottom: 2.5px solid #86efac !important;
+  color: #1e293b !important;
+  border-bottom: 1px dotted #94a3b8 !important;
 }
 
 .theme-bright .ratio-table th.col-sticky {
-  position: sticky;
-  top: 0;
-  left: 0;
-  z-index: 30;
-  background: #dcfce7 !important;
-  color: #0f2b5c !important;
-  border-right: 1.5px solid #86efac !important;
-  border-bottom: 2.5px solid #86efac !important;
-  box-shadow: 2px 2px 8px rgba(15, 23, 42, 0.1) !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
 }
 
 .theme-bright .ratio-table td.col-sticky {
-  position: sticky;
-  left: 0;
-  z-index: 8;
   background: #f8fafc !important;
   color: #0f172a !important;
   box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
@@ -493,16 +480,5 @@
     font-size: 11px !important;
     padding: 8px 12px !important;
     letter-spacing: 0.8px !important;
-  }
-}
-
-@media print {
-  .ratio-table-wrapper {
-    max-height: none !important;
-    overflow: visible !important;
-  }
-  .ratio-table th,
-  .ratio-table td {
-    position: static !important;
   }
 }
