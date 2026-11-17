@@ -10,6 +10,7 @@ import os
 import re
 import time
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -999,8 +1000,13 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
     except Exception as exc:
         print(f"Error parsing peer comparison: {exc}", flush=True)
 
-    # Extract Cash Flow schedules (including Payables & Working Capital changes from '+' button)
-    cash_flow_schedule: dict[str, Any] = {}
+    # Extract Schedules in parallel (Cash Flow, Other Liabilities, Other Assets, Borrowings)
+    schedules: dict[str, Any] = {
+        "cash_flow_operating": {},
+        "other_liabilities": {},
+        "other_assets": {},
+        "borrowings": {},
+    }
     try:
         info_el = soup.select_one("#company-info")
         cid = (info_el.get("data-company-id") or "").strip() if info_el else ""
@@ -1012,23 +1018,37 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
             cid = m_cid.group(1) if m_cid else ""
         if cid:
             is_consol = "consolidated" in final_url.lower()
-            sched_url = f"https://www.screener.in/api/company/{cid}/schedules/?parent=Cash+from+Operating+Activity&section=cash-flow"
-            if is_consol:
-                sched_url += "&consolidated="
-            cf_resp = session.get(
-                sched_url,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Referer": final_url,
-                    "X-Requested-With": "XMLHttpRequest",
-                },
-                timeout=15,
-            )
-            if cf_resp.status_code == 200:
-                cash_flow_schedule = cf_resp.json()
-    except Exception as exc:
-        print(f"Error fetching Screener cash flow schedule: {exc}", flush=True)
+            suffix = "&consolidated=" if is_consol else ""
 
+            def fetch_sched(parent: str, section: str) -> dict[str, Any]:
+                try:
+                    sched_url = f"https://www.screener.in/api/company/{cid}/schedules/?parent={urllib.parse.quote_plus(parent)}&section={section}{suffix}"
+                    r = session.get(
+                        sched_url,
+                        headers={
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "Referer": final_url,
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        timeout=12,
+                    )
+                    return r.json() if r.status_code == 200 else {}
+                except Exception:
+                    return {}
+
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                f_cf = pool.submit(fetch_sched, "Cash from Operating Activity", "cash-flow")
+                f_liab = pool.submit(fetch_sched, "Other Liabilities", "balance-sheet")
+                f_assets = pool.submit(fetch_sched, "Other Assets", "balance-sheet")
+                f_borr = pool.submit(fetch_sched, "Borrowings", "balance-sheet")
+                schedules["cash_flow_operating"] = f_cf.result()
+                schedules["other_liabilities"] = f_liab.result()
+                schedules["other_assets"] = f_assets.result()
+                schedules["borrowings"] = f_borr.result()
+    except Exception as exc:
+        print(f"Error fetching Screener schedules: {exc}", flush=True)
+
+    cash_flow_schedule = schedules["cash_flow_operating"]
     screener_ratios = parse_screener_ratios(soup)
 
     footnotes: list[dict[str, str]] = []
@@ -1051,6 +1071,7 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
         "shareholding": shareholding,
         "peer_comparison": peer_comparison,
         "financial_snapshot": parse_financial_snapshot(soup),
+        "schedules": schedules,
         "cash_flow_schedule": cash_flow_schedule,
         "screener_ratios": screener_ratios,
         "pros": pros,

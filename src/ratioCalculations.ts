@@ -396,7 +396,7 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'ROCE (%)',
     'CAPITAL RETURNS & LEVERAGE',
     'EBIT / Average Capital Employed × 100',
-    a => a.roce
+    a => a.screenerRoce ?? a.roce
   )
   add(
     'Return on Assets (ROA %)',
@@ -474,7 +474,7 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'Debtor Days',
     'WORKING CAPITAL CYCLE',
     'Trade Receivables / (Sales / 365)',
-    a => (a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null),
+    a => a.screenerDebtorDays ?? (a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null),
     'days'
   )
   add(
@@ -482,6 +482,7 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'WORKING CAPITAL CYCLE',
     'Trade Payables / (Sales / 365)',
     a => {
+      if (a.screenerDaysPayable !== null && a.screenerDaysPayable !== undefined) return a.screenerDaysPayable
       const p = a.payables
       return a.sales && p !== null && a.sales > 0 ? (p / a.sales) * 365 : null
     },
@@ -491,7 +492,7 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'Inventory Days',
     'WORKING CAPITAL CYCLE',
     'Inventories / (Sales / 365)',
-    a => (a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null),
+    a => a.screenerInventoryDays ?? (a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null),
     'days'
   )
   add(
@@ -499,13 +500,14 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'WORKING CAPITAL CYCLE',
     'Debtor Days + Inventory Days − Creditor Days',
     a => {
-      const d = a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null
-      const inv = a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null
-      const p = a.payables
-      if (p === null || !a.sales || a.sales <= 0) return null
-      const cred = (p / a.sales) * 365
-      if (d === null && inv === null) return null
-      return (d ?? 0) + (inv ?? 0) - cred
+      if (a.screenerCashConversionCycle !== null && a.screenerCashConversionCycle !== undefined) {
+        return a.screenerCashConversionCycle
+      }
+      const d = a.screenerDebtorDays ?? (a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null)
+      const inv = a.screenerInventoryDays ?? (a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null)
+      const p = a.screenerDaysPayable ?? (a.sales && a.payables !== null && a.sales > 0 ? (a.payables / a.sales) * 365 : null)
+      if (p === null) return null
+      return (d ?? 0) + (inv ?? 0) - p
     },
     'days'
   )
@@ -514,6 +516,9 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'WORKING CAPITAL CYCLE',
     'Working Capital / (Sales / 365)',
     a => {
+      if (a.screenerWorkingCapitalDays !== null && a.screenerWorkingCapitalDays !== undefined) {
+        return a.screenerWorkingCapitalDays
+      }
       const wc = a.workingCapital
       if (wc === null || !a.sales || a.sales <= 0) return null
       return (wc / a.sales) * 365

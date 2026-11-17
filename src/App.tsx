@@ -135,16 +135,40 @@ function enrichCompanyDataWithScreener(
   currentData: FinancialData,
   payload?: ScreenerAboutData | null,
 ): FinancialData {
-  if (currentData.mode === 'bank' || !payload?.cash_flow_schedule) return currentData
+  if (currentData.mode === 'bank' || !payload) return currentData
   const companyData = currentData as CompanyData
-  const sched = payload.cash_flow_schedule
-  const payablesMap = sched['Payables'] || sched['Trade Payables'] || {}
-  const wcMap = sched['Working capital changes'] || sched['Working Capital'] || {}
+  const schedCf = payload.schedules?.cash_flow_operating || payload.cash_flow_schedule || {}
+  const schedLiab = payload.schedules?.other_liabilities || {}
+  const schedAssets = payload.schedules?.other_assets || {}
+  const screenerRatios = payload.screener_ratios
+
+  // Cash flow breakdown maps
+  const cfPayablesMap = schedCf['Payables'] || schedCf['Trade Payables'] || {}
+  const cfReceivablesMap = schedCf['Receivables'] || schedCf['Trade Receivables'] || {}
+  const cfInventoryMap = schedCf['Inventory'] || schedCf['Inventories'] || {}
+  const cfWcMap = schedCf['Working capital changes'] || schedCf['Working Capital'] || {}
+
+  // Balance sheet maps
+  const bsPayablesMap = schedLiab['Trade Payables'] || schedLiab['Payables'] || {}
+  const bsReceivablesMap = schedAssets['Trade receivables'] || schedAssets['Receivables'] || {}
+  const bsInventoryMap = schedAssets['Inventories'] || schedAssets['Inventory'] || {}
+
+  // Screener official ratios
+  const ratioHeaders = screenerRatios?.headers?.slice(1) || []
+  const getRatioRow = (pattern: RegExp) =>
+    screenerRatios?.rows?.find(r => pattern.test(r.label.trim()))
+
+  const debtorDaysRow = getRatioRow(/debtor\s*days/i)
+  const inventoryDaysRow = getRatioRow(/inventory\s*days/i)
+  const daysPayableRow = getRatioRow(/days\s*payable|creditor\s*days/i)
+  const cccRow = getRatioRow(/cash\s*conversion\s*cycle/i)
+  const wcDaysRow = getRatioRow(/working\s*capital\s*days/i)
+  const roceRow = getRatioRow(/roce/i)
 
   const cleanNum = (valStr?: unknown): number | null => {
     if (valStr === null || valStr === undefined) return null
     if (typeof valStr === 'number') return Number.isFinite(valStr) ? valStr : null
-    const cleaned = String(valStr).replace(/,/g, '').trim()
+    const cleaned = String(valStr).replace(/,/g, '').replace(/%/g, '').trim()
     if (!cleaned || cleaned === '-' || cleaned === '--') return null
     const n = parseFloat(cleaned)
     return Number.isFinite(n) ? n : null
@@ -167,22 +191,75 @@ function enrichCompanyDataWithScreener(
     return null
   }
 
+  const findRatioForPeriod = (row: { label: string; values: string[] } | undefined, period: string): number | null => {
+    if (!row || !row.values || ratioHeaders.length === 0) return null
+    const rowYearMatch = period.match(/(?:20)?(\d{2})$/)
+    const twoDigitYear = rowYearMatch ? rowYearMatch[1] : null
+
+    for (let i = 0; i < ratioHeaders.length; i++) {
+      const h = ratioHeaders[i]
+      const hYearMatch = h.match(/(?:20)?(\d{2})$/)
+      if (twoDigitYear && hYearMatch && hYearMatch[1] === twoDigitYear) {
+        return cleanNum(row.values[i])
+      }
+      if (h.toLowerCase().includes(period.toLowerCase())) {
+        return cleanNum(row.values[i])
+      }
+    }
+    return null
+  }
+
   let anyModified = false
   const enrichedAnnual: AnnualRow[] = companyData.annual.map(row => {
-    const pVal = findValueForPeriod(payablesMap, row.period)
-    const wcVal = findValueForPeriod(wcMap, row.period)
+    const bsPayables = findValueForPeriod(bsPayablesMap, row.period)
+    const cfPayables = findValueForPeriod(cfPayablesMap, row.period)
+    const bsReceivables = findValueForPeriod(bsReceivablesMap, row.period)
+    const cfReceivables = findValueForPeriod(cfReceivablesMap, row.period)
+    const bsInventory = findValueForPeriod(bsInventoryMap, row.period)
+    const cfInventory = findValueForPeriod(cfInventoryMap, row.period)
+    const cfWc = findValueForPeriod(cfWcMap, row.period)
 
-    const finalPayables = pVal !== null ? pVal : row.payables
-    const finalWc = wcVal !== null ? wcVal : row.workingCapital
+    const screenerDebtorDays = findRatioForPeriod(debtorDaysRow, row.period)
+    const screenerInventoryDays = findRatioForPeriod(inventoryDaysRow, row.period)
+    const screenerDaysPayable = findRatioForPeriod(daysPayableRow, row.period)
+    const screenerCashConversionCycle = findRatioForPeriod(cccRow, row.period)
+    const screenerWorkingCapitalDays = findRatioForPeriod(wcDaysRow, row.period)
+    const screenerRoce = findRatioForPeriod(roceRow, row.period)
 
-    if (finalPayables !== row.payables || finalWc !== row.workingCapital) {
+    const finalPayables = bsPayables ?? cfPayables ?? row.payables
+    const finalReceivables = bsReceivables ?? row.receivables
+    const finalInventory = bsInventory ?? row.inventory
+    const finalWc = cfWc ?? row.workingCapital
+
+    if (
+      finalPayables !== row.payables ||
+      finalReceivables !== row.receivables ||
+      finalInventory !== row.inventory ||
+      finalWc !== row.workingCapital ||
+      screenerDaysPayable !== row.screenerDaysPayable ||
+      screenerCashConversionCycle !== row.screenerCashConversionCycle ||
+      screenerWorkingCapitalDays !== row.screenerWorkingCapitalDays ||
+      screenerRoce !== row.screenerRoce
+    ) {
       anyModified = true
     }
 
     return {
       ...row,
       payables: finalPayables,
+      receivables: finalReceivables,
+      inventory: finalInventory,
       workingCapital: finalWc,
+      cfPayables,
+      cfReceivables,
+      cfInventory,
+      cfWorkingCapital: cfWc,
+      screenerDebtorDays,
+      screenerInventoryDays,
+      screenerDaysPayable,
+      screenerCashConversionCycle,
+      screenerWorkingCapitalDays,
+      screenerRoce,
     }
   })
 

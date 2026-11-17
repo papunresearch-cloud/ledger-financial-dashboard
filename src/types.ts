@@ -52,6 +52,16 @@ export type AnnualRow = {
   pbtLessDepreciation: number | null
   otherIncome: number | null
   interest: number | null
+  cfPayables?: number | null
+  cfReceivables?: number | null
+  cfInventory?: number | null
+  cfWorkingCapital?: number | null
+  screenerDebtorDays?: number | null
+  screenerInventoryDays?: number | null
+  screenerDaysPayable?: number | null
+  screenerCashConversionCycle?: number | null
+  screenerWorkingCapitalDays?: number | null
+  screenerRoce?: number | null
 }
 
 export type QuarterRow = {
@@ -286,6 +296,12 @@ export type ScreenerAboutData = {
     }
   }
   cash_flow_schedule?: Record<string, Record<string, string>>
+  schedules?: {
+    cash_flow_operating?: Record<string, Record<string, string>>
+    other_liabilities?: Record<string, Record<string, string>>
+    other_assets?: Record<string, Record<string, string>>
+    borrowings?: Record<string, Record<string, string>>
+  }
   screener_ratios?: {
     headers: string[]
     rows: Array<{ label: string; values: string[] }>

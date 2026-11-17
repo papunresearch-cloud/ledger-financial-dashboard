@@ -634,3 +634,320 @@
 .theme-bright .badge-banking { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
 .theme-bright .badge-workingcap { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
 .theme-bright .badge-glossary { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+
+/* Main Section Tabs */
+.checks-tabs-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.checks-main-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  flex-wrap: wrap;
+}
+
+.checks-main-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.checks-main-tab-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.checks-main-tab-btn.active {
+  color: #38bdf8;
+  background: #1e293b;
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.checks-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+}
+
+.checks-main-tab-btn.active .checks-tab-badge {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+/* Plot Guide Card Styles */
+.plot-guide-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(160deg, #131b2e 0%, #0d1322 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.plot-guide-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.plot-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plot-card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plot-card-cat-pill {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 9.5px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 850;
+  letter-spacing: 0.8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+.plot-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.2px;
+}
+
+.plot-card-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.plot-metrics-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plot-meta-label {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.plot-metrics-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plot-metric-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(34, 211, 181, 0.12);
+  border: 1px solid rgba(34, 211, 181, 0.3);
+  color: #5eead4;
+}
+
+.plot-source-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plot-source-label {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 850;
+  letter-spacing: 0.5px;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.plot-source-value {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.plot-details-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plot-meaning-text {
+  margin: 0;
+  font-size: 13.5px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.plot-interp-box {
+  background: rgba(14, 165, 233, 0.08);
+  border-left: 3px solid #38bdf8;
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.plot-interp-box strong {
+  color: #38bdf8;
+}
+
+.plot-controls-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.plot-controls-footer strong {
+  color: #cbd5e1;
+}
+
+/* Bright Theme Plot Guide Card */
+.theme-bright .checks-main-tabs {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.theme-bright .checks-main-tab-btn {
+  color: #64748b;
+}
+
+.theme-bright .checks-main-tab-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.theme-bright .checks-main-tab-btn.active {
+  color: #0284c7;
+  background: #ffffff;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.theme-bright .checks-main-tab-btn.active .checks-tab-badge {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.theme-bright .plot-guide-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.theme-bright .plot-guide-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
+.theme-bright .plot-card-title {
+  color: #0f172a;
+}
+
+.theme-bright .plot-card-subtitle {
+  color: #475569;
+}
+
+.theme-bright .plot-metrics-box {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.theme-bright .plot-meta-label {
+  color: #64748b;
+}
+
+.theme-bright .plot-metric-chip {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.theme-bright .plot-source-value {
+  color: #334155;
+}
+
+.theme-bright .plot-meaning-text {
+  color: #334155;
+}
+
+.theme-bright .plot-interp-box {
+  background: #f0f9ff;
+  border-left-color: #0284c7;
+  color: #0f172a;
+}
+
+.theme-bright .plot-interp-box strong {
+  color: #0369a1;
+}
+
+.theme-bright .plot-controls-footer {
+  border-top-color: #e2e8f0;
+  color: #64748b;
+}
+
+.theme-bright .plot-controls-footer strong {
+  color: #1e293b;
+}

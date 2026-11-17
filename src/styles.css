@@ -650,6 +650,29 @@ html,body{width:100%;min-width:320px;max-width:100%;overflow-x:hidden}
   transform: translateY(-1px);
 }
 
+.chart-zoom-drag-hint {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: #64748b;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.chart-card-bright .chart-zoom-drag-hint {
+  color: #94a3b8;
+}
+
+@media (max-width: 640px) {
+  .chart-zoom-drag-hint {
+    display: none;
+  }
+}
+
+.chart-snapshot {
+  cursor: crosshair;
+}
+
 .zoom-slider-row {
   display: flex;
   align-items: center;

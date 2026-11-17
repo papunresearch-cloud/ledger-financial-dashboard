@@ -926,15 +926,11 @@ export function buildStandaloneWebReportHtml(
       var naturalMax = maxVal > 0 ? maxVal * 1.08 : (minVal < 0 ? 0 : 1);
       var naturalSpan = naturalMax - naturalMin;
 
-      var highFactor = 1.0;
-      if (yHigh <= 700) {
-        var ratio = Math.max(10, yHigh) / 700;
-        highFactor = Math.max(0.001, Math.pow(ratio, 2.4));
-      } else {
-        highFactor = 1.0 + 2.5 * ((yHigh - 700) / 300);
-      }
+      var highRatio = Math.max(5, yHigh) / 1000;
+      var highFactor = Math.max(0.0005, Math.pow(highRatio, 2.6));
       var effectiveMax = naturalMin + naturalSpan * highFactor;
-      var lowFraction = Math.min(0.92, yLow / 1000);
+      var lowRatio = Math.min(yLow, Math.max(0, yHigh - 5)) / 1000;
+      var lowFraction = Math.min(0.92, Math.pow(lowRatio, 1.4));
       var effectiveMin = naturalMin + (effectiveMax - naturalMin) * lowFraction;
 
       var W = 540, H = 286;
@@ -1107,8 +1103,37 @@ export function buildStandaloneWebReportHtml(
             xLowInput.value = 0;
             xHighInput.value = Math.max(1, totalPts - 1);
             yLowInput.value = 0;
-            yHighInput.value = 700;
+            yHighInput.value = 1000;
             update();
+          });
+        }
+
+        var snap = card.querySelector('.chart-snapshot');
+        if (snap && xLowInput && xHighInput) {
+          snap.addEventListener('dblclick', function() {
+            if (resetBtn) resetBtn.click();
+          });
+          var isDragging = false;
+          var startX = 0;
+          snap.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            startX = e.clientX;
+          });
+          snap.addEventListener('mouseup', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            var diff = e.clientX - startX;
+            if (Math.abs(diff) > 20) {
+              var rect = snap.getBoundingClientRect();
+              var p1 = Math.max(0, Math.min(1, (startX - rect.left - 62) / Math.max(1, rect.width - 82)));
+              var p2 = Math.max(0, Math.min(1, (e.clientX - rect.left - 62) / Math.max(1, rect.width - 82)));
+              var leftP = Math.min(p1, p2);
+              var rightP = Math.max(p1, p2);
+              var xRange = Math.max(1, totalPts - 1);
+              xLowInput.value = Math.round(leftP * xRange);
+              xHighInput.value = Math.round(rightP * xRange);
+              update();
+            }
           });
         }
       });
