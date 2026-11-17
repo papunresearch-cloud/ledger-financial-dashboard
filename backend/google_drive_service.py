@@ -468,6 +468,83 @@ def save_or_update_company_report(code: str, company_name: str, html_content: st
         return result
 
 
+def delete_company_reports(codes: list[str]) -> dict[str, Any]:
+    """Permanently delete specified company reports from:
+    1. Google Drive desktop folder (e.g. G:\\My Drive\\Ledger_Reports)
+    2. Local AppData storage (e.g. %LOCALAPPDATA%\\Ledger\\web-reports)
+    3. Google Drive Cloud API (files.delete)
+    4. About Cache (cleanup)
+    """
+    gdrive_desktop = get_gdrive_desktop_folder()
+    local_reports = get_local_web_reports_dir()
+    about_dir = get_data_dir() / "about-cache"
+
+    deleted_codes: list[str] = []
+    deleted_files_count = 0
+
+    with _DRIVE_LOCK:
+        # Step 1 & 2: Local deletions in GDrive Desktop folder and Local AppData
+        for c in codes:
+            safe_c = _safe_code(c)
+            if not safe_c:
+                continue
+
+            # Target files in Google Drive Desktop folder
+            if gdrive_desktop and gdrive_desktop.is_dir():
+                for f in gdrive_desktop.glob(f"{safe_c}_Complete_Report*.html"):
+                    try:
+                        f.unlink()
+                        deleted_files_count += 1
+                    except Exception as e:
+                        print(f"[DriveSync] Error deleting {f}: {e}", flush=True)
+
+            # Target files in Local AppData folder
+            if local_reports and local_reports.is_dir():
+                for f in local_reports.glob(f"{safe_c}_Complete_Report*.html"):
+                    try:
+                        f.unlink()
+                        deleted_files_count += 1
+                    except Exception as e:
+                        print(f"[DriveSync] Error deleting {f}: {e}", flush=True)
+
+            # Clear about-cache for this company
+            if about_dir and about_dir.is_dir():
+                json_path = about_dir / f"{safe_c.upper()}.json"
+                if json_path.is_file():
+                    try:
+                        json_path.unlink()
+                    except Exception:
+                        pass
+
+            deleted_codes.append(safe_c)
+
+        # Step 3: Delete from Google Drive Cloud API permanently
+        service = get_drive_service()
+        if service:
+            try:
+                folder_id = get_or_create_drive_folder_id(service)
+                if folder_id:
+                    for safe_c in deleted_codes:
+                        try:
+                            q = f"name contains '{safe_c}_Complete_Report' and '{folder_id}' in parents and trashed = false"
+                            res = service.files().list(q=q, fields="files(id, name)").execute()
+                            files = res.get("files", [])
+                            for item in files:
+                                service.files().delete(fileId=item["id"]).execute()
+                                print(f"[DriveSync] Cloud deleted file: {item['name']} ({item['id']})", flush=True)
+                        except Exception as e:
+                            print(f"[DriveSync] Cloud delete failed for {safe_c}: {e}", flush=True)
+            except Exception as e:
+                print(f"[DriveSync] Cloud delete service error: {e}", flush=True)
+
+    return {
+        "success": True,
+        "deletedCodes": deleted_codes,
+        "deletedFilesCount": deleted_files_count,
+        "count": len(deleted_codes),
+    }
+
+
 _MONTH_NAME_MAP = {
     "jan": "Jan", "january": "Jan",
     "feb": "Feb", "february": "Feb",

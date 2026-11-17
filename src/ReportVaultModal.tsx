@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   ArrowDownAZ,
   Calendar,
+  Check,
   Clock,
   Eye,
   FileText,
@@ -12,6 +14,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Vault,
   X,
   Zap,
@@ -123,19 +126,31 @@ export function ReportVaultModal({
   driveStatus,
 }: Props) {
   const [search, setSearch] = useState('')
-  // Requirement 1: View mode switch - default is "list" view
+  // View mode switch - default is "list" view
   const [viewMode, setViewMode] = useState<'list' | 'tiles'>('list')
-  // Requirement 2: Sort order switch - default is "date" (Order by Date, newest on top)
+  // Sort order switch - default is "date" (Order by Date, newest on top)
   const [sortBy, setSortBy] = useState<'date' | 'alpha'>('date')
 
-  // Escape key closes modal
+  // Multi-selection state for deletion
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set())
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // Escape key closes modal (or confirmation modal if open)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (confirmDeleteOpen) {
+          if (!deleting) setConfirmDeleteOpen(false)
+        } else {
+          onClose()
+        }
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [confirmDeleteOpen, deleting, onClose])
 
   // Map each report to its full company name from directory and normalize lastQuarter
   const enrichedReports = useMemo(() => {
@@ -181,6 +196,56 @@ export function ReportVaultModal({
     }
   }, [filteredReports, sortBy])
 
+  // Selection helpers
+  const allSelected = sortedReports.length > 0 && selectedCodes.size === sortedReports.length
+  const someSelected = selectedCodes.size > 0 && selectedCodes.size < sortedReports.length
+
+  const toggleSelect = (code: string) => {
+    setSelectedCodes(prev => {
+      const next = new Set(prev)
+      if (next.has(code)) {
+        next.delete(code)
+      } else {
+        next.add(code)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedCodes(new Set())
+    } else {
+      setSelectedCodes(new Set(sortedReports.map(r => r.code)))
+    }
+  }
+
+  // Deletion execution
+  const handleExecuteDelete = async () => {
+    if (selectedCodes.size === 0) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch('/api/drive/delete-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codes: Array.from(selectedCodes) }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Failed to delete selected reports from Google Drive.')
+      }
+      // Successful deletion
+      setSelectedCodes(new Set())
+      setConfirmDeleteOpen(false)
+      onRefreshList()
+    } catch (err: any) {
+      setDeleteError(err.message || 'Error deleting files.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const totalBytes = useMemo(() => {
     return reports.reduce((acc, r) => acc + (r.sizeBytes || 0), 0)
   }, [reports])
@@ -209,14 +274,14 @@ export function ReportVaultModal({
                 </div>
                 <h2 className="vault-main-title">Company Research &amp; Report Vault</h2>
                 <p className="vault-subtitle">
-                  Direct access to all previously analyzed companies. Open responsive in-app web reports or trigger live data updates.
+                  Direct access to all previously analyzed companies. Open responsive in-app web reports, run batch deletions, or trigger live data updates.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="vault-header-right">
-            {/* Requirement 2: Arrangement toggle button (Before View button) */}
+            {/* Arrangement toggle button (Before View button) */}
             <button
               type="button"
               className={`vault-toggle-btn vault-sort-toggle ${sortBy === 'alpha' ? 'active' : ''}`}
@@ -227,7 +292,7 @@ export function ReportVaultModal({
               <span>{sortBy === 'date' ? 'Order by Date' : 'Order by Alphabetic'}</span>
             </button>
 
-            {/* Requirement 1: View mode toggle button (Before Refresh button) */}
+            {/* View mode toggle button (Before Refresh button) */}
             <button
               type="button"
               className={`vault-toggle-btn vault-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
@@ -311,6 +376,67 @@ export function ReportVaultModal({
           </div>
         </div>
 
+        {/* ==============================================================
+           SELECTION TOOLBAR: Select All / Deselect All / Delete Button
+           ============================================================== */}
+        <div className="vault-selection-toolbar">
+          <div className="vault-selection-left">
+            <button
+              type="button"
+              className={`vault-select-all-btn ${allSelected ? 'active' : ''}`}
+              onClick={toggleSelectAll}
+              title={allSelected ? 'Deselect all files' : 'Select all files in vault'}
+            >
+              <span className={`vault-custom-checkbox ${allSelected ? 'checked' : someSelected ? 'indeterminate' : ''}`}>
+                {allSelected && <Check size={11} strokeWidth={3} />}
+                {someSelected && !allSelected && <span className="vault-checkbox-dash" />}
+              </span>
+              <span>{allSelected ? 'Deselect All' : 'Select All'}</span>
+              <span className="vault-pill-badge">{sortedReports.length}</span>
+            </button>
+
+            {selectedCodes.size > 0 && (
+              <button
+                type="button"
+                className="vault-clear-selection-btn"
+                onClick={() => setSelectedCodes(new Set())}
+                title="Clear selected files"
+              >
+                Clear Selection
+              </button>
+            )}
+          </div>
+
+          <div className="vault-selection-right">
+            {selectedCodes.size > 0 ? (
+              <div className="vault-selection-action-group">
+                <span className="vault-selected-notice">
+                  <strong>{selectedCodes.size}</strong> {selectedCodes.size === 1 ? 'file' : 'files'} selected
+                </span>
+                <button
+                  type="button"
+                  className="vault-delete-action-btn active"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  title="Permanently delete selected files from Google Drive"
+                >
+                  <Trash2 size={14} />
+                  <span>Delete Selected ({selectedCodes.size})</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="vault-delete-action-btn disabled"
+                disabled
+                title="Select files to delete"
+              >
+                <Trash2 size={14} />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Vault Grid / List Area */}
         <div className="vault-dossier-list-wrapper">
           {loading && reports.length === 0 ? (
@@ -333,121 +459,62 @@ export function ReportVaultModal({
           ) : viewMode === 'list' ? (
             /* ==============================================================
                LIST VIEW (Default)
-               Compact, sleek horizontal layout with all file metadata
                ============================================================== */
             <div className="vault-list-container">
-              {sortedReports.map(item => (
-                <div key={item.code} className="vault-list-row">
-                  <div className="vault-list-left">
-                    <div className="vault-list-avatar">
-                      {item.code.slice(0, 2).toUpperCase()}
+              {sortedReports.map(item => {
+                const isSelected = selectedCodes.has(item.code)
+                return (
+                  <div key={item.code} className={`vault-list-row ${isSelected ? 'row-selected' : ''}`}>
+                    <div className="vault-list-select-col">
+                      <button
+                        type="button"
+                        className={`vault-item-checkbox ${isSelected ? 'checked' : ''}`}
+                        onClick={e => {
+                          e.stopPropagation()
+                          toggleSelect(item.code)
+                        }}
+                        aria-label={`Select ${item.companyName}`}
+                        title={isSelected ? 'Deselect file' : 'Select file'}
+                      >
+                        {isSelected && <Check size={12} strokeWidth={3} />}
+                      </button>
                     </div>
-                    <div className="vault-list-name-block">
-                      <div className="vault-list-code-row">
-                        <span className="vault-stock-ticker">{item.code}</span>
-                        <span className="vault-type-tag">
-                          <FileText size={10} /> Web Report
-                        </span>
+
+                    <div className="vault-list-left">
+                      <div className="vault-list-avatar">
+                        {item.code.slice(0, 2).toUpperCase()}
                       </div>
-                      <h4 className="vault-list-title" title={item.companyName}>
-                        {item.companyName}
-                      </h4>
-                    </div>
-                  </div>
-
-                  <div className="vault-list-mid">
-                    <div className="vault-quarter-chip" title="Latest reported financial quarter results">
-                      <Clock size={12} />
-                      <span className="vault-quarter-label">Last Quarter:</span>
-                      <strong className="vault-quarter-val">{item.lastQuarter}</strong>
-                    </div>
-                    <div className="vault-date-chip" title={`Last updated: ${item.formattedDate}`}>
-                      <Calendar size={12} />
-                      <span className="vault-date-label">Updated:</span>
-                      <strong className="vault-date-val">{item.ddMmYy}</strong>
-                    </div>
-                    <div className="vault-size-chip">
-                      <HardDrive size={11} />
-                      <span>{formatBytes(item.sizeBytes)}</span>
-                    </div>
-                  </div>
-
-                  <div className="vault-list-actions">
-                    <button
-                      type="button"
-                      className="vault-action-btn vault-view-btn"
-                      onClick={() => {
-                        onClose()
-                        onViewReport(item.code, item.companyName)
-                      }}
-                      title={`Open complete web report for ${item.companyName} within the app`}
-                    >
-                      <Eye size={14} />
-                      <span>View</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="vault-action-btn vault-update-btn"
-                      onClick={() => {
-                        onClose()
-                        onUpdateReport(item.code, item.companyName)
-                      }}
-                      title={`Download fresh data from Screener and update ${item.code} in the vault`}
-                    >
-                      <Zap size={13} />
-                      <span>Update</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            /* ==============================================================
-               TILES VIEW (3D Card Grid)
-               3D tactile cards with ticker, name, last quarter, and updated date
-               ============================================================== */
-            <div className="vault-grid">
-              {sortedReports.map(item => (
-                <div key={item.code} className="vault-card">
-                  <div className="vault-card-body">
-                    <div className="vault-card-top">
-                      <div className="vault-company-ident">
-                        <div className="vault-avatar-badge">
-                          {item.code.slice(0, 2).toUpperCase()}
+                      <div className="vault-list-name-block">
+                        <div className="vault-list-code-row">
+                          <span className="vault-stock-ticker">{item.code}</span>
+                          <span className="vault-type-tag">
+                            <FileText size={10} /> Web Report
+                          </span>
                         </div>
-                        <div className="vault-name-block">
-                          <div className="vault-code-row">
-                            <span className="vault-stock-ticker">{item.code}</span>
-                            <span className="vault-type-tag">
-                              <FileText size={11} /> Web Report
-                            </span>
-                          </div>
-                          <h4 className="vault-company-title" title={item.companyName}>
-                            {item.companyName}
-                          </h4>
-                        </div>
+                        <h4 className="vault-list-title" title={item.companyName}>
+                          {item.companyName}
+                        </h4>
                       </div>
                     </div>
 
-                    <div className="vault-card-meta">
+                    <div className="vault-list-mid">
                       <div className="vault-quarter-chip" title="Latest reported financial quarter results">
                         <Clock size={12} />
                         <span className="vault-quarter-label">Last Quarter:</span>
                         <strong className="vault-quarter-val">{item.lastQuarter}</strong>
                       </div>
                       <div className="vault-date-chip" title={`Last updated: ${item.formattedDate}`}>
-                        <Calendar size={13} />
+                        <Calendar size={12} />
                         <span className="vault-date-label">Updated:</span>
                         <strong className="vault-date-val">{item.ddMmYy}</strong>
                       </div>
                       <div className="vault-size-chip">
-                        <HardDrive size={12} />
+                        <HardDrive size={11} />
                         <span>{formatBytes(item.sizeBytes)}</span>
                       </div>
                     </div>
 
-                    <div className="vault-card-actions">
+                    <div className="vault-list-actions">
                       <button
                         type="button"
                         className="vault-action-btn vault-view-btn"
@@ -457,7 +524,7 @@ export function ReportVaultModal({
                         }}
                         title={`Open complete web report for ${item.companyName} within the app`}
                       >
-                        <Eye size={15} />
+                        <Eye size={14} />
                         <span>View</span>
                       </button>
 
@@ -470,13 +537,103 @@ export function ReportVaultModal({
                         }}
                         title={`Download fresh data from Screener and update ${item.code} in the vault`}
                       >
-                        <Zap size={14} />
+                        <Zap size={13} />
                         <span>Update</span>
                       </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
+            </div>
+          ) : (
+            /* ==============================================================
+               TILES VIEW (3D Card Grid)
+               ============================================================== */
+            <div className="vault-grid">
+              {sortedReports.map(item => {
+                const isSelected = selectedCodes.has(item.code)
+                return (
+                  <div key={item.code} className={`vault-card ${isSelected ? 'card-selected' : ''}`}>
+                    <div className="vault-card-body">
+                      <div className="vault-card-top">
+                        <div className="vault-company-ident">
+                          <button
+                            type="button"
+                            className={`vault-item-checkbox ${isSelected ? 'checked' : ''}`}
+                            onClick={e => {
+                              e.stopPropagation()
+                              toggleSelect(item.code)
+                            }}
+                            aria-label={`Select ${item.companyName}`}
+                            title={isSelected ? 'Deselect file' : 'Select file'}
+                          >
+                            {isSelected && <Check size={12} strokeWidth={3} />}
+                          </button>
+                          <div className="vault-avatar-badge">
+                            {item.code.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="vault-name-block">
+                            <div className="vault-code-row">
+                              <span className="vault-stock-ticker">{item.code}</span>
+                              <span className="vault-type-tag">
+                                <FileText size={11} /> Web Report
+                              </span>
+                            </div>
+                            <h4 className="vault-company-title" title={item.companyName}>
+                              {item.companyName}
+                            </h4>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="vault-card-meta">
+                        <div className="vault-quarter-chip" title="Latest reported financial quarter results">
+                          <Clock size={12} />
+                          <span className="vault-quarter-label">Last Quarter:</span>
+                          <strong className="vault-quarter-val">{item.lastQuarter}</strong>
+                        </div>
+                        <div className="vault-date-chip" title={`Last updated: ${item.formattedDate}`}>
+                          <Calendar size={13} />
+                          <span className="vault-date-label">Updated:</span>
+                          <strong className="vault-date-val">{item.ddMmYy}</strong>
+                        </div>
+                        <div className="vault-size-chip">
+                          <HardDrive size={12} />
+                          <span>{formatBytes(item.sizeBytes)}</span>
+                        </div>
+                      </div>
+
+                      <div className="vault-card-actions">
+                        <button
+                          type="button"
+                          className="vault-action-btn vault-view-btn"
+                          onClick={() => {
+                            onClose()
+                            onViewReport(item.code, item.companyName)
+                          }}
+                          title={`Open complete web report for ${item.companyName} within the app`}
+                        >
+                          <Eye size={15} />
+                          <span>View</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="vault-action-btn vault-update-btn"
+                          onClick={() => {
+                            onClose()
+                            onUpdateReport(item.code, item.companyName)
+                          }}
+                          title={`Download fresh data from Screener and update ${item.code} in the vault`}
+                        >
+                          <Zap size={14} />
+                          <span>Update</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -497,6 +654,87 @@ export function ReportVaultModal({
             </button>
           </div>
         </footer>
+
+        {/* ==============================================================
+           BEAUTIFUL DELETION CONFIRMATION POPUP (YES / NO)
+           ============================================================== */}
+        {confirmDeleteOpen && (
+          <div className="vault-confirm-backdrop" onClick={() => !deleting && setConfirmDeleteOpen(false)}>
+            <div className="vault-confirm-modal" onClick={e => e.stopPropagation()}>
+              <div className="vault-confirm-icon-box">
+                <div className="vault-confirm-icon-glow" />
+                <AlertTriangle size={34} className="vault-confirm-alert-icon" />
+              </div>
+
+              <div className="vault-confirm-badge">PERMANENT DELETION</div>
+
+              <h3 className="vault-confirm-title">Delete Selected Files?</h3>
+
+              <p className="vault-confirm-desc">
+                Are you sure you want to permanently delete <strong>{selectedCodes.size}</strong> selected company {selectedCodes.size === 1 ? 'dossier' : 'dossiers'} from Google Drive (<code>G:\My Drive\Ledger_Reports</code>) and local archives?
+              </p>
+
+              <div className="vault-confirm-preview-list">
+                {Array.from(selectedCodes).slice(0, 10).map(c => {
+                  const comp = sortedReports.find(r => r.code === c)
+                  return (
+                    <span key={c} className="vault-confirm-chip">
+                      <strong>{c}</strong>
+                      {comp?.companyName && comp.companyName !== c && (
+                        <small>{comp.companyName.length > 20 ? comp.companyName.slice(0, 18) + '…' : comp.companyName}</small>
+                      )}
+                    </span>
+                  )
+                })}
+                {selectedCodes.size > 10 && (
+                  <span className="vault-confirm-chip more">+{selectedCodes.size - 10} more</span>
+                )}
+              </div>
+
+              <div className="vault-confirm-warning">
+                <ShieldCheck size={13} />
+                <span>This action cannot be undone. Files will be purged permanently.</span>
+              </div>
+
+              {deleteError && (
+                <div className="vault-confirm-error">
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              <div className="vault-confirm-actions">
+                <button
+                  type="button"
+                  className="vault-confirm-btn vault-confirm-no"
+                  onClick={() => setConfirmDeleteOpen(false)}
+                  disabled={deleting}
+                >
+                  <X size={15} />
+                  <span>NO, Cancel</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="vault-confirm-btn vault-confirm-yes"
+                  onClick={handleExecuteDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <>
+                      <RefreshCw size={15} className="spin" />
+                      <span>Deleting…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={15} />
+                      <span>YES, Delete Permanently</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

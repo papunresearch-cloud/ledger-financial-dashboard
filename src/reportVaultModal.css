@@ -381,6 +381,188 @@
   color: #ffffff;
 }
 
+/* ==========================================================================
+   SELECTION TOOLBAR STYLES (Select All / Deselect All / Delete Action)
+   ========================================================================== */
+.vault-selection-toolbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 28px;
+  background: rgba(15, 23, 42, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.vault-selection-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vault-selection-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.vault-select-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  color: #e2e8f0;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.vault-select-all-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.vault-select-all-btn.active {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #38bdf8;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.2);
+}
+
+.vault-custom-checkbox {
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid rgba(148, 163, 184, 0.5);
+  border-radius: 4.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.8);
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.vault-custom-checkbox.checked {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+}
+
+.vault-custom-checkbox.indeterminate {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.2);
+}
+
+.vault-checkbox-dash {
+  width: 8px;
+  height: 2px;
+  background: #38bdf8;
+  border-radius: 1px;
+}
+
+.vault-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.vault-select-all-btn.active .vault-pill-badge {
+  background: rgba(56, 189, 248, 0.25);
+  color: #bae6fd;
+}
+
+.vault-clear-selection-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: all 0.18s ease;
+}
+
+.vault-clear-selection-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vault-selection-action-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vault-selected-notice {
+  font-size: 12.5px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.vault-selected-notice strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.vault-delete-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.vault-delete-action-btn.disabled {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: rgba(248, 113, 113, 0.45);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.vault-delete-action-btn.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(185, 28, 28, 0.35) 100%);
+  border-color: rgba(248, 113, 113, 0.6);
+  color: #fee2e2;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+
+.vault-delete-action-btn.active:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  border-color: #f87171;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
 /* Dossier Grid / List Area */
 .vault-dossier-list-wrapper {
   position: relative;
@@ -731,6 +913,290 @@
   font-size: 12px;
 }
 
+/* ==========================================================================
+   ITEM SELECTION & CHECKBOX STYLES (Cards & List Rows)
+   ========================================================================== */
+.vault-list-select-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vault-item-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1.5px solid rgba(148, 163, 184, 0.4);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.16s ease;
+  flex-shrink: 0;
+}
+
+.vault-item-checkbox:hover {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.18);
+  transform: scale(1.08);
+}
+
+.vault-item-checkbox.checked {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+}
+
+/* Row Selected State in List View */
+.vault-list-row.row-selected {
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.14) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 6px 20px -2px rgba(14, 165, 233, 0.22), inset 0 0 0 1px rgba(56, 189, 248, 0.25);
+}
+
+/* Card Selected State in Tiles View */
+.vault-card.card-selected {
+  border-color: rgba(56, 189, 248, 0.7);
+  background: radial-gradient(130% 130% at 50% 0%, rgba(14, 165, 233, 0.18) 0%, rgba(15, 23, 42, 0.96) 65%);
+  box-shadow: 0 12px 32px rgba(14, 165, 233, 0.24), 0 0 0 1px rgba(56, 189, 248, 0.35);
+  transform: translateY(-3px);
+}
+
+/* ==========================================================================
+   CONFIRMATION MODAL (BEAUTIFUL POP-UP FOR PERMANENT DELETION)
+   ========================================================================== */
+.vault-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 20px;
+  animation: vaultBackdropFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.vault-confirm-modal {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: radial-gradient(120% 120% at 50% 0%, #1c1524 0%, #140e1b 55%, #0d0912 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.45);
+  border-radius: 22px;
+  padding: 28px 24px 24px;
+  box-shadow:
+    0 25px 60px -10px rgba(0, 0, 0, 0.95),
+    0 0 40px rgba(239, 68, 68, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+  text-align: center;
+  color: #f1f5f9;
+  animation: vaultContainerZoom 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+
+.vault-confirm-icon-box {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.28) 0%, rgba(185, 28, 28, 0.08) 70%);
+  border: 1.5px solid rgba(248, 113, 113, 0.45);
+  border-radius: 50%;
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.35);
+}
+
+.vault-confirm-icon-glow {
+  position: absolute;
+  inset: -8px;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.vault-confirm-alert-icon {
+  color: #ef4444;
+  position: relative;
+  z-index: 1;
+}
+
+.vault-confirm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  color: #fca5a5;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.vault-confirm-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.vault-confirm-desc {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #cbd5e1;
+  margin: 0 0 16px;
+}
+
+.vault-confirm-desc strong {
+  color: #f87171;
+  font-weight: 750;
+}
+
+.vault-confirm-desc code {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.vault-confirm-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-height: 110px;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.vault-confirm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: #fecaca;
+}
+
+.vault-confirm-chip strong {
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.vault-confirm-chip small {
+  color: #94a3b8;
+  font-size: 10.5px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-confirm-chip.more {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.vault-confirm-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: #f87171;
+  margin-bottom: 20px;
+  font-weight: 550;
+}
+
+.vault-confirm-error {
+  padding: 9px 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 9px;
+  color: #fee2e2;
+  font-size: 12px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.vault-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 12px;
+}
+
+.vault-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+  user-select: none;
+}
+
+.vault-confirm-no {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #cbd5e1;
+}
+
+.vault-confirm-no:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.vault-confirm-yes {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: #ffffff;
+  border: 1px solid rgba(248, 113, 113, 0.6);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.vault-confirm-yes:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 26px rgba(239, 68, 68, 0.55);
+}
+
+.vault-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Empty & Loading States */
 .vault-empty-state,
 .vault-loading-state {
@@ -975,6 +1441,152 @@
   color: #0f172a;
 }
 
+/* Bright Theme Overrides for Selection & Confirmation */
+.theme-bright .vault-selection-toolbar {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+
+.theme-bright .vault-select-all-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.theme-bright .vault-select-all-btn:hover {
+  background: #f8fafc;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.theme-bright .vault-select-all-btn.active {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0369a1;
+}
+
+.theme-bright .vault-custom-checkbox {
+  background: #ffffff;
+  border-color: #94a3b8;
+}
+
+.theme-bright .vault-custom-checkbox.checked {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+
+.theme-bright .vault-item-checkbox {
+  background: #ffffff;
+  border-color: #94a3b8;
+}
+
+.theme-bright .vault-item-checkbox:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
+.theme-bright .vault-item-checkbox.checked {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+
+.theme-bright .vault-clear-selection-btn {
+  color: #64748b;
+}
+
+.theme-bright .vault-clear-selection-btn:hover {
+  color: #0f172a;
+}
+
+.theme-bright .vault-selected-notice {
+  color: #0284c7;
+}
+
+.theme-bright .vault-selected-notice strong {
+  color: #0f172a;
+}
+
+.theme-bright .vault-list-row.row-selected {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
+}
+
+.theme-bright .vault-card.card-selected {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.15);
+}
+
+.theme-bright .vault-delete-action-btn.disabled {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #f87171;
+}
+
+.theme-bright .vault-delete-action-btn.active {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.theme-bright .vault-delete-action-btn.active:hover {
+  background: #ef4444;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.theme-bright .vault-confirm-backdrop {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.theme-bright .vault-confirm-modal {
+  background: #ffffff;
+  border-color: #fca5a5;
+  color: #0f172a;
+  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.3), 0 0 30px rgba(239, 68, 68, 0.15);
+}
+
+.theme-bright .vault-confirm-title {
+  color: #0f172a;
+}
+
+.theme-bright .vault-confirm-desc {
+  color: #475569;
+}
+
+.theme-bright .vault-confirm-preview-list {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.theme-bright .vault-confirm-chip {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.theme-bright .vault-confirm-chip strong {
+  color: #7f1d1d;
+}
+
+.theme-bright .vault-confirm-chip small {
+  color: #64748b;
+}
+
+.theme-bright .vault-confirm-no {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.theme-bright .vault-confirm-no:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
 /* ==========================================================================
    RESPONSIVE DESIGN FOR VAULT MODAL
    ========================================================================== */
@@ -1006,6 +1618,18 @@
   .vault-header-right {
     width: 100%;
     justify-content: flex-start;
+  }
+  .vault-selection-toolbar {
+    padding: 10px 16px;
+    gap: 10px;
+  }
+  .vault-selection-right {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+  .vault-confirm-actions {
+    grid-template-columns: 1fr;
   }
   .vault-list-row {
     flex-direction: column;

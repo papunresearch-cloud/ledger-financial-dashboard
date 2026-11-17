@@ -34,6 +34,7 @@ try:
         read_company_report_html,
         save_or_update_company_report,
         list_all_saved_reports,
+        delete_company_reports,
     )
 except ImportError:  # pragma: no cover - direct script execution from backend/
     from company_research import CompanyResearchError, gather_company_sources, synthesize_about_ai
@@ -54,6 +55,7 @@ except ImportError:  # pragma: no cover - direct script execution from backend/
         read_company_report_html,
         save_or_update_company_report,
         list_all_saved_reports,
+        delete_company_reports,
     )
 
 # Prevent Windows registry quirks from serving ES modules or CSS with text/plain.
@@ -171,6 +173,7 @@ class LocalAppHandler(BaseHTTPRequestHandler):
             "/api/drive/check",
             "/api/drive/get-report",
             "/api/drive/save-report",
+            "/api/drive/delete-reports",
         ):
             return self._send_json(404, {"detail": "API route not found."})
         if not self._check_origin():
@@ -314,6 +317,24 @@ class LocalAppHandler(BaseHTTPRequestHandler):
                 traceback.print_exc()
                 detail = f"{type(exc).__name__}: {exc}"[:600]
                 return self._send_json(500, {"detail": f"Failed to save report to Google Drive — {detail}"})
+
+        if route == "/api/drive/delete-reports":
+            raw_codes = body.get("codes", [])
+            if isinstance(raw_codes, str):
+                raw_codes = [raw_codes]
+            if not isinstance(raw_codes, list) or not raw_codes:
+                return self._send_json(400, {"detail": "Provide a list of company codes to delete."})
+            codes = [str(c).strip().upper() for c in raw_codes if str(c).strip()]
+            if not codes:
+                return self._send_json(400, {"detail": "No valid company codes provided."})
+            try:
+                res = delete_company_reports(codes)
+                return self._send_json(200, res)
+            except Exception as exc:
+                print("Drive delete-reports failed:", flush=True)
+                traceback.print_exc()
+                detail = f"{type(exc).__name__}: {exc}"[:600]
+                return self._send_json(500, {"detail": f"Failed to delete reports from Google Drive — {detail}"})
 
         try:
             code = str(body.get("code", "")).strip()
