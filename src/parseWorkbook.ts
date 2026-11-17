@@ -219,6 +219,7 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
       const interestCoverage = ebit === null || interest === null || interest <= 0 ? null : ebit / interest
       const effCurrentAssets = currentAssets ?? otherAssets
       const effCurrentLiabilities = currentLiabilities ?? otherLiabilities
+      const workingCapital = (effCurrentAssets !== null && effCurrentLiabilities !== null) ? effCurrentAssets - effCurrentLiabilities : null
       const currentRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0 ? null : effCurrentAssets / effCurrentLiabilities
       const quickRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0
         ? null
@@ -240,6 +241,7 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
         netProfitMargin: safeMargin(sales, netProfit),
         receivables: get(balance, 'Receivables', i), inventory,
         payables: get(balance, 'Trade Payables', i, ['Payables', 'Trade Creditors', 'Creditors', 'Trade payables']) ?? otherLiabilities,
+        workingCapital,
         netBlock, cwip,
         netBlockToCwip: cwip === null || cwip === 0 || netBlock === null || netBlock === 0 ? null : 100 * cwip / netBlock,
         equity, borrowings, roce, interestCoverage, currentAssets, currentLiabilities, currentRatio, quickRatio, cashRatio,

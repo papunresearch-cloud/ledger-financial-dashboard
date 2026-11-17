@@ -25,7 +25,8 @@
 /* 1. EXOTIC PEER TABLE WRAPPER */
 .about-peer-wrap {
   width: 100%;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: calc(100vh - 160px);
   -webkit-overflow-scrolling: touch;
   margin-top: 2px;
   border-radius: 16px;
@@ -53,6 +54,13 @@
   font-weight: 850;
   letter-spacing: 0.6px;
   text-transform: uppercase;
+}
+
+.about-peer-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #0c2724;
 }
 
 .about-peer-table th {
@@ -339,7 +347,7 @@
   text-align: left;
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 4;
   min-width: 125px;
   max-width: 150px;
   width: 135px;
@@ -350,8 +358,11 @@
 }
 
 .about-peer-table thead th:first-child {
+  position: sticky;
+  top: 0;
+  left: 0;
   background: #0c2724;
-  z-index: 3;
+  z-index: 10;
   border-right: 1.5px solid rgba(45, 212, 191, 0.3);
   box-shadow: 3px 0 10px rgba(0, 0, 0, 0.35);
 }

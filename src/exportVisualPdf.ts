@@ -788,6 +788,50 @@ export function buildStandaloneWebReportHtml(
         margin: 6mm;
       }
     }
+
+    /* Table Header Freezing in Web Report */
+    .about-peer-wrap,
+    .ratio-table-wrapper,
+    .sh-table-scroll-wrap,
+    .company-table-scroll,
+    .bank-growth-scroll,
+    .wide-table-scroll {
+      overflow: auto !important;
+      max-height: 80vh !important;
+    }
+
+    .about-peer-table thead th,
+    .ratio-table thead th,
+    .sh-data-table thead th,
+    .company-growth-table thead th,
+    .bank-growth-table thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 6 !important;
+    }
+
+    .about-peer-table thead th:first-child,
+    .ratio-table thead th.col-sticky,
+    .sh-th-category,
+    .company-growth-table thead th:first-child,
+    .bank-growth-table thead th:first-child {
+      position: sticky !important;
+      top: 0 !important;
+      left: 0 !important;
+      z-index: 10 !important;
+    }
+
+    .about-peer-table th:first-child,
+    .about-peer-table td:first-child,
+    .ratio-table th.col-sticky,
+    .ratio-table td.col-sticky,
+    .sh-td-category,
+    .company-growth-table th:first-child,
+    .bank-growth-table th:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 4 !important;
+    }
   `
 
   return `<!doctype html>
@@ -826,6 +870,246 @@ export function buildStandaloneWebReportHtml(
       ${clone.outerHTML}
     </div>
   </main>
+  <script>
+  (function() {
+    function fmtVal(v, u) {
+      if (v === null || v === undefined || isNaN(v)) return '—';
+      if (u === 'percent') return Number(v).toFixed(1) + '%';
+      if (u === 'ratio') return Number(v).toFixed(2) + '×';
+      if (u === 'rupee') return '₹' + Number(v).toFixed(2);
+      if (Math.abs(v) >= 1e7) return (v / 1e7).toFixed(1) + ' Cr';
+      if (Math.abs(v) >= 1e5) return (v / 1e5).toFixed(1) + ' L';
+      if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(1) + ' k';
+      return Number(v).toLocaleString('en-IN', { maximumFractionDigits: 1 });
+    }
+
+    function getPalette(color) {
+      var c = (color || '').toUpperCase().trim();
+      if (c === '#00F5A0' || c === '#22D3B5' || c === '#38D9B4' || c === '#168B72') return '#059669';
+      if (c === '#FFB800' || c === '#FFC857' || c === '#D7A743' || c === '#FFD000') return '#d97706';
+      if (c === '#00D2FF' || c === '#5C9FFF' || c === '#38E1FF') return '#0284c7';
+      if (c === '#FF2E93' || c === '#FF72B6' || c === '#FF3399') return '#db2777';
+      if (c === '#B75CFF' || c === '#A78BFA' || c === '#B88BFF') return '#7c3aed';
+      if (c === '#FF5353' || c === '#F97373' || c === '#E06961' || c === '#D68157') return '#dc2626';
+      return color || '#0284c7';
+    }
+
+    function renderChart(card, spec, xLow, xHigh, yLow, yHigh) {
+      var snap = card.querySelector('.chart-snapshot');
+      if (!snap) return;
+      var data = spec.data || [];
+      if (data.length <= 1) return;
+
+      var start = Math.max(0, Math.min(xLow, data.length - 1));
+      var end = Math.max(start, Math.min(xHigh, data.length - 1));
+      var visible = data.slice(start, end + 1);
+      if (!visible.length) return;
+
+      var primaryMetrics = spec.metrics.filter(function(m) { return m.axis !== 'right'; });
+      if (!primaryMetrics.length) primaryMetrics = spec.metrics;
+      var keys = primaryMetrics.map(function(m) { return m.key; });
+
+      var minVal = Infinity, maxVal = -Infinity;
+      visible.forEach(function(row) {
+        keys.forEach(function(k) {
+          var v = row[k];
+          if (typeof v === 'number' && !isNaN(v)) {
+            if (v < minVal) minVal = v;
+            if (v > maxVal) maxVal = v;
+          }
+        });
+      });
+
+      if (minVal === Infinity || maxVal === -Infinity) return;
+
+      var naturalMin = minVal < 0 ? minVal * 1.08 : 0;
+      var naturalMax = maxVal > 0 ? maxVal * 1.08 : (minVal < 0 ? 0 : 1);
+      var naturalSpan = naturalMax - naturalMin;
+
+      var highFactor = 1.0;
+      if (yHigh <= 700) {
+        var ratio = Math.max(10, yHigh) / 700;
+        highFactor = Math.max(0.001, Math.pow(ratio, 2.4));
+      } else {
+        highFactor = 1.0 + 2.5 * ((yHigh - 700) / 300);
+      }
+      var effectiveMax = naturalMin + naturalSpan * highFactor;
+      var lowFraction = Math.min(0.92, yLow / 1000);
+      var effectiveMin = naturalMin + (effectiveMax - naturalMin) * lowFraction;
+
+      var W = 540, H = 286;
+      var padLeft = 62, padRight = 20, padTop = 16, padBottom = 32;
+      var plotW = W - padLeft - padRight;
+      var plotH = H - padTop - padBottom;
+      var spanY = (effectiveMax - effectiveMin) || 1;
+
+      function scaleY(v) {
+        return padTop + plotH - ((v - effectiveMin) / spanY) * plotH;
+      }
+
+      var n = visible.length;
+      var slotW = plotW / n;
+      var clipId = 'clip-' + (spec.id || Math.random().toString(36).substr(2, 6));
+
+      var out = '<div class="recharts-responsive-container" style="width:100%;height:286px;position:relative;">';
+      out += '<svg class="recharts-surface" viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:100%;max-width:100%;display:block;" preserveAspectRatio="xMidYMid meet">';
+      out += '<defs><clipPath id="' + clipId + '"><rect x="' + padLeft + '" y="' + padTop + '" width="' + plotW + '" height="' + plotH + '"/></clipPath></defs>';
+
+      for (var g = 0; g <= 4; g++) {
+        var gy = padTop + (plotH / 4) * g;
+        var gVal = effectiveMax - (spanY / 4) * g;
+        out += '<line x1="' + padLeft + '" y1="' + gy + '" x2="' + (padLeft + plotW) + '" y2="' + gy + '" stroke="#cbd5e1" stroke-dasharray="3 3" opacity="0.6"/>';
+        out += '<text x="' + (padLeft - 8) + '" y="' + (gy + 4) + '" fill="#000000" font-size="10" font-family="monospace" text-anchor="end">' + fmtVal(gVal, primaryMetrics[0].unit) + '</text>';
+      }
+
+      out += '<g clip-path="url(#' + clipId + ')">';
+
+      var barMetrics = spec.metrics.filter(function(m) { return m.kind !== 'line'; });
+      var lineMetrics = spec.metrics.filter(function(m) { return m.kind === 'line'; });
+
+      if (barMetrics.length > 0) {
+        var numBars = barMetrics.length;
+        var barGroupW = slotW * 0.7;
+        var singleBarW = Math.min(32, barGroupW / numBars);
+        var groupOffset = (slotW - singleBarW * numBars) / 2;
+
+        visible.forEach(function(row, idx) {
+          var slotX = padLeft + idx * slotW;
+          barMetrics.forEach(function(m, bIdx) {
+            var val = row[m.key];
+            if (typeof val === 'number' && !isNaN(val)) {
+              var bx = slotX + groupOffset + bIdx * singleBarW;
+              var byZero = scaleY(Math.max(effectiveMin, Math.min(effectiveMax, 0)));
+              var byVal = scaleY(val);
+              var yTop = Math.min(byZero, byVal);
+              var bH = Math.max(2, Math.abs(byZero - byVal));
+              var fill = getPalette(m.color);
+              out += '<rect x="' + bx + '" y="' + yTop + '" width="' + (singleBarW - 2) + '" height="' + bH + '" fill="' + fill + '" rx="3" opacity="0.9"/>';
+            }
+          });
+        });
+      }
+
+      lineMetrics.forEach(function(m) {
+        var stroke = getPalette(m.color);
+        var pts = [];
+        visible.forEach(function(row, idx) {
+          var val = row[m.key];
+          if (typeof val === 'number' && !isNaN(val)) {
+            var cx = padLeft + (idx + 0.5) * slotW;
+            var cy = scaleY(val);
+            pts.push({ x: cx, y: cy });
+          }
+        });
+        if (pts.length > 1) {
+          var pathD = 'M ' + pts.map(function(p) { return p.x + ' ' + p.y; }).join(' L ');
+          out += '<path d="' + pathD + '" fill="none" stroke="' + stroke + '" stroke-width="3" stroke-linecap="round"/>';
+        }
+        pts.forEach(function(p) {
+          out += '<circle cx="' + p.x + '" cy="' + p.y + '" r="3.5" fill="#ffffff" stroke="' + stroke + '" stroke-width="2.2"/>';
+        });
+      });
+
+      out += '</g>';
+
+      out += '<line x1="' + padLeft + '" y1="' + (padTop + plotH) + '" x2="' + (padLeft + plotW) + '" y2="' + (padTop + plotH) + '" stroke="#94a3b8"/>';
+      visible.forEach(function(row, idx) {
+        var cx = padLeft + (idx + 0.5) * slotW;
+        var lbl = row.period ? String(row.period).replace(/FY(?:20)?(\d{2})/g, 'FY$1') : '';
+        out += '<text x="' + cx + '" y="' + (padTop + plotH + 18) + '" fill="#000000" font-size="10" font-family="monospace" text-anchor="middle">' + lbl + '</text>';
+      });
+
+      out += '</svg></div>';
+      snap.innerHTML = out;
+    }
+
+    function initSliders() {
+      var cards = document.querySelectorAll('.chart-card[data-chart-spec]');
+      cards.forEach(function(card) {
+        var specRaw = card.getAttribute('data-chart-spec');
+        if (!specRaw) return;
+        var spec;
+        try { spec = JSON.parse(specRaw); } catch(e) { return; }
+        var totalPts = (spec.data || []).length;
+        if (totalPts <= 1) return;
+
+        var rows = card.querySelectorAll('.zoom-slider-row');
+        if (rows.length < 2) return;
+
+        var xRow = rows[0];
+        var yRow = rows[1];
+
+        var xLowInput = xRow.querySelector('.dual-slider-thumb-low');
+        var xHighInput = xRow.querySelector('.dual-slider-thumb-high');
+        var xFill = xRow.querySelector('.dual-slider-track-fill');
+
+        var yLowInput = yRow.querySelector('.dual-slider-thumb-low');
+        var yHighInput = yRow.querySelector('.dual-slider-thumb-high');
+        var yFill = yRow.querySelector('.dual-slider-track-fill');
+
+        function update() {
+          var xl = Number(xLowInput.value);
+          var xh = Number(xHighInput.value);
+          var yl = Number(yLowInput.value);
+          var yh = Number(yHighInput.value);
+
+          if (xFill) {
+            var xRange = Math.max(1, totalPts - 1);
+            var xP1 = (xl / xRange) * 100;
+            var xP2 = (xh / xRange) * 100;
+            xFill.style.left = xP1 + '%';
+            xFill.style.width = Math.max(0, xP2 - xP1) + '%';
+          }
+
+          if (yFill) {
+            var yP1 = (yl / 1000) * 100;
+            var yP2 = (yh / 1000) * 100;
+            yFill.style.left = yP1 + '%';
+            yFill.style.width = Math.max(0, yP2 - yP1) + '%';
+          }
+
+          renderChart(card, spec, xl, xh, yl, yh);
+        }
+
+        if (xLowInput && xHighInput) {
+          xLowInput.addEventListener('input', function() {
+            if (Number(xLowInput.value) > Number(xHighInput.value)) {
+              xLowInput.value = xHighInput.value;
+            }
+            update();
+          });
+          xHighInput.addEventListener('input', function() {
+            if (Number(xHighInput.value) < Number(xLowInput.value)) {
+              xHighInput.value = xLowInput.value;
+            }
+            update();
+          });
+        }
+
+        if (yLowInput && yHighInput) {
+          yLowInput.addEventListener('input', function() {
+            if (Number(yLowInput.value) > Number(yHighInput.value)) {
+              yLowInput.value = yHighInput.value;
+            }
+            update();
+          });
+          yHighInput.addEventListener('input', function() {
+            if (Number(yHighInput.value) < Number(yLowInput.value)) {
+              yHighInput.value = yLowInput.value;
+            }
+            update();
+          });
+        }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initSliders);
+    } else {
+      initSliders();
+    }
+  })();
+  </script>
 </body>
 </html>`
 }

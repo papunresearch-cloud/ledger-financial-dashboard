@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Bar, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -7,6 +7,75 @@ import type { AnnualRow, BankAnnualRow, BankQuarterRow, QuarterRow } from './typ
 
 type Metric = { key: string; label: string; color: string; kind?: 'line'; axis?: 'right'; unit?: 'percent' | 'ratio' | 'rupee' }
 export type ChartSpec = { id: string; title: string; subtitle: string; data: Array<Record<string, unknown>>; metrics: Metric[]; type?: 'line' | 'bar' | 'combo'; category: 'annual' | 'quarterly'; yAxisMax?: number }
+
+function TwoPointSlider({
+  label,
+  min,
+  max,
+  step = 1,
+  valLow,
+  valHigh,
+  onChange,
+  disabled = false,
+}: {
+  label: string
+  min: number
+  max: number
+  step?: number
+  valLow: number
+  valHigh: number
+  onChange: (low: number, high: number) => void
+  disabled?: boolean
+}) {
+  const range = max - min || 1
+  const pctLow = Math.max(0, Math.min(100, ((valLow - min) / range) * 100))
+  const pctHigh = Math.max(0, Math.min(100, ((valHigh - min) / range) * 100))
+
+  return (
+    <div className="zoom-slider-row">
+      <span className="zoom-slider-label">{label}</span>
+      <div className="dual-slider-track-wrap">
+        <div className="dual-slider-track-bg" />
+        <div
+          className="dual-slider-track-fill"
+          style={{ left: `${pctLow}%`, width: `${Math.max(0, pctHigh - pctLow)}%` }}
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={valLow}
+          disabled={disabled}
+          aria-label={`${label} min`}
+          className="dual-slider-thumb dual-slider-thumb-low"
+          onChange={e => {
+            const next = Number(e.target.value)
+            if (next <= valHigh) {
+              onChange(next, valHigh)
+            }
+          }}
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={valHigh}
+          disabled={disabled}
+          aria-label={`${label} max`}
+          className="dual-slider-thumb dual-slider-thumb-high"
+          onChange={e => {
+            const next = Number(e.target.value)
+            if (next >= valLow) {
+              onChange(valLow, next)
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}
 
 const fmt = (value: number, unit?: Metric['unit']) => {
   if (!Number.isFinite(value)) return '—'
@@ -150,6 +219,79 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
   const tickColor = isDark ? '#8eb0a4' : '#000000'
   const gridColor = isDark ? '#1c352e' : '#cbd5e1'
   const axisLineColor = isDark ? '#22463b' : '#94a3b8'
+
+  // Zoom slider state
+  const totalPoints = spec.data.length
+  const [xLow, setXLow] = useState(0)
+  const [xHigh, setXHigh] = useState(Math.max(0, totalPoints - 1))
+  const [yLow, setYLow] = useState(0)
+  const [yHigh, setYHigh] = useState(700) // Default 700 = 100% natural scale
+
+  useEffect(() => {
+    setXLow(0)
+    setXHigh(Math.max(0, spec.data.length - 1))
+    setYLow(0)
+    setYHigh(700)
+  }, [spec.id, spec.data.length])
+
+  // Filter visible data based on X-axis dual slider
+  const visibleData = useMemo(() => {
+    if (spec.data.length <= 1) return spec.data
+    const start = Math.max(0, Math.min(xLow, spec.data.length - 1))
+    const end = Math.max(start, Math.min(xHigh, spec.data.length - 1))
+    return spec.data.slice(start, end + 1)
+  }, [spec.data, xLow, xHigh])
+
+  // Dynamic Y-axis scale calculation with power-curve expansion & squeezing
+  const { computedYMin, computedYMax } = useMemo(() => {
+    const primaryMetrics = spec.metrics.filter(m => m.axis !== 'right')
+    const targetMetrics = primaryMetrics.length > 0 ? primaryMetrics : spec.metrics
+    const keys = targetMetrics.map(m => m.key)
+
+    let minVal = Infinity
+    let maxVal = -Infinity
+
+    for (const row of visibleData) {
+      for (const k of keys) {
+        const v = row[k]
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          if (v < minVal) minVal = v
+          if (v > maxVal) maxVal = v
+        }
+      }
+    }
+
+    if (minVal === Infinity || maxVal === -Infinity) {
+      return { computedYMin: undefined, computedYMax: spec.yAxisMax }
+    }
+
+    const naturalMin = minVal < 0 ? minVal * 1.08 : 0
+    const naturalMax = maxVal > 0 ? maxVal * 1.08 : (minVal < 0 ? 0 : 1)
+    const naturalSpan = naturalMax - naturalMin
+
+    // High thumb calculation:
+    // yHigh <= 700: deep zoom / expansion of tiny values down to 0.001 (1000x expansion)
+    // yHigh > 700: squeeze values up to 3.5x natural max
+    let highFactor = 1.0
+    if (yHigh <= 700) {
+      const ratio = Math.max(10, yHigh) / 700
+      highFactor = Math.max(0.001, Math.pow(ratio, 2.4))
+    } else {
+      highFactor = 1.0 + 2.5 * ((yHigh - 700) / 300)
+    }
+
+    const effectiveMax = naturalMin + naturalSpan * highFactor
+
+    // Low thumb calculation: raises the minimum floor
+    const lowFraction = Math.min(0.92, yLow / 1000)
+    const effectiveMin = naturalMin + (effectiveMax - naturalMin) * lowFraction
+
+    return {
+      computedYMin: Number(effectiveMin.toPrecision(4)),
+      computedYMax: Number(effectiveMax.toPrecision(4)),
+    }
+  }, [visibleData, spec.metrics, spec.yAxisMax, yLow, yHigh])
+
   const activeTooltipContentStyle: React.CSSProperties = isDark ? tooltipContentStyle : {
     borderRadius: 12,
     border: '1px solid #cbd5e1',
@@ -172,17 +314,45 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
     ? fmt(Number(value), metric.unit)
     : new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value))
 
-  return <article className={`chart-card ${isDark ? 'chart-card-dark' : 'chart-card-bright'}`} data-chart-card={spec.id} data-export-chart-card={exportMode ? spec.id : undefined}>
+  const yDomain: [number | string, number | string] | undefined = (computedYMin !== undefined && computedYMax !== undefined)
+    ? [computedYMin, computedYMax]
+    : (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)
+
+  return <article
+    className={`chart-card ${isDark ? 'chart-card-dark' : 'chart-card-bright'}`}
+    data-chart-card={spec.id}
+    data-export-chart-card={exportMode ? spec.id : undefined}
+    data-chart-spec={JSON.stringify(spec)}
+  >
     <div className="chart-heading">
       <div><span className="eyebrow">{spec.category === 'annual' ? 'YEARLY' : 'QUARTERLY'}</span><h3>{spec.title}</h3><p>{spec.subtitle}</p></div>
       <span className="chart-spark" aria-hidden="true">✳</span>
     </div>
+    <div className="chart-zoom-bar">
+      <TwoPointSlider
+        label="X-axis"
+        min={0}
+        max={Math.max(1, totalPoints - 1)}
+        valLow={xLow}
+        valHigh={xHigh}
+        onChange={(l, h) => { setXLow(l); setXHigh(h) }}
+        disabled={totalPoints <= 1}
+      />
+      <TwoPointSlider
+        label="Y-axis"
+        min={0}
+        max={1000}
+        valLow={yLow}
+        valHigh={yHigh}
+        onChange={(l, h) => { setYLow(l); setYHigh(h) }}
+      />
+    </div>
     <div className="chart-snapshot">
       {hasData ? <ResponsiveContainer width="100%" height={286}>
-        {allLine ? <LineChart data={spec.data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
+        {allLine ? <LineChart data={visibleData} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
-          <YAxis yAxisId="left" domain={spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined} allowDataOverflow={Boolean(spec.yAxisMax)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
+          <YAxis yAxisId="left" domain={yDomain} allowDataOverflow={true} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ stroke: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.18)', strokeDasharray: '3 3' }} />
           <Legend wrapperStyle={activeLegendStyle} />
           {spec.metrics.map(metric => {
@@ -203,7 +373,7 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
               />
             )
           })}
-        </LineChart> : <ComposedChart data={spec.data} margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}>
+        </LineChart> : <ComposedChart data={visibleData} margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}>
           <defs>
             {spec.metrics.filter(m => m.kind !== 'line').map(metric => {
               const palette = getBarPalette(metric.color, theme)
@@ -225,7 +395,7 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
           </defs>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
-          <YAxis yAxisId="left" domain={spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined} allowDataOverflow={Boolean(spec.yAxisMax)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
+          <YAxis yAxisId="left" domain={yDomain} allowDataOverflow={true} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
           {rightMetric && <YAxis yAxisId="right" orientation="right" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.05)' }} />
           <Legend wrapperStyle={activeLegendStyle} />
@@ -356,6 +526,8 @@ export function makeChartSpecs(annual: AnnualRow[], quarterly: QuarterRow[]): { 
       annualSpec(annual, 'annual-eps-dividend', 'EPS, dividend per share & payout', 'EPS & dividend per share in ₹; payout ratio · %', [A('eps', 'EPS', '#00F5A0', undefined, undefined, 'rupee'), A('dividendPerShare', 'Dividend per share', '#FFB800', undefined, undefined, 'rupee'), A('dividendPayout', 'Payout ratio', '#FF2E93', 'line', 'right', 'percent')], 'combo'),
       annualSpec(annual, 'annual-cash-flow-activities', 'Cash flow activities', 'Operating, investing, financing and net cash flow · ₹ crore', [A('operatingCashFlow', 'Cash from Operating Activity', '#00F5A0'), A('investingCashFlow', 'Cash from Investing Activity', '#00D2FF'), A('financingCashFlow', 'Cash from Financing Activity', '#FFB800'), A('netCashFlow', 'Net Cash Flow', '#FF2E93')]),
       annualSpec(annual, 'annual-cash-profit', 'Profit & cash generation', 'Operating profit, OCF, FCF & net profit · ₹ crore', [A('operatingProfit', 'Operating profit', '#00D2FF'), A('operatingCashFlow', 'Operating cash flow', '#00F5A0'), A('freeCashFlow', 'Free cash flow', '#FFB800'), A('netProfit','Net profit','#FF2E93')]),
+      annualSpec(annual, 'annual-sales-wc-cfo', 'Sales vs Working capital vs Cash from operation', 'Sales, working capital & cash from operation · ₹ crore', [A('sales', 'Sales', '#00F5A0'), A('workingCapital', 'Working capital', '#00D2FF'), A('operatingCashFlow', 'Cash from operation', '#FFB800')]),
+      annualSpec(annual, 'annual-cfo-rec-inv-pay', 'Cash from operation vs Receivables vs Inventory vs Payables', 'Cash from operation, receivables, inventory & payables · ₹ crore', [A('operatingCashFlow', 'Cash from operation', '#00F5A0'), A('receivables', 'Receivables', '#FFB800'), A('inventory', 'Inventory', '#00D2FF'), A('payables', 'Payables', '#FF2E93')]),
       annualSpec(annual, 'annual-working-capital', 'Sales, receivables & inventory', 'Sales, receivables & inventory in ₹ crore', [A('sales', 'Sales', '#00F5A0'), A('receivables', 'Receivables', '#FFB800'), A('inventory', 'Inventory', '#00D2FF')]),
       annualSpec(annual, 'annual-net-block', 'Net block & CWIP / net block', 'Net block · ₹ crore; CWIP / net block · %', [A('netBlock', 'Net block', '#00D2FF'), A('netBlockToCwip', 'CWIP / net block', '#FF5353', 'line', 'right', 'percent')], 'combo'),
       annualSpec(annual, 'annual-cwip', 'Capital work in progress', 'CWIP in ₹ crore', [A('cwip', 'CWIP', '#FF2E93')]),

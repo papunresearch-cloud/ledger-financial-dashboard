@@ -21,6 +21,7 @@ export type AnnualRow = {
   receivables: number | null
   inventory: number | null
   payables: number | null
+  workingCapital: number | null
   netBlock: number | null
   cwip: number | null
   netBlockToCwip: number | null
