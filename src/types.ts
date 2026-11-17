@@ -285,6 +285,11 @@ export type ScreenerAboutData = {
       rows: Array<{ label: string; values: string[] }>
     }
   }
+  cash_flow_schedule?: Record<string, Record<string, string>>
+  screener_ratios?: {
+    headers: string[]
+    rows: Array<{ label: string; values: string[] }>
+  }
   pros: string[]
   cons: string[]
   footnotes: ScreenerFootnote[]

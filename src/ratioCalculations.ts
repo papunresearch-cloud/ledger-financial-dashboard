@@ -482,7 +482,7 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'WORKING CAPITAL CYCLE',
     'Trade Payables / (Sales / 365)',
     a => {
-      const p = a.payables ?? a.otherLiabilities
+      const p = a.payables
       return a.sales && p !== null && a.sales > 0 ? (p / a.sales) * 365 : null
     },
     'days'
@@ -501,22 +501,22 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     a => {
       const d = a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null
       const inv = a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null
-      const p = a.payables ?? a.otherLiabilities
-      const cred = a.sales && p !== null && a.sales > 0 ? (p / a.sales) * 365 : null
-      if (d === null && inv === null && cred === null) return null
-      return (d ?? 0) + (inv ?? 0) - (cred ?? 0)
+      const p = a.payables
+      if (p === null || !a.sales || a.sales <= 0) return null
+      const cred = (p / a.sales) * 365
+      if (d === null && inv === null) return null
+      return (d ?? 0) + (inv ?? 0) - cred
     },
     'days'
   )
   add(
     'Working Capital Days',
     'WORKING CAPITAL CYCLE',
-    '(Current Assets − Current Liabilities) / (Sales / 365)',
+    'Working Capital / (Sales / 365)',
     a => {
-      const ca = a.otherAssets ?? a.currentAssets
-      const cl = a.otherLiabilities ?? a.currentLiabilities
-      if (ca === null || cl === null || !a.sales || a.sales <= 0) return null
-      return ((ca - cl) / a.sales) * 365
+      const wc = a.workingCapital
+      if (wc === null || !a.sales || a.sales <= 0) return null
+      return (wc / a.sales) * 365
     },
     'days'
   )

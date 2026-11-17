@@ -209,6 +209,33 @@ def parse_financial_snapshot(soup: BeautifulSoup) -> dict[str, Any]:
     }
 
 
+def parse_screener_ratios(soup: BeautifulSoup) -> dict[str, Any]:
+    """Extract Screener #ratios table (Debtor Days, Inventory Days, Days Payable, CCC, Working Capital Days, etc.)."""
+    r_sec = soup.select_one("#ratios")
+    if not r_sec:
+        return {}
+    tbl = r_sec.select_one("table")
+    if not tbl:
+        return {}
+    thead = tbl.select_one("thead")
+    headers = [th.get_text(" ", strip=True) for th in thead.select("th")] if thead else []
+    if not headers:
+        first_tr = tbl.select_one("tr")
+        if first_tr:
+            headers = [th.get_text(" ", strip=True) for th in first_tr.select("th, td")]
+    rows = []
+    tbody = tbl.select_one("tbody") or tbl
+    for tr in tbody.select("tr"):
+        tds = [td.get_text(" ", strip=True) for td in tr.select("th, td")]
+        if tds and tds[0] and (not headers or tds[0] != headers[0]):
+            lbl = tds[0].replace("+", "").strip()
+            rows.append({"label": lbl, "values": tds[1:]})
+    return {
+        "headers": headers,
+        "rows": rows,
+    }
+
+
 def parse_shareholding_pattern(soup: BeautifulSoup) -> dict[str, Any]:
     """Extract Quarterly and Yearly Shareholding Pattern tables from Screener."""
     sh_section = soup.select_one("#shareholding")
@@ -972,6 +999,38 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
     except Exception as exc:
         print(f"Error parsing peer comparison: {exc}", flush=True)
 
+    # Extract Cash Flow schedules (including Payables & Working Capital changes from '+' button)
+    cash_flow_schedule: dict[str, Any] = {}
+    try:
+        info_el = soup.select_one("#company-info")
+        cid = (info_el.get("data-company-id") or "").strip() if info_el else ""
+        if not cid:
+            m_cid = re.search(r'data-company-id="(\d+)"', main_html)
+            cid = m_cid.group(1) if m_cid else ""
+        if not cid:
+            m_cid = re.search(r'data-row-company-id="(\d+)"', main_html)
+            cid = m_cid.group(1) if m_cid else ""
+        if cid:
+            is_consol = "consolidated" in final_url.lower()
+            sched_url = f"https://www.screener.in/api/company/{cid}/schedules/?parent=Cash+from+Operating+Activity&section=cash-flow"
+            if is_consol:
+                sched_url += "&consolidated="
+            cf_resp = session.get(
+                sched_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer": final_url,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                timeout=15,
+            )
+            if cf_resp.status_code == 200:
+                cash_flow_schedule = cf_resp.json()
+    except Exception as exc:
+        print(f"Error fetching Screener cash flow schedule: {exc}", flush=True)
+
+    screener_ratios = parse_screener_ratios(soup)
+
     footnotes: list[dict[str, str]] = []
 
     footnotes.sort(key=lambda x: int(x["num"]) if x["num"].isdigit() else 999)
@@ -992,6 +1051,8 @@ def gather_company_about(code_or_name: str, company_name_hint: str = "") -> dict
         "shareholding": shareholding,
         "peer_comparison": peer_comparison,
         "financial_snapshot": parse_financial_snapshot(soup),
+        "cash_flow_schedule": cash_flow_schedule,
+        "screener_ratios": screener_ratios,
         "pros": pros,
         "cons": cons,
         "footnotes": footnotes,

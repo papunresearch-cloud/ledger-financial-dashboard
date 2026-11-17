@@ -14,7 +14,7 @@ import { exportExcel } from './exportReports'
 import { exportStandaloneHtmlReport } from './exportVisualPdf'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import companies from './companies.json'
-import type { AboutState, AppTheme, FinancialData, ScreenerAboutData, Section } from './types'
+import type { AboutState, AnnualRow, AppTheme, CompanyData, FinancialData, ScreenerAboutData, Section } from './types'
 import './cloud-download.css'
 import './frontpage3d.css'
 
@@ -131,6 +131,68 @@ function enrichBankDataWithSnapshot(
   }
 }
 
+function enrichCompanyDataWithScreener(
+  currentData: FinancialData,
+  payload?: ScreenerAboutData | null,
+): FinancialData {
+  if (currentData.mode === 'bank' || !payload?.cash_flow_schedule) return currentData
+  const companyData = currentData as CompanyData
+  const sched = payload.cash_flow_schedule
+  const payablesMap = sched['Payables'] || sched['Trade Payables'] || {}
+  const wcMap = sched['Working capital changes'] || sched['Working Capital'] || {}
+
+  const cleanNum = (valStr?: unknown): number | null => {
+    if (valStr === null || valStr === undefined) return null
+    if (typeof valStr === 'number') return Number.isFinite(valStr) ? valStr : null
+    const cleaned = String(valStr).replace(/,/g, '').trim()
+    if (!cleaned || cleaned === '-' || cleaned === '--') return null
+    const n = parseFloat(cleaned)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const findValueForPeriod = (sourceMap: Record<string, string>, period: string): number | null => {
+    const rowYearMatch = period.match(/(?:20)?(\d{2})$/)
+    const twoDigitYear = rowYearMatch ? rowYearMatch[1] : null
+
+    for (const [key, val] of Object.entries(sourceMap)) {
+      if (key === 'setAttributes') continue
+      const keyYearMatch = key.match(/(?:20)?(\d{2})$/)
+      if (twoDigitYear && keyYearMatch && keyYearMatch[1] === twoDigitYear) {
+        return cleanNum(val)
+      }
+      if (key.toLowerCase().includes(period.toLowerCase())) {
+        return cleanNum(val)
+      }
+    }
+    return null
+  }
+
+  let anyModified = false
+  const enrichedAnnual: AnnualRow[] = companyData.annual.map(row => {
+    const pVal = findValueForPeriod(payablesMap, row.period)
+    const wcVal = findValueForPeriod(wcMap, row.period)
+
+    const finalPayables = pVal !== null ? pVal : row.payables
+    const finalWc = wcVal !== null ? wcVal : row.workingCapital
+
+    if (finalPayables !== row.payables || finalWc !== row.workingCapital) {
+      anyModified = true
+    }
+
+    return {
+      ...row,
+      payables: finalPayables,
+      workingCapital: finalWc,
+    }
+  })
+
+  if (!anyModified) return companyData
+  return {
+    ...companyData,
+    annual: enrichedAnnual,
+  }
+}
+
 function App() {
   const [mode, setMode] = useState<Mode>('nonbank')
   const [section, setSection] = useState<Section>('about')
@@ -213,6 +275,9 @@ function App() {
       if (dataPayload.financial_snapshot) {
         setData(cur => cur ? enrichBankDataWithSnapshot(cur, dataPayload.financial_snapshot) : cur)
       }
+      if (dataPayload.cash_flow_schedule) {
+        setData(cur => cur ? enrichCompanyDataWithScreener(cur, dataPayload) : cur)
+      }
       aboutCacheRef.current.set(cacheKey, finalState)
       setAbout(finalState)
     } catch (cause) {
@@ -236,8 +301,11 @@ function App() {
     if (!/\.xlsx$/i.test(file.name)) { setError('Choose an .xlsx workbook. Legacy .xls files are not supported yet.'); return }
     setBusy(true); setError('')
     try {
-      const parsed = mode === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
+      let parsed = mode === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
       const inferred = inferCompanyCode(parsed.companyName, file.name)
+      if (about.data?.cash_flow_schedule) {
+        parsed = enrichCompanyDataWithScreener(parsed, about.data)
+      }
       setActiveCode(inferred)
       setData(parsed); setSection('about')
       void loadAboutForCompany(parsed, inferred, parsed.companyName)

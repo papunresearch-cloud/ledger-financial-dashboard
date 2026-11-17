@@ -1100,6 +1100,17 @@ export function buildStandaloneWebReportHtml(
             update();
           });
         }
+
+        var resetBtn = card.querySelector('.chart-zoom-reset-btn');
+        if (resetBtn && xLowInput && xHighInput && yLowInput && yHighInput) {
+          resetBtn.addEventListener('click', function() {
+            xLowInput.value = 0;
+            xHighInput.value = Math.max(1, totalPts - 1);
+            yLowInput.value = 0;
+            yHighInput.value = 700;
+            update();
+          });
+        }
       });
     }
 
