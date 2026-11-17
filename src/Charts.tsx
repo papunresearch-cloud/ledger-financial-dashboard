@@ -1,12 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Bar, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { Minus, Plus, RotateCcw } from 'lucide-react'
+import { RotateCcw, SlidersHorizontal } from 'lucide-react'
 import type { AnnualRow, BankAnnualRow, BankQuarterRow, QuarterRow } from './types'
-
-const ZOOM_PRESETS = [1, 1.5, 2, 3, 5, 8, 15, 30, 60, 120, 250, 500]
 
 type Metric = { key: string; label: string; color: string; kind?: 'line'; axis?: 'right'; unit?: 'percent' | 'ratio' | 'rupee' }
 export type ChartSpec = { id: string; title: string; subtitle: string; data: Array<Record<string, unknown>>; metrics: Metric[]; type?: 'line' | 'bar' | 'combo'; category: 'annual' | 'quarterly'; yAxisMax?: number }
@@ -145,9 +143,90 @@ const legendWrapperStyle: React.CSSProperties = {
   paddingTop: 10,
 }
 
+type DualRangeSliderProps = {
+  min: number
+  max: number
+  step?: number
+  value: [number, number]
+  onChange: (val: [number, number]) => void
+  fillColor?: string
+  minGap?: number
+  idPrefix?: string
+}
+
+function DualRangeSlider({
+  min,
+  max,
+  step = 1,
+  value,
+  onChange,
+  fillColor = '#0284c7',
+  minGap = 1,
+}: DualRangeSliderProps) {
+  const [valLow, valHigh] = value
+  const span = max - min
+  const leftPct = span > 0 ? Math.max(0, Math.min(100, ((valLow - min) / span) * 100)) : 0
+  const widthPct = span > 0 ? Math.max(0, Math.min(100 - leftPct, ((valHigh - valLow) / span) * 100)) : 100
+
+  const handleLowChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = Number(e.target.value)
+    const clamped = Math.min(next, valHigh - minGap)
+    onChange([clamped, valHigh])
+  }
+
+  const handleHighChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = Number(e.target.value)
+    const clamped = Math.max(next, valLow + minGap)
+    onChange([valLow, clamped])
+  }
+
+  return (
+    <div className="dual-slider-container">
+      <div className="dual-slider-track" />
+      <div
+        className="dual-slider-fill"
+        style={{
+          left: `${leftPct}%`,
+          width: `${widthPct}%`,
+          background: fillColor,
+        }}
+      />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={valLow}
+        onChange={handleLowChange}
+        className="dual-slider-input slider-min"
+        aria-label="Lower range handle"
+        style={{ zIndex: valLow > max - minGap * 2 ? 5 : 3 }}
+      />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={valHigh}
+        onChange={handleHighChange}
+        className="dual-slider-input slider-max"
+        aria-label="Upper range handle"
+        style={{ zIndex: 4 }}
+      />
+    </div>
+  )
+}
+
 export function ChartPanel({ spec, exportMode = false, staticRender = false, gradientPrefix, theme = 'light' }: { spec: ChartSpec; exportMode?: boolean; staticRender?: boolean; gradientPrefix?: string; theme?: 'light' | 'dark' | 'bright' }) {
-  const [zoomIdx, setZoomIdx] = useState(0)
-  const zoomLevel = ZOOM_PRESETS[zoomIdx]
+  const totalPeriods = spec.data.length
+  const [xRange, setXRange] = useState<[number, number]>([0, Math.max(0, totalPeriods - 1)])
+  const [yRange, setYRange] = useState<[number, number]>([0, 100])
+  const [showSliders, setShowSliders] = useState(true)
+
+  useEffect(() => {
+    setXRange([0, Math.max(0, spec.data.length - 1)])
+    setYRange([0, 100])
+  }, [spec.data.length])
 
   const gradPrefix = gradientPrefix ?? (exportMode ? 'export-' : '')
   const hasData = spec.data.some(point => spec.metrics.some(metric => typeof point[metric.key] === 'number' && Number.isFinite(point[metric.key] as number)))
@@ -205,133 +284,106 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
     return vals
   }, [spec.data, rightMetric])
 
-  const domainLeft = useMemo<[number, number] | undefined>(() => {
-    if (zoomLevel <= 1 && !spec.yAxisMax) return undefined
-    if (leftValues.length === 0) return undefined
+  const maxVal = spec.yAxisMax ?? (leftValues.length > 0 ? Math.max(...leftValues) : 100)
+  const minVal = leftValues.length > 0 ? Math.min(...leftValues) : 0
 
-    const maxVal = spec.yAxisMax ?? Math.max(...leftValues)
-    const minVal = Math.min(...leftValues)
-
-    if (zoomLevel <= 1) {
-      return [minVal < 0 ? minVal : 0, maxVal]
-    }
-
-    const absMax = Math.abs(maxVal)
-    const absMin = Math.abs(minVal)
-
-    let sMin = minVal < 0 ? minVal : 0
-    let sMax = maxVal > 0 ? maxVal : 0
-
-    if (absMax >= absMin * 2) {
-      sMax = maxVal / zoomLevel
-      if (minVal < 0) sMin = Math.min(sMin, -sMax * 0.25)
-    } else if (absMin >= absMax * 2) {
-      sMin = minVal / zoomLevel
-      if (maxVal > 0) sMax = Math.max(sMax, -sMin * 0.25)
-    } else {
-      if (maxVal > 0) sMax = maxVal / zoomLevel
-      if (minVal < 0) sMin = minVal / zoomLevel
-    }
-
-    if (sMax <= sMin) {
-      sMax = sMin + (absMax > 0 ? absMax * 0.1 : 1)
-    }
-
-    return [sMin, sMax]
-  }, [zoomLevel, spec.yAxisMax, leftValues])
-
-  const domainRight = useMemo<[number, number] | undefined>(() => {
-    if (!rightMetric || zoomLevel <= 1) return undefined
-    if (rightValues.length === 0) return undefined
-
-    const maxVal = Math.max(...rightValues)
-    const minVal = Math.min(...rightValues)
-    const absMax = Math.abs(maxVal)
-    const absMin = Math.abs(minVal)
-
-    let sMin = minVal < 0 ? minVal : 0
-    let sMax = maxVal > 0 ? maxVal : 0
-
-    if (absMax >= absMin * 2) {
-      sMax = maxVal / zoomLevel
-    } else if (absMin >= absMax * 2) {
-      sMin = minVal / zoomLevel
-    } else {
-      if (maxVal > 0) sMax = maxVal / zoomLevel
-      if (minVal < 0) sMin = minVal / zoomLevel
-    }
-
-    if (sMax <= sMin) sMax = sMin + 1
-    return [sMin, sMax]
-  }, [zoomLevel, rightMetric, rightValues])
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey) {
-      e.preventDefault()
-      if (e.deltaY < 0) {
-        setZoomIdx(i => Math.min(ZOOM_PRESETS.length - 1, i + 1))
-      } else if (e.deltaY > 0) {
-        setZoomIdx(i => Math.max(0, i - 1))
+  const { mappedYMin, mappedYMax } = useMemo(() => {
+    if (yRange[0] === 0 && yRange[1] === 100) {
+      return {
+        mappedYMin: minVal < 0 ? minVal : 0,
+        mappedYMax: maxVal,
       }
     }
-  }, [])
+    const [yLow, yHigh] = yRange
+    let sMax = maxVal > 0 ? maxVal * Math.pow(yHigh / 100, 2.2) : maxVal
+    let sMin = 0
+    if (minVal < 0) {
+      sMin = minVal * Math.pow((100 - yLow) / 100, 2.2)
+    } else {
+      sMin = (maxVal * 0.45) * Math.pow(yLow / 100, 2.2)
+    }
+    if (sMax <= sMin) {
+      sMax = sMin + (Math.abs(maxVal) > 0 ? Math.abs(maxVal) * 0.05 : 1)
+    }
+    return { mappedYMin: sMin, mappedYMax: sMax }
+  }, [yRange, minVal, maxVal])
+
+  const domainLeft = useMemo<[number, number] | undefined>(() => {
+    if (yRange[0] === 0 && yRange[1] === 100 && !spec.yAxisMax) return undefined
+    return [mappedYMin, mappedYMax]
+  }, [yRange, mappedYMin, mappedYMax, spec.yAxisMax])
+
+  const domainRight = useMemo<[number, number] | undefined>(() => {
+    if (!rightMetric) return undefined
+    if (rightValues.length === 0) return undefined
+    if (yRange[0] === 0 && yRange[1] === 100) return undefined
+
+    const rMaxVal = Math.max(...rightValues)
+    const rMinVal = Math.min(...rightValues)
+
+    let rMax = rMaxVal * Math.pow(yRange[1] / 100, 2.2)
+    let rMin = rMinVal < 0 ? rMinVal * Math.pow((100 - yRange[0]) / 100, 2.2) : 0
+    if (rMax <= rMin) rMax = rMin + 1
+    return [rMin, rMax]
+  }, [rightMetric, rightValues, yRange])
+
+  const displayedData = useMemo(() => {
+    if (totalPeriods <= 1) return spec.data
+    const start = Math.max(0, Math.min(xRange[0], totalPeriods - 1))
+    const end = Math.max(start, Math.min(xRange[1], totalPeriods - 1))
+    return spec.data.slice(start, end + 1)
+  }, [spec.data, xRange, totalPeriods])
+
+  const isAdjusted = xRange[0] > 0 || xRange[1] < totalPeriods - 1 || yRange[0] > 0 || yRange[1] < 100
+
+  const handleResetRange = () => {
+    setXRange([0, Math.max(0, totalPeriods - 1)])
+    setYRange([0, 100])
+  }
+
+  const xStartLabel = spec.data[xRange[0]]?.period ? String(spec.data[xRange[0]].period) : ''
+  const xEndLabel = spec.data[xRange[1]]?.period ? String(spec.data[xRange[1]].period) : ''
+  const yMinLabel = tickFormatter(mappedYMin, axisMetric)
+  const yMaxLabel = tickFormatter(mappedYMax, axisMetric)
+  const allowOverflow = Boolean(spec.yAxisMax || yRange[0] > 0 || yRange[1] < 100)
 
   return <article className={`chart-card ${isDark ? 'chart-card-dark' : 'chart-card-bright'}`} data-chart-card={spec.id} data-export-chart-card={exportMode ? spec.id : undefined}>
     <div className="chart-heading">
       <div><span className="eyebrow">{spec.category === 'annual' ? 'YEARLY' : 'QUARTERLY'}</span><h3>{spec.title}</h3><p>{spec.subtitle}</p></div>
       <div className="chart-heading-actions">
+        {hasData && isAdjusted && (
+          <button
+            type="button"
+            className="chart-reset-range-btn"
+            onClick={handleResetRange}
+            title="Reset both X-axis and Y-axis sliders to full default range"
+            aria-label="Reset sliders"
+          >
+            <RotateCcw size={12} strokeWidth={2.5} />
+            <span>Reset</span>
+          </button>
+        )}
         {hasData && (
-          <div className="chart-zoom-controls" data-zoom-controls title="Zoom Y-axis to expand small values compressed by sudden spike (or Ctrl+Scroll)">
-            <button
-              type="button"
-              className="chart-zoom-btn zoom-out"
-              onClick={() => setZoomIdx(i => Math.max(0, i - 1))}
-              disabled={zoomIdx === 0}
-              title="Zoom Out (-)"
-              aria-label="Zoom Out"
-            >
-              <Minus size={12} strokeWidth={2.5} />
-            </button>
-            <button
-              type="button"
-              className={`chart-zoom-badge ${zoomLevel > 1 ? 'is-zoomed' : ''}`}
-              onClick={() => setZoomIdx(i => (i + 1) % ZOOM_PRESETS.length)}
-              title={zoomLevel > 1 ? `Zoomed ${zoomLevel}× · Click to cycle or ↺ to reset` : 'Zoom: 1× (Click to cycle)'}
-            >
-              {zoomLevel}×
-            </button>
-            <button
-              type="button"
-              className="chart-zoom-btn zoom-in"
-              onClick={() => setZoomIdx(i => Math.min(ZOOM_PRESETS.length - 1, i + 1))}
-              disabled={zoomIdx === ZOOM_PRESETS.length - 1}
-              title="Zoom In (+)"
-              aria-label="Zoom In"
-            >
-              <Plus size={12} strokeWidth={2.5} />
-            </button>
-            {zoomLevel > 1 && (
-              <button
-                type="button"
-                className="chart-zoom-btn chart-zoom-reset"
-                onClick={() => setZoomIdx(0)}
-                title="Reset zoom to 1×"
-                aria-label="Reset zoom"
-              >
-                <RotateCcw size={11} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            className={`chart-slider-toggle-btn ${showSliders ? 'active' : ''}`}
+            onClick={() => setShowSliders(s => !s)}
+            title={showSliders ? 'Hide range sliders' : 'Show X-axis & Y-axis range zoom sliders'}
+            aria-label="Toggle sliders"
+          >
+            <SlidersHorizontal size={13} strokeWidth={2.2} />
+            <span>Range</span>
+          </button>
         )}
         <span className="chart-spark" aria-hidden="true">✳</span>
       </div>
     </div>
-    <div className="chart-snapshot" onWheel={handleWheel}>
+    <div className="chart-snapshot">
       {hasData ? <ResponsiveContainer width="100%" height={286}>
-        {allLine ? <LineChart data={spec.data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
+        {allLine ? <LineChart data={displayedData} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
-          <YAxis yAxisId="left" domain={domainLeft || (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)} allowDataOverflow={Boolean(spec.yAxisMax || zoomLevel > 1)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
+          <YAxis yAxisId="left" domain={domainLeft || (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)} allowDataOverflow={allowOverflow} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ stroke: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.18)', strokeDasharray: '3 3' }} />
           <Legend wrapperStyle={activeLegendStyle} />
           {spec.metrics.map(metric => {
@@ -352,7 +404,7 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
               />
             )
           })}
-        </LineChart> : <ComposedChart data={spec.data} margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}>
+        </LineChart> : <ComposedChart data={displayedData} margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}>
           <defs>
             {spec.metrics.filter(m => m.kind !== 'line').map(metric => {
               const palette = getBarPalette(metric.color, theme)
@@ -374,8 +426,8 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
           </defs>
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
-          <YAxis yAxisId="left" domain={domainLeft || (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)} allowDataOverflow={Boolean(spec.yAxisMax || zoomLevel > 1)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
-          {rightMetric && <YAxis yAxisId="right" orientation="right" domain={domainRight} allowDataOverflow={Boolean(zoomLevel > 1)} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
+          <YAxis yAxisId="left" domain={domainLeft || (spec.yAxisMax ? ['auto', spec.yAxisMax] : undefined)} allowDataOverflow={allowOverflow} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, axisMetric)} />
+          {rightMetric && <YAxis yAxisId="right" orientation="right" domain={domainRight} allowDataOverflow={allowOverflow} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.05)' }} />
           <Legend wrapperStyle={activeLegendStyle} />
           {spec.metrics.map(metric => {
@@ -416,6 +468,50 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
         </ComposedChart>}
       </ResponsiveContainer> : <div className="chart-empty"><span>◌</span><strong>Not enough data to plot</strong><small>Check the data-quality notes below.</small></div>}
     </div>
+
+    {hasData && showSliders && (
+      <div
+        className="chart-sliders-box"
+        data-chart-sliders={spec.id}
+        data-total-periods={totalPeriods}
+        data-periods={JSON.stringify(spec.data.map(d => String(d.period || '')))}
+        data-min-val={minVal}
+        data-max-val={maxVal}
+        data-axis-unit={axisMetric.unit || ''}
+      >
+        <div className="chart-slider-row">
+          <div className="chart-slider-meta">
+            <span className="chart-slider-axis-badge axis-x">X-Axis</span>
+            <span className="chart-slider-range-text">{xStartLabel} → {xEndLabel}</span>
+          </div>
+          <DualRangeSlider
+            min={0}
+            max={Math.max(1, totalPeriods - 1)}
+            value={xRange}
+            onChange={setXRange}
+            fillColor="#0284c7"
+            minGap={1}
+            idPrefix={`x-${spec.id}`}
+          />
+        </div>
+
+        <div className="chart-slider-row">
+          <div className="chart-slider-meta">
+            <span className="chart-slider-axis-badge axis-y">Y-Axis</span>
+            <span className="chart-slider-range-text">{yMinLabel} → {yMaxLabel}</span>
+          </div>
+          <DualRangeSlider
+            min={0}
+            max={100}
+            value={yRange}
+            onChange={setYRange}
+            fillColor="#059669"
+            minGap={5}
+            idPrefix={`y-${spec.id}`}
+          />
+        </div>
+      </div>
+    )}
   </article>
 }
 

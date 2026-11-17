@@ -42,13 +42,23 @@ export function SavedReportViewer({
       '.sh-td-cell,.sh-th-period{min-width:48px!important;padding:4px 4px!important;}' +
       '.sh-th-category,.sh-td-category{min-width:125px!important;max-width:160px!important;width:140px!important;padding:6px 8px!important;}' +
       '.chart-heading-actions{display:flex!important;align-items:center!important;gap:8px!important;flex-shrink:0!important;}' +
-      '.chart-zoom-controls{display:inline-flex!important;align-items:center!important;background:#f1f5f9!important;border:1px solid #cbd5e1!important;border-radius:9px!important;padding:2px 4px!important;gap:3px!important;box-shadow:0 1px 3px rgba(15,23,42,.06)!important;user-select:none!important;}' +
-      '.chart-zoom-btn{width:22px!important;height:22px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;background:transparent!important;border:none!important;border-radius:5px!important;color:#475569!important;padding:0!important;cursor:pointer!important;}' +
-      '.chart-zoom-btn:hover:not(:disabled){background:#e2e8f0!important;color:#0f172a!important;}' +
-      '.chart-zoom-btn:disabled{opacity:0.3!important;cursor:not-allowed!important;}' +
-      '.chart-zoom-badge{font-family:\'DM Mono\',monospace!important;font-size:11px!important;font-weight:700!important;padding:1px 6px!important;min-width:28px!important;text-align:center!important;border-radius:5px!important;color:#475569!important;background:transparent!important;border:1px solid transparent!important;cursor:pointer!important;user-select:none!important;line-height:1.3!important;}' +
-      '.chart-zoom-badge.is-zoomed{background:#0284c7!important;color:#fff!important;border-color:#0369a1!important;}' +
-      '.chart-zoom-reset{color:#d97706!important;}' +
+      '.chart-reset-range-btn,.chart-slider-toggle-btn{display:inline-flex!important;align-items:center!important;gap:5px!important;font-size:11px!important;font-weight:700!important;font-family:\'DM Mono\',monospace!important;padding:3px 8px!important;border-radius:7px!important;border:1px solid #cbd5e1!important;background:#f1f5f9!important;color:#475569!important;cursor:pointer!important;user-select:none!important;}' +
+      '.chart-reset-range-btn{background:#fef3c7!important;color:#b45309!important;border-color:#fde68a!important;}' +
+      '.chart-reset-range-btn:hover{background:#fde68a!important;color:#92400e!important;}' +
+      '.chart-slider-toggle-btn.active{background:#e0f2fe!important;color:#0284c7!important;border-color:#bae6fd!important;}' +
+      '.chart-sliders-box{margin-top:10px!important;padding:8px 12px!important;background:#f8fafc!important;border:1px solid #e2e8f0!important;border-radius:12px!important;display:flex!important;flex-direction:column!important;gap:7px!important;box-shadow:inset 0 1px 3px rgba(15,23,42,.04)!important;}' +
+      '.chart-slider-row{display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;}' +
+      '.chart-slider-meta{display:flex!important;align-items:center!important;gap:8px!important;min-width:140px!important;max-width:180px!important;flex-shrink:0!important;}' +
+      '.chart-slider-axis-badge{font-size:10px!important;font-weight:800!important;font-family:\'DM Mono\',monospace!important;padding:2px 6px!important;border-radius:4px!important;color:#fff!important;text-transform:uppercase!important;}' +
+      '.chart-slider-axis-badge.axis-x{background:#0284c7!important;}' +
+      '.chart-slider-axis-badge.axis-y{background:#059669!important;}' +
+      '.chart-slider-range-text{font-size:11px!important;font-weight:700!important;font-family:\'DM Mono\',monospace!important;color:#1e293b!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}' +
+      '.dual-slider-container{position:relative!important;flex:1!important;height:24px!important;display:flex!important;align-items:center!important;touch-action:none!important;}' +
+      '.dual-slider-track{position:absolute!important;width:100%!important;height:6px!important;border-radius:3px!important;background:#e2e8f0!important;}' +
+      '.dual-slider-fill{position:absolute!important;height:6px!important;border-radius:3px!important;background:#0284c7!important;z-index:2!important;pointer-events:none!important;}' +
+      '.dual-slider-input{position:absolute!important;width:100%!important;height:6px!important;background:transparent!important;-webkit-appearance:none!important;appearance:none!important;pointer-events:none!important;margin:0!important;outline:none!important;}' +
+      '.dual-slider-input::-webkit-slider-thumb{pointer-events:auto!important;-webkit-appearance:none!important;appearance:none!important;width:16px!important;height:16px!important;border-radius:50%!important;background:#0284c7!important;border:2px solid #fff!important;cursor:grab!important;box-shadow:0 1px 4px rgba(15,23,42,.25)!important;}' +
+      '.dual-slider-input.slider-max::-webkit-slider-thumb{background:#059669!important;border-color:#fff!important;}' +
       '</style>'
     if (clean.includes('</head>')) {
       clean = clean.replace('</head>', `${injectedCss}</head>`)
@@ -56,12 +66,11 @@ export function SavedReportViewer({
       clean = injectedCss + clean
     }
 
-    if (!clean.includes('window._chartZoomInit') && !clean.includes('Chart Zooming in Web Report')) {
-      const zoomScript = `<script>
+    if (!clean.includes('window._chartRangeInit') && !clean.includes('Chart Dual-Range Sliders')) {
+      const sliderScript = `<script>
       (function() {
-        if (window._chartZoomInit) return;
-        window._chartZoomInit = true;
-        var ZOOM_PRESETS = [1, 1.5, 2, 3, 5, 8, 15, 30, 60, 120, 250, 500];
+        if (window._chartRangeInit) return;
+        window._chartRangeInit = true;
         function parseTick(text) {
           var clean = (text || '').trim();
           var prefix = ''; var suffix = '';
@@ -97,57 +106,100 @@ export function SavedReportViewer({
           }
           return prefix + formatted + suffix;
         }
-        function ensureControlsOnCard(card) {
-          if (card.querySelector('.chart-zoom-controls')) return;
+        function ensureSlidersOnCard(card) {
+          if (card.querySelector('.chart-sliders-box')) return;
+          var svg = card.querySelector('.chart-snapshot svg.recharts-surface');
+          if (!svg) return;
+          var xTicks = Array.from(svg.querySelectorAll('.recharts-xAxis .recharts-cartesian-axis-tick text tspan, .recharts-xAxis .recharts-cartesian-axis-tick text')).map(function(t) {
+            return (t.textContent || '').trim();
+          }).filter(Boolean);
+          var totalPeriods = xTicks.length || 10;
+          var startLabel = xTicks[0] || 'Start';
+          var endLabel = xTicks[totalPeriods - 1] || 'End';
+
           var heading = card.querySelector('.chart-heading');
-          if (!heading) return;
-          var actions = heading.querySelector('.chart-heading-actions');
-          if (!actions) {
-            actions = document.createElement('div');
+          if (heading && !heading.querySelector('.chart-heading-actions')) {
+            var actions = document.createElement('div');
             actions.className = 'chart-heading-actions';
+            actions.innerHTML = '<button type="button" class="chart-reset-range-btn" style="display:none;" title="Reset range"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg><span>Reset</span></button>' +
+              '<button type="button" class="chart-slider-toggle-btn active" title="Toggle range sliders"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg><span>Range</span></button>';
             var spark = heading.querySelector('.chart-spark');
-            if (spark) {
-              heading.insertBefore(actions, spark);
-              actions.appendChild(spark);
-            } else {
-              heading.appendChild(actions);
-            }
+            if (spark) { heading.insertBefore(actions, spark); actions.appendChild(spark); }
+            else { heading.appendChild(actions); }
           }
-          var ctrl = document.createElement('div');
-          ctrl.className = 'chart-zoom-controls';
-          ctrl.title = 'Zoom Y-axis to expand small values compressed by sudden spike (or Ctrl+Scroll)';
-          ctrl.innerHTML = '<button type="button" class="chart-zoom-btn zoom-out" disabled title="Zoom Out (-)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>' +
-            '<button type="button" class="chart-zoom-badge" title="Click to cycle zoom">1×</button>' +
-            '<button type="button" class="chart-zoom-btn zoom-in" title="Zoom In (+)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>' +
-            '<button type="button" class="chart-zoom-btn chart-zoom-reset" style="display:none;" title="Reset zoom (1×)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg></button>';
-          var sparkEl = actions.querySelector('.chart-spark');
-          if (sparkEl) actions.insertBefore(ctrl, sparkEl);
-          else actions.appendChild(ctrl);
+          var box = document.createElement('div');
+          box.className = 'chart-sliders-box';
+          box.dataset.totalPeriods = totalPeriods;
+          box.dataset.periods = JSON.stringify(xTicks);
+          box.innerHTML = '<div class="chart-slider-row">' +
+            '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-x">X-Axis</span><span class="chart-slider-range-text">' + startLabel + ' → ' + endLabel + '</span></div>' +
+            '<div class="dual-slider-container"><div class="dual-slider-track"></div><div class="dual-slider-fill" style="left:0%;width:100%;"></div>' +
+            '<input type="range" min="0" max="' + (totalPeriods - 1) + '" value="0" class="dual-slider-input slider-min">' +
+            '<input type="range" min="0" max="' + (totalPeriods - 1) + '" value="' + (totalPeriods - 1) + '" class="dual-slider-input slider-max">' +
+            '</div></div>' +
+            '<div class="chart-slider-row">' +
+            '<div class="chart-slider-meta"><span class="chart-slider-axis-badge axis-y">Y-Axis</span><span class="chart-slider-range-text">0 → Full</span></div>' +
+            '<div class="dual-slider-container"><div class="dual-slider-track"></div><div class="dual-slider-fill" style="left:0%;width:100%;background:#059669;"></div>' +
+            '<input type="range" min="0" max="100" value="0" class="dual-slider-input slider-min">' +
+            '<input type="range" min="0" max="100" value="100" class="dual-slider-input slider-max">' +
+            '</div></div>';
+          card.appendChild(box);
         }
-        function applyZoomToCard(card, targetZoom) {
-          card._zoom = targetZoom;
-          var badge = card.querySelector('.chart-zoom-badge');
-          if (badge) {
-            badge.textContent = targetZoom + '×';
-            if (targetZoom > 1) badge.classList.add('is-zoomed');
-            else badge.classList.remove('is-zoomed');
+        function updateCardTransform(card) {
+          var box = card.querySelector('.chart-sliders-box');
+          if (!box) return;
+          var rows = box.querySelectorAll('.chart-slider-row');
+          if (rows.length < 2) return;
+          var xMinInput = rows[0].querySelector('.slider-min');
+          var xMaxInput = rows[0].querySelector('.slider-max');
+          var yMinInput = rows[1].querySelector('.slider-min');
+          var yMaxInput = rows[1].querySelector('.slider-max');
+          if (!xMinInput || !xMaxInput || !yMinInput || !yMaxInput) return;
+          var xMin = parseInt(xMinInput.value, 10);
+          var xMax = parseInt(xMaxInput.value, 10);
+          if (xMin > xMax - 1) { xMin = xMax - 1; xMinInput.value = xMin; }
+          var yMin = parseInt(yMinInput.value, 10);
+          var yMax = parseInt(yMaxInput.value, 10);
+          if (yMin > yMax - 5) { yMin = yMax - 5; yMinInput.value = yMin; }
+          var xSpan = parseInt(xMinInput.max, 10) || 1;
+          var xFill = rows[0].querySelector('.dual-slider-fill');
+          if (xFill) {
+            xFill.style.left = ((xMin / xSpan) * 100) + '%';
+            xFill.style.width = (((xMax - xMin) / xSpan) * 100) + '%';
           }
-          var resetBtn = card.querySelector('.chart-zoom-reset');
-          if (resetBtn) resetBtn.style.display = targetZoom > 1 ? 'inline-flex' : 'none';
-          var outBtn = card.querySelector('.chart-zoom-btn.zoom-out');
-          if (outBtn) outBtn.disabled = targetZoom <= 1;
-          var inBtn = card.querySelector('.chart-zoom-btn.zoom-in');
-          if (inBtn) inBtn.disabled = targetZoom >= ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
+          var yFill = rows[1].querySelector('.dual-slider-fill');
+          if (yFill) {
+            yFill.style.left = yMin + '%';
+            yFill.style.width = (yMax - yMin) + '%';
+          }
+          var periods = [];
+          try { periods = JSON.parse(box.dataset.periods || '[]'); } catch(e){}
+          var xRangeText = rows[0].querySelector('.chart-slider-range-text');
+          if (xRangeText && periods.length) {
+            xRangeText.textContent = (periods[xMin] || '') + ' → ' + (periods[xMax] || '');
+          }
+          var isAdjusted = xMin > 0 || xMax < xSpan || yMin > 0 || yMax < 100;
+          var resetBtn = card.querySelector('.chart-reset-range-btn');
+          if (resetBtn) resetBtn.style.display = isAdjusted ? 'inline-flex' : 'none';
 
           var svg = card.querySelector('.chart-snapshot svg.recharts-surface');
           if (!svg) return;
-          var baselineY = 227;
           var clipRect = svg.querySelector('clipPath rect');
+          var plotX = 62; var plotW = 464; var baselineY = 227; var plotH = 215;
           if (clipRect) {
+            plotX = parseFloat(clipRect.getAttribute('x') || '62');
+            plotW = parseFloat(clipRect.getAttribute('width') || '464');
             var cy = parseFloat(clipRect.getAttribute('y') || '12');
-            var ch = parseFloat(clipRect.getAttribute('height') || '215');
-            baselineY = cy + ch;
+            plotH = parseFloat(clipRect.getAttribute('height') || '215');
+            baselineY = cy + plotH;
           }
+          var fracX = (xMax - xMin) / xSpan;
+          var scaleX = fracX > 0 ? (1 / fracX) : 1;
+          var origStartX = plotX + (xMin / xSpan) * plotW;
+          var tx = plotX - origStartX * scaleX;
+          var fracY = (yMax - yMin) / 100;
+          var scaleY = 1 / Math.max(0.01, Math.pow(fracY, 2.2));
+          var ty = baselineY * (1 - scaleY);
           var clipPath = svg.querySelector('defs clipPath');
           var clipId = clipPath ? clipPath.getAttribute('id') : '';
           var plotLayers = svg.querySelectorAll('.recharts-bar, .recharts-line, .recharts-area');
@@ -155,32 +207,59 @@ export function SavedReportViewer({
             if (clipId && !layer.getAttribute('clip-path')) {
               layer.setAttribute('clip-path', 'url(#' + clipId + ')');
             }
-            if (targetZoom <= 1) {
+            if (!isAdjusted) {
               layer.removeAttribute('transform');
             } else {
-              layer.setAttribute('transform', 'matrix(1, 0, 0, ' + targetZoom + ', 0, ' + (baselineY * (1 - targetZoom)) + ')');
+              layer.setAttribute('transform', 'matrix(' + scaleX + ', 0, 0, ' + scaleY + ', ' + tx + ', ' + ty + ')');
             }
           });
+          var xAxis = svg.querySelector('.recharts-xAxis');
+          if (xAxis) {
+            if (!isAdjusted) {
+              xAxis.removeAttribute('transform');
+              xAxis.querySelectorAll('.recharts-cartesian-axis-tick').forEach(function(t) { t.style.display = ''; });
+            } else {
+              xAxis.setAttribute('transform', 'matrix(' + scaleX + ', 0, 0, 1, ' + tx + ', 0)');
+              xAxis.querySelectorAll('.recharts-cartesian-axis-tick text').forEach(function(txt) {
+                var origX = parseFloat(txt.getAttribute('x') || '0');
+                var mappedX = origX * scaleX + tx;
+                txt.closest('.recharts-cartesian-axis-tick').style.display = (mappedX < plotX - 5 || mappedX > plotX + plotW + 5) ? 'none' : '';
+              });
+            }
+          }
           var yTicks = svg.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick text');
-          yTicks.forEach(function(textEl) {
+          var yRangeText = rows[1].querySelector('.chart-slider-range-text');
+          var topTickVal = null;
+          var bottomTickVal = null;
+          yTicks.forEach(function(textEl, idx) {
             var tspan = textEl.querySelector('tspan') || textEl;
             if (!tspan.hasAttribute('data-orig-text')) {
               tspan.setAttribute('data-orig-text', tspan.textContent || '');
             }
             var origText = tspan.getAttribute('data-orig-text');
-            if (targetZoom <= 1) {
+            if (!isAdjusted) {
               tspan.textContent = origText;
             } else {
               var parsed = parseTick(origText);
               if (parsed && parsed.value !== 0) {
-                tspan.textContent = formatTick(parsed.value / targetZoom, parsed.prefix, parsed.suffix);
+                var scaledVal = parsed.value / scaleY;
+                tspan.textContent = formatTick(scaledVal, parsed.prefix, parsed.suffix);
+                if (idx === yTicks.length - 1) topTickVal = tspan.textContent;
+                if (idx === 0) bottomTickVal = tspan.textContent;
               }
             }
           });
+          if (yRangeText) {
+            if (!isAdjusted) {
+              yRangeText.textContent = '0 → Full';
+            } else if (topTickVal) {
+              yRangeText.textContent = (bottomTickVal || '0') + ' → ' + topTickVal;
+            }
+          }
         }
         function initAllCharts() {
           document.querySelectorAll('.chart-card').forEach(function(card) {
-            ensureControlsOnCard(card);
+            ensureSlidersOnCard(card);
           });
         }
         if (document.readyState === 'loading') {
@@ -188,51 +267,47 @@ export function SavedReportViewer({
         } else {
           initAllCharts();
         }
-        document.addEventListener('click', function(e) {
-          var btn = e.target.closest('.chart-zoom-btn, .chart-zoom-badge');
-          if (!btn) return;
-          var card = btn.closest('.chart-card');
+        document.addEventListener('input', function(e) {
+          if (!e.target.classList.contains('dual-slider-input')) return;
+          var card = e.target.closest('.chart-card');
           if (!card) return;
-          var curZoom = card._zoom || 1;
-          var curIdx = ZOOM_PRESETS.indexOf(curZoom);
-          if (curIdx === -1) curIdx = 0;
-          if (btn.classList.contains('zoom-in')) {
-            var nextIdx = Math.min(ZOOM_PRESETS.length - 1, curIdx + 1);
-            applyZoomToCard(card, ZOOM_PRESETS[nextIdx]);
-          } else if (btn.classList.contains('zoom-out')) {
-            var prevIdx = Math.max(0, curIdx - 1);
-            applyZoomToCard(card, ZOOM_PRESETS[prevIdx]);
-          } else if (btn.classList.contains('chart-zoom-reset')) {
-            applyZoomToCard(card, 1);
-          } else if (btn.classList.contains('chart-zoom-badge')) {
-            var cycleIdx = (curIdx + 1) % ZOOM_PRESETS.length;
-            applyZoomToCard(card, ZOOM_PRESETS[cycleIdx]);
+          updateCardTransform(card);
+        });
+        document.addEventListener('click', function(e) {
+          var resetBtn = e.target.closest('.chart-reset-range-btn');
+          if (resetBtn) {
+            var card = resetBtn.closest('.chart-card');
+            if (!card) return;
+            var box = card.querySelector('.chart-sliders-box');
+            if (!box) return;
+            var inputs = box.querySelectorAll('.dual-slider-input');
+            if (inputs.length >= 4) {
+              inputs[0].value = inputs[0].min;
+              inputs[1].value = inputs[1].max;
+              inputs[2].value = inputs[2].min;
+              inputs[3].value = inputs[3].max;
+            }
+            updateCardTransform(card);
+            return;
+          }
+          var toggleBtn = e.target.closest('.chart-slider-toggle-btn');
+          if (toggleBtn) {
+            var card = toggleBtn.closest('.chart-card');
+            if (!card) return;
+            var box = card.querySelector('.chart-sliders-box');
+            if (box) {
+              var isHidden = box.style.display === 'none';
+              box.style.display = isHidden ? 'flex' : 'none';
+              toggleBtn.classList.toggle('active', isHidden);
+            }
           }
         });
-        document.addEventListener('wheel', function(e) {
-          if (!e.ctrlKey) return;
-          var snapshot = e.target.closest('.chart-snapshot');
-          if (!snapshot) return;
-          var card = snapshot.closest('.chart-card');
-          if (!card) return;
-          e.preventDefault();
-          var curZoom = card._zoom || 1;
-          var curIdx = ZOOM_PRESETS.indexOf(curZoom);
-          if (curIdx === -1) curIdx = 0;
-          if (e.deltaY < 0) {
-            var nextIdx = Math.min(ZOOM_PRESETS.length - 1, curIdx + 1);
-            applyZoomToCard(card, ZOOM_PRESETS[nextIdx]);
-          } else if (e.deltaY > 0) {
-            var prevIdx = Math.max(0, curIdx - 1);
-            applyZoomToCard(card, ZOOM_PRESETS[prevIdx]);
-          }
-        }, { passive: false });
       })();
       </script>`
       if (clean.includes('</body>')) {
-        clean = clean.replace('</body>', `${zoomScript}</body>`)
+        clean = clean.replace('</body>', `${sliderScript}</body>`)
       } else {
-        clean += zoomScript
+        clean += sliderScript
       }
     }
     return clean
