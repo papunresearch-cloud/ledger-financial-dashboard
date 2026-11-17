@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   Bar, CartesianGrid, ComposedChart, Legend, Line, LineChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import type { AnnualRow, BankAnnualRow, BankQuarterRow, QuarterRow } from './types'
 
@@ -225,14 +225,60 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
   const [xLow, setXLow] = useState(0)
   const [xHigh, setXHigh] = useState(Math.max(0, totalPoints - 1))
   const [yLow, setYLow] = useState(0)
-  const [yHigh, setYHigh] = useState(700) // Default 700 = 100% natural scale
+  const [yHigh, setYHigh] = useState(1000) // Default 1000: both ends at extremes [0, 1000]
+
+  // Mouse drag selection zoom state
+  const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null)
+  const [refAreaRight, setRefAreaRight] = useState<string | null>(null)
+  const [isSelecting, setIsSelecting] = useState(false)
+
+  const handleResetZoom = () => {
+    setXLow(0)
+    setXHigh(Math.max(0, spec.data.length - 1))
+    setYLow(0)
+    setYHigh(1000)
+    setRefAreaLeft(null)
+    setRefAreaRight(null)
+    setIsSelecting(false)
+  }
 
   useEffect(() => {
     setXLow(0)
     setXHigh(Math.max(0, spec.data.length - 1))
     setYLow(0)
-    setYHigh(700)
+    setYHigh(1000)
+    setRefAreaLeft(null)
+    setRefAreaRight(null)
+    setIsSelecting(false)
   }, [spec.id, spec.data.length])
+
+  const handleMouseDown = (e: any) => {
+    if (e && e.activeLabel) {
+      setRefAreaLeft(String(e.activeLabel))
+      setRefAreaRight(String(e.activeLabel))
+      setIsSelecting(true)
+    }
+  }
+
+  const handleMouseMove = (e: any) => {
+    if (isSelecting && e && e.activeLabel) {
+      setRefAreaRight(String(e.activeLabel))
+    }
+  }
+
+  const handleMouseUp = () => {
+    if (refAreaLeft && refAreaRight && refAreaLeft !== refAreaRight) {
+      const idx1 = spec.data.findIndex(d => String(d.period) === String(refAreaLeft))
+      const idx2 = spec.data.findIndex(d => String(d.period) === String(refAreaRight))
+      if (idx1 !== -1 && idx2 !== -1) {
+        setXLow(Math.min(idx1, idx2))
+        setXHigh(Math.max(idx1, idx2))
+      }
+    }
+    setRefAreaLeft(null)
+    setRefAreaRight(null)
+    setIsSelecting(false)
+  }
 
   // Filter visible data based on X-axis dual slider
   const visibleData = useMemo(() => {
@@ -270,20 +316,15 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
     const naturalSpan = naturalMax - naturalMin
 
     // High thumb calculation:
-    // yHigh <= 700: deep zoom / expansion of tiny values down to 0.001 (1000x expansion)
-    // yHigh > 700: squeeze values up to 3.5x natural max
-    let highFactor = 1.0
-    if (yHigh <= 700) {
-      const ratio = Math.max(10, yHigh) / 700
-      highFactor = Math.max(0.001, Math.pow(ratio, 2.4))
-    } else {
-      highFactor = 1.0 + 2.5 * ((yHigh - 700) / 300)
-    }
-
+    // Default yHigh = 1000 => 100% natural full scale (both ends at extremes: yLow = 0, yHigh = 1000)
+    // As yHigh slides down towards 0: deep zoom / expansion of tiny values down to 0.0005 (2,000x expansion)
+    const highRatio = Math.max(5, yHigh) / 1000
+    const highFactor = Math.max(0.0005, Math.pow(highRatio, 2.6))
     const effectiveMax = naturalMin + naturalSpan * highFactor
 
     // Low thumb calculation: raises the minimum floor
-    const lowFraction = Math.min(0.92, yLow / 1000)
+    const lowRatio = Math.min(yLow, Math.max(0, yHigh - 5)) / 1000
+    const lowFraction = Math.min(0.92, Math.pow(lowRatio, 1.4))
     const effectiveMin = naturalMin + (effectiveMax - naturalMin) * lowFraction
 
     return {
@@ -348,16 +389,12 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
           onChange={(l, h) => { setYLow(l); setYHigh(h) }}
         />
       </div>
+      <span className="chart-zoom-drag-hint" title="Drag mouse across any date range on the plot to zoom into it">Drag on plot to zoom</span>
       <button
         type="button"
         className="chart-zoom-reset-btn"
-        title="Reset zoom to default position"
-        onClick={() => {
-          setXLow(0)
-          setXHigh(Math.max(0, totalPoints - 1))
-          setYLow(0)
-          setYHigh(700)
-        }}
+        title="Reset zoom to default position (Double-click plot also resets)"
+        onClick={handleResetZoom}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -366,14 +403,35 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
         <span>Reset</span>
       </button>
     </div>
-    <div className="chart-snapshot">
+    <div
+      className="chart-snapshot"
+      onDoubleClick={handleResetZoom}
+      title="Click and drag across periods to zoom in · Double-click or click Reset to restore full view"
+    >
       {hasData ? <ResponsiveContainer width="100%" height={286}>
-        {allLine ? <LineChart data={visibleData} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
+        {allLine ? <LineChart
+          data={visibleData}
+          margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        >
           <CartesianGrid stroke={gridColor} strokeOpacity={0.55} strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: axisLineColor, strokeOpacity: 0.7 }} tickLine={false} />
           <YAxis yAxisId="left" domain={yDomain} allowDataOverflow={true} tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, spec.metrics[0])} />
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ stroke: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.18)', strokeDasharray: '3 3' }} />
           <Legend wrapperStyle={activeLegendStyle} />
+          {refAreaLeft && refAreaRight && (
+            <ReferenceArea
+              yAxisId="left"
+              x1={refAreaLeft}
+              x2={refAreaRight}
+              stroke="#38bdf8"
+              strokeOpacity={0.65}
+              fill="#0284c7"
+              fillOpacity={0.25}
+            />
+          )}
           {spec.metrics.map(metric => {
             const lineColor = brightSeriesColor(metric.color, theme)
             return (
@@ -392,7 +450,13 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
               />
             )
           })}
-        </LineChart> : <ComposedChart data={visibleData} margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}>
+        </LineChart> : <ComposedChart
+          data={visibleData}
+          margin={{ top: 12, right: rightMetric ? 18 : 12, bottom: 4, left: 0 }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        >
           <defs>
             {spec.metrics.filter(m => m.kind !== 'line').map(metric => {
               const palette = getBarPalette(metric.color, theme)
@@ -418,6 +482,17 @@ export function ChartPanel({ spec, exportMode = false, staticRender = false, gra
           {rightMetric && <YAxis yAxisId="right" orientation="right" tick={{ fill: tickColor, fontSize: 11, fontFamily: "'DM Mono', monospace" }} axisLine={false} tickLine={false} width={62} tickFormatter={(v) => tickFormatter(v, rightMetric)} />}
           <Tooltip formatter={(v, name) => [fmt(Number(v), spec.metrics.find(m => m.label === name)?.unit), name]} contentStyle={activeTooltipContentStyle} itemStyle={tooltipItemStyle} labelStyle={activeTooltipLabelStyle} cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.05)' }} />
           <Legend wrapperStyle={activeLegendStyle} />
+          {refAreaLeft && refAreaRight && (
+            <ReferenceArea
+              yAxisId="left"
+              x1={refAreaLeft}
+              x2={refAreaRight}
+              stroke="#38bdf8"
+              strokeOpacity={0.65}
+              fill="#0284c7"
+              fillOpacity={0.25}
+            />
+          )}
           {spec.metrics.map(metric => {
             if (metric.kind === 'line') {
               const lineColor = brightSeriesColor(metric.color, theme)

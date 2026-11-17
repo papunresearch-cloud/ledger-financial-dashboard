@@ -1,779 +1,1024 @@
+import { useState, useMemo } from 'react'
 import {
-  AlertTriangle,
-  Building2,
-  Calculator,
-  Check,
-  Clock,
-  Coins,
-  Landmark,
-  PieChart,
-  Scale,
+  Search,
+  X,
   ShieldCheck,
+  AlertTriangle,
+  CircleHelp,
+  BookOpen,
+  CheckCircle2,
+  Calculator,
+  SlidersHorizontal,
+  BarChart3,
   Sparkles,
-  TrendingUp,
 } from 'lucide-react'
 import type { FinancialData } from './types'
+import './dataChecks.css'
 
-interface FormulaItem {
+export interface RatioDefinition {
+  id: string
   name: string
+  abbr: string
+  category: 'growth' | 'margins' | 'returns' | 'liquidity' | 'solvency' | 'cashflow' | 'banking' | 'workingcap' | 'glossary'
   formula: string
-  description: string
-  benchmark?: string
+  meaning: string
+  benchmark: string
+  notes: string
+  applicableTo: 'all' | 'bank' | 'nonbank'
 }
 
-interface FormulaCategory {
+export interface PlotDefinition {
+  id: string
   title: string
-  icon: typeof Calculator
-  color: string
-  items: FormulaItem[]
+  subtitle: string
+  category: 'annual-corporate' | 'quarterly-corporate' | 'annual-bank' | 'quarterly-bank'
+  applicableTo: 'all' | 'bank' | 'nonbank'
+  metrics: string
+  dataSource: string
+  meaning: string
+  interpretation: string
+  interactiveControls: string
 }
 
-const NON_BANK_CATEGORIES: FormulaCategory[] = [
+export const RATIO_DEFINITIONS: RatioDefinition[] = [
+  // Banking (BFSI) Ratios
   {
-    title: 'Corporate Growth & Top-Line Momentum (Quarterly & Yearly)',
-    icon: TrendingUp,
-    color: '#0f766e',
-    items: [
-      {
-        name: 'Sales YoY Growth (%)',
-        formula: 'YoY Growth = [ (Sales_t − Sales_{t-1}) / |Sales_{t-1}| ] × 100',
-        description: 'Annual or quarterly top-line revenue expansion. For quarterly tables, compares Q(t) vs Q(t-4); TTM compares trailing 4 quarters against prior 4 quarters.',
-        benchmark: 'Consistent double-digit growth (>12%–15% YoY) indicates healthy market share expansion.',
-      },
-      {
-        name: 'Sales QoQ Growth (%)',
-        formula: 'QoQ Growth = [ (Sales_Q(t) − Sales_Q(t-1)) / |Sales_Q(t-1)| ] × 100',
-        description: 'Sequential quarter-on-quarter revenue momentum capturing immediate operational demand velocity.',
-      },
-      {
-        name: 'Operating Profit YoY Growth (%)',
-        formula: 'Operating Profit Growth = [ (Operating Profit_Q(t) − Operating Profit_Q(t-4)) / |Operating Profit_Q(t-4)| ] × 100',
-        description: 'Year-over-year expansion in core operational cash generation before interest, tax, and depreciation.',
-      },
-      {
-        name: 'Net Profit YoY Growth (%)',
-        formula: 'Net Profit Growth = [ (Net Profit_t − Net Profit_{t-1}) / |Net Profit_{t-1}| ] × 100',
-        description: 'Annual bottom-line profit after tax (PAT) expansion attributable to equity shareholders.',
-        benchmark: 'Sustainable PAT growth > 15%–20% drives long-term shareholder value creation.',
-      },
-      {
-        name: 'Net Profit QoQ Growth (%)',
-        formula: 'Net Profit QoQ = [ (Net Profit_Q(t) − Net Profit_Q(t-1)) / |Net Profit_Q(t-1)| ] × 100',
-        description: 'Sequential quarterly net income trend, capturing short-term margin fluctuations or exceptional items.',
-      },
-    ],
+    id: 'ldr',
+    name: 'Loan-to-Deposit Ratio (LDR %)',
+    abbr: 'LDR / CDR',
+    category: 'banking',
+    formula: 'LDR (%) = (Total Loans & Advances ÷ Total Customer Deposits) × 100',
+    meaning: 'Measures how aggressively a bank deploys customer deposits into lending assets. An essential measure of lending utilization, funding mix, and liquidity risk.',
+    benchmark: 'Healthy range: 70% to 80%. Above 85% signals liquidity tightness requiring costly wholesale market borrowing.',
+    notes: 'RBI closely monitors LDR. If deposits lag loan growth, the bank must curtail lending or offer higher deposit rates, impacting NIM.',
+    applicableTo: 'bank',
   },
   {
-    title: 'Profitability & Core Return Ratios',
-    icon: TrendingUp,
-    color: '#0f766e',
-    items: [
-      {
-        name: 'Return on Equity (ROE)',
-        formula: 'ROE = (Net Profit after Tax / Average Shareholders\' Equity) × 100',
-        description: 'Measures net earnings generated per rupee of invested shareholder capital. Average equity is the arithmetic mean of opening and closing equity (Share Capital + Reserves).',
-        benchmark: 'Sustained ROE > 15–20% indicates strong economic moat and pricing power.',
-      },
-      {
-        name: 'Return on Assets (ROA)',
-        formula: 'ROA = (Net Profit after Tax / Average Total Assets) × 100',
-        description: 'Evaluates bottom-line asset productivity regardless of financial structure. Average total assets uses opening and closing balance sheet endpoints.',
-        benchmark: 'Capital-efficient non-financial businesses typically deliver ROA > 8–10%.',
-      },
-      {
-        name: 'Return on Capital Employed (ROCE)',
-        formula: 'ROCE = [ (Profit Before Tax + Interest Expense) / Average Capital Employed ] × 100',
-        description: 'Core operational performance metric measuring pre-interest operating yield on total long-term capital (Shareholders\' Equity + Long-Term & Short-Term Borrowings).',
-        benchmark: 'High-quality compounding businesses target ROCE > 18–20%.',
-      },
-      {
-        name: 'Operating Profit Margin (OPM %)',
-        formula: 'OPM = (Operating Profit [EBITDA] / Revenue from Operations) × 100',
-        description: 'Measures operational profitability before depreciation, financing costs, and income taxes.',
-        benchmark: 'Higher and expanding margins indicate superior industry pricing power.',
-      },
-      {
-        name: 'Net Profit Margin (NPM %)',
-        formula: 'NPM = (Net Profit after Tax / Revenue from Operations) × 100',
-        description: 'The final bottom-line conversion percentage of top-line revenue that flows directly to shareholders.',
-      },
-      {
-        name: 'Gross Profit Margin (GPM %)',
-        formula: 'GPM = [ (Sales − Raw Material Costs − Inventory Adjustments) / Sales ] × 100',
-        description: 'First-stage markup over direct manufacturing materials and inventory changes.',
-      },
-      {
-        name: 'Pre-Tax Margin (PBT %)',
-        formula: 'PBT Margin = (Profit Before Tax / Revenue from Operations) × 100',
-        description: 'Measures operational profitability before income taxes after meeting operating expenses, depreciation write-offs, and financing charges.',
-        benchmark: 'High margins indicate resilience against raw material cost shocks and debt servicing costs.',
-      },
-      {
-        name: 'Other Income vs Total Income (%)',
-        formula: 'Other Income Share = [ Other Income / (Sales + Other Income) ] × 100',
-        description: 'Proportion of aggregate corporate income derived from non-core operations (treasury yields, interest on deposits, asset sales, dividends).',
-        benchmark: 'High-quality operating businesses keep other income < 10%–15% of total income to ensure earnings are driven by core operations.',
-      },
-      {
-        name: 'Other Income / PBT (%)',
-        formula: 'Other Income / PBT = (Other Income / Profit Before Tax) × 100',
-        description: 'Tests the sensitivity of pre-tax accounting profits to non-operating other income sources.',
-        benchmark: 'Ratios > 25% indicate that a substantial chunk of reported profits depends on non-operating treasury or exceptional returns.',
-      },
-    ],
+    id: 'borrowings-deposits',
+    name: 'Borrowings / Deposits (%)',
+    abbr: 'Borrowings / Deposits',
+    category: 'banking',
+    formula: 'Borrowings / Deposits (%) = (Wholesale Borrowings ÷ Customer Deposits) × 100',
+    meaning: 'Evaluates the bank’s reliance on volatile wholesale, interbank, and capital market borrowings compared to sticky, granular retail deposits.',
+    benchmark: 'Healthy: Below 15% - 20%. Lower is safer as retail deposits are less prone to sudden liquidity flight.',
+    notes: 'High dependence on wholesale borrowing increases vulnerability to sudden market interest rate hikes and liquidity crunches.',
+    applicableTo: 'bank',
   },
   {
-    title: 'DuPont 3-Stage ROE Decomposition',
-    icon: PieChart,
-    color: '#1d4ed8',
-    items: [
-      {
-        name: 'Master DuPont Identity',
-        formula: 'ROE = Net Profit Margin (NPM) × Asset Turnover (ATO) × Equity Multiplier (EM)',
-        description: 'Breaks down return on equity into three independent operational and structural drivers: profitability, volume efficiency, and balance sheet gearing.',
-      },
-      {
-        name: 'Stage 1: Net Profit Margin (NPM)',
-        formula: 'NPM = Net Profit after Tax / Revenue from Operations',
-        description: 'Driver of operational pricing strength, cost discipline, and effective tax rates.',
-      },
-      {
-        name: 'Stage 2: Total Asset Turnover (ATO)',
-        formula: 'ATO = Revenue from Operations / Average Total Assets',
-        description: 'Measures volume velocity and revenue generated per unit of total asset base.',
-      },
-      {
-        name: 'Stage 3: Equity Multiplier (EM)',
-        formula: 'EM = Average Total Assets / Average Shareholders\' Equity = 1 + (Total Debt / Equity)',
-        description: 'Measures financial leverage gearing. An elevated EM increases ROE but elevates insolvency volatility.',
-      },
-    ],
+    id: 'nii-spread',
+    name: 'NII Spread / Net Interest Margin',
+    abbr: 'NII Spread / NIM',
+    category: 'banking',
+    formula: 'NII Spread (%) = ((Interest Earned − Interest Paid) ÷ Total Revenue or Avg Earning Assets) × 100',
+    meaning: 'The core gross margin of a lending institution. Represents the markup earned on advances and investments over the cost of funds paid to depositors.',
+    benchmark: 'Top retail private banks: 3.5% - 4.5%. Large PSU banks: 2.8% - 3.2%. NBFCs often operate at 5% - 9%.',
+    notes: 'Compresses during rate hikes if deposit rates reprice faster than fixed-rate lending assets, or when CASA ratio declines.',
+    applicableTo: 'bank',
   },
   {
-    title: 'Cash Flow & Earnings Quality Analysis',
-    icon: Coins,
-    color: '#047857',
-    items: [
-      {
-        name: 'Free Cash Flow (FCF)',
-        formula: 'FCF = Cash Flow from Operations (CFO) − Net CapEx (Additions to Fixed Assets & CWIP)',
-        description: 'True surplus cash generated by core operations after maintaining and expanding the productive physical asset base.',
-        benchmark: 'Consistently positive FCF funds debt reduction, acquisitions, and dividends without diluting equity.',
-      },
-      {
-        name: 'CFO to Sales % (CFO / Sales %)',
-        formula: 'CFO / Sales = (Cash Flow from Operations / Revenue from Operations) × 100',
-        description: 'Measures the proportion of top-line operational revenue converted directly into liquid operating cash.',
-        benchmark: 'Higher percentages reflect superior cash-generative power on revenue scale.',
-      },
-      {
-        name: 'Cash Conversion Ratio (CFO / Operating Profit %)',
-        formula: 'Cash Conversion = (Cash Flow from Operations / Operating Profit [EBITDA]) × 100',
-        description: 'Measures the proportion of accounting operating profit converted into hard operating cash.',
-        benchmark: 'Healthy business models convert > 80% of EBITDA into CFO. Ratios below 60% indicate aggressive accounting.',
-      },
-      {
-        name: 'Cash Realization Ratio (CFO / Net Profit %)',
-        formula: 'Cash Realization = (Cash Flow from Operations / Net Profit after Tax) × 100',
-        description: 'Tests whether reported accounting earnings are mirrored in cash collections or trapped in working capital.',
-        benchmark: 'Over multi-year cycles, cumulative CFO / PAT should ideally equal or exceed 100%.',
-      },
-      {
-        name: 'FCF to Operating Cash Flow % (FCF / OCF %)',
-        formula: 'FCF / OCF = (Free Cash Flow / Cash Flow from Operations) × 100',
-        description: 'Proportion of operational cash retained after capital investments in plant, property, equipment, and CWIP.',
-        benchmark: 'Sustained ratios > 50% provide self-funded discretionary liquidity for debt repayment and dividends.',
-      },
-      {
-        name: 'FCF to Net Profit % (FCF / Net Profit %)',
-        formula: 'FCF / Net Profit = (Free Cash Flow / Net Profit after Tax) × 100',
-        description: 'Measures cash-adjusted earnings quality by benchmarking surplus free cash against accounting net profits.',
-        benchmark: 'Ratios approaching or exceeding 100% indicate zero earnings inflation and high cash conversion.',
-      },
-    ],
+    id: 'interest-ratio',
+    name: 'Interest Ratio (%)',
+    abbr: 'Interest Ratio',
+    category: 'banking',
+    formula: 'Interest Ratio (%) = (Interest Paid ÷ Interest Earned) × 100',
+    meaning: 'The proportion of total interest income consumed by interest expenses owed to depositors and lenders.',
+    benchmark: 'Healthy: 50% - 65%. Above 75% indicates elevated cost of funds or lower-yielding asset portfolio.',
+    notes: 'An inverse indicator of gross interest margin. A lower ratio denotes superior pricing power and cheap CASA funding.',
+    applicableTo: 'bank',
   },
   {
-    title: 'Solvency, Leverage & Balance Sheet Strength',
-    icon: Scale,
-    color: '#b45309',
-    items: [
-      {
-        name: 'Interest Coverage Ratio',
-        formula: 'Interest Coverage = (Profit Before Tax + Interest Expense) / Interest Expense',
-        description: 'Earnings buffer available to service periodic lender interest charges.',
-        benchmark: '> 3.0× indicates a healthy safety cushion; < 1.5× signals debt service vulnerability.',
-      },
-      {
-        name: 'Debt-to-Equity (D/E) Ratio',
-        formula: 'Debt-to-Equity = Total Borrowings / Total Shareholders\' Equity',
-        description: 'Ratio of total interest-bearing debt (Long-Term + Short-Term Borrowings) to equity base (Share Capital + Reserves).',
-        benchmark: '< 0.5× represents conservative leverage; > 1.5× indicates elevated financial risk.',
-      },
-      {
-        name: 'Liabilities to Assets %',
-        formula: 'Liabilities to Assets = [ (Total Assets − Shareholders\' Equity) / Total Assets ] × 100',
-        description: 'Total external liabilities (borrowings, payables, provisions) as a percentage of overall corporate assets.',
-      },
-      {
-        name: 'Current Ratio (Proxy)',
-        formula: 'Current Ratio = Other Assets (Current Assets Proxy) / Other Liabilities (Current Liabilities Proxy)',
-        description: 'Short-term liquidity indicator measuring buffer of liquid/operating assets against immediate commitments.',
-      },
-      {
-        name: 'Quick Ratio (x)',
-        formula: 'Quick Ratio = (Current Assets − Inventories) / Current Liabilities',
-        description: 'Acid-test liquidity indicator measuring immediate cash, marketable securities, and receivables against short-term debt obligations, excluding inventory.',
-        benchmark: 'Healthy working capital management targets Quick Ratio ≥ 1.0×.',
-      },
-      {
-        name: 'Cash Ratio',
-        formula: 'Cash Ratio = Cash & Bank Balances / Other Liabilities (Current Liabilities Proxy)',
-        description: 'Most stringent liquidity test measuring immediate cash reserves relative to short-term liabilities.',
-      },
-      {
-        name: 'Asset Turnover (x)',
-        formula: 'Asset Turnover = Revenue from Operations / Total Assets',
-        description: 'Capital efficiency multiple measuring annual top-line revenue generated per rupee of total corporate balance-sheet assets.',
-        benchmark: 'Capital-light operating models typically achieve Asset Turnover > 1.5×–2.0×.',
-      },
-      {
-        name: 'Net Working Capital',
-        formula: 'Net Working Capital = Other Assets (Current Assets Proxy) − Other Liabilities (Current Liabilities Proxy)',
-        description: 'Operational buffer required to bridge billing, collection, inventory holding, and vendor disbursement.',
-      },
-      {
-        name: 'CWIP / Net Block %',
-        formula: 'CWIP / Net Block = (Capital Work in Progress / Net Block) × 100',
-        description: 'Gauges ongoing physical expansion and project commissioning pipeline relative to active fixed assets.',
-        benchmark: 'Elevated ratios (>30%–50%) indicate heavy capital expenditure cycle; monitor timely commissioning without cost overruns.',
-      },
-      {
-        name: 'Financial Leverage Multiplier (Assets / Equity ×)',
-        formula: 'Financial Leverage = Average Total Assets / Average Shareholders\' Equity',
-        description: 'Structural gearing ratio measuring total assets supported per unit of equity net worth.',
-      },
-    ],
+    id: 'interest-income-contrib',
+    name: 'Interest Income Contribution (%)',
+    abbr: 'Interest Income Part',
+    category: 'banking',
+    formula: 'Interest Income Contribution (%) = (Interest Earned ÷ Total Revenue) × 100',
+    meaning: 'Share of total revenue derived directly from interest on loans and investments versus non-interest fee income.',
+    benchmark: 'Typically 80% - 90% for standard commercial banks; remainder is treasury gains and fee income.',
+    notes: 'Higher other income (processing fees, wealth management, insurance distribution) cushions profitability during sluggish credit cycles.',
+    applicableTo: 'bank',
   },
   {
-    title: 'Operating Cycle & Working Capital Days',
-    icon: Clock,
-    color: '#6d28d9',
-    items: [
-      {
-        name: 'Debtor (Receivables) Days',
-        formula: 'Debtor Days = (Trade Receivables / Revenue from Operations) × 365',
-        description: 'Average collection period required to turn credit sales into cash.',
-        benchmark: 'Lower days indicate tighter customer credit terms and superior collection enforcement.',
-      },
-      {
-        name: 'Inventory Days',
-        formula: 'Inventory Days = (Inventories / Cost of Goods Sold or Sales) × 365',
-        description: 'Average duration raw materials, WIP, and finished inventory sit in warehouses before being sold.',
-      },
-      {
-        name: 'Payable Days',
-        formula: 'Payable Days = (Trade Payables / Operating Expenses or Purchases) × 365',
-        description: 'Average credit window negotiated from vendors and raw material suppliers.',
-      },
-      {
-        name: 'Cash Conversion Cycle (CCC)',
-        formula: 'CCC (Days) = Debtor Days + Inventory Days − Payable Days',
-        description: 'Total elapsed time between paying suppliers for inputs and collecting cash from end customers.',
-        benchmark: 'Shorter or negative CCC indicates customers and vendors finance operating working capital.',
-      },
-      {
-        name: 'Working Capital Days',
-        formula: 'Working Capital Days = (Net Working Capital / Revenue from Operations) × 365',
-        description: 'Number of operating days of revenue tied up in net operational working capital.',
-      },
-      {
-        name: 'Fixed Asset (Net Block) Turnover',
-        formula: 'Fixed Asset Turnover = Revenue from Operations / Net Block (Property, Plant & Equipment)',
-        description: 'Gross operating efficiency measuring top-line revenue output per rupee of physical manufacturing asset base.',
-      },
-    ],
+    id: 'casa-ratio',
+    name: 'CASA Ratio (%)',
+    abbr: 'CASA %',
+    category: 'banking',
+    formula: 'CASA (%) = ((Current Account Deposits + Savings Account Deposits) ÷ Total Deposits) × 100',
+    meaning: 'The proportion of customer deposits held in zero-interest Current Accounts and low-interest Savings Accounts.',
+    benchmark: 'Best-in-class Indian banks achieve 40% - 48%. Average commercial banks hover between 30% - 38%.',
+    notes: 'Higher CASA dramatically lowers cost of deposits (CoD), providing a decisive structural margin advantage.',
+    applicableTo: 'bank',
   },
   {
-    title: 'Per-Share Metrics & Market Valuation Multiples',
-    icon: Building2,
-    color: '#0284c7',
-    items: [
-      {
-        name: 'Adjusted Number of Equity Shares',
-        formula: 'Number of Shares = Equity Share Capital / Face Value per Share',
-        description: 'Denominator used across all per-share financial metrics, adjusted for face-value splits.',
-      },
-      {
-        name: 'Earnings Per Share (EPS)',
-        formula: 'EPS = Net Profit after Tax / Number of Equity Shares',
-        description: 'Annual or quarterly bottom-line profit allocated to each individual equity share.',
-      },
-      {
-        name: 'Cash Earnings Per Share (CEPS)',
-        formula: 'CEPS = (Net Profit after Tax + Depreciation & Amortization) / Number of Equity Shares',
-        description: 'Cash-adjusted earnings per share adding back non-cash depreciation and amortization write-downs.',
-      },
-      {
-        name: 'Book Value Per Share (BVPS)',
-        formula: 'BVPS = (Equity Share Capital + Reserves & Surplus) / Number of Equity Shares',
-        description: 'Net asset value per equity share based on recorded balance-sheet book value.',
-      },
-      {
-        name: 'Price-to-Earnings (P/E) Multiple',
-        formula: 'P/E = Current Market Price / TTM EPS = Current Market Capitalization / TTM Net Profit',
-        description: 'Market valuation multiple indicating price investors are willing to pay per unit of current earnings.',
-      },
-      {
-        name: 'Price-to-Book (P/B) Multiple',
-        formula: 'P/B = Current Market Price / Latest BVPS = Current Market Capitalization / Latest Total Equity',
-        description: 'Valuation comparison between public market equity capitalization and historical book value of equity.',
-      },
-      {
-        name: 'Price-to-Sales (P/S) Multiple',
-        formula: 'P/S = Current Market Capitalization / TTM Revenue from Operations',
-        description: 'Market valuation relative to aggregate top-line revenue scale.',
-      },
-      {
-        name: 'Enterprise Value (EV)',
-        formula: 'EV = Market Capitalization + Total Debt − Cash & Bank Balances',
-        description: 'Comprehensive theoretical acquisition price incorporating debt assumption and cash deduction.',
-      },
-      {
-        name: 'EV / EBITDA Multiple',
-        formula: 'EV / EBITDA = Enterprise Value / TTM Operating Profit (EBITDA)',
-        description: 'Capital-structure-neutral valuation multiple comparing firm value to pre-interest operating cash generator.',
-      },
-      {
-        name: 'Effective Tax Rate (%)',
-        formula: 'Effective Tax Rate = [ (Profit Before Tax − Net Profit) / Profit Before Tax ] × 100 (or Screener reported tax %)',
-        description: 'Proportion of pre-tax accounting profit paid in corporate taxes, reflecting statutory deductions, MAT credits, and tax incentives.',
-        benchmark: 'Standard effective corporate tax rate in India under the new tax regime is approximately 25.17%.',
-      },
-      {
-        name: 'Dividend Payout Ratio %',
-        formula: 'Dividend Payout = (Total Equity Dividend Disbursed / Net Profit after Tax) × 100',
-        description: 'Percentage of net profits returned directly to shareholders as liquid cash dividends.',
-      },
-      {
-        name: 'Standalone vs Consolidated Revenue (%)',
-        formula: 'Standalone Revenue Share = (Standalone Revenue / Consolidated Revenue) × 100',
-        description: 'Proportion of total consolidated revenue generated directly by the standalone parent corporate legal entity.',
-      },
-      {
-        name: 'Standalone vs Consolidated Net Profit (%)',
-        formula: 'Standalone Profit Share = (Standalone Net Profit / Consolidated Net Profit) × 100',
-        description: 'Proportion of total corporate group earnings contributed directly by the parent entity versus subsidiaries and joint ventures.',
-      },
-    ],
+    id: 'gnpa-nnpa',
+    name: 'Asset Quality (GNPA & NNPA %)',
+    abbr: 'GNPA / NNPA',
+    category: 'banking',
+    formula: 'GNPA (%) = Gross Bad Loans ÷ Gross Advances × 100 | NNPA (%) = Net Bad Loans ÷ Net Advances × 100',
+    meaning: 'Quantifies bad loans and credit default risk. GNPA reflects total defaulted loans; NNPA shows defaults remaining after dedicated provisioning.',
+    benchmark: 'Tier-1 banks: GNPA < 2.0%, NNPA < 0.5%. PSU banks: GNPA 3% - 5%, NNPA < 1.0%.',
+    notes: 'Divergence between GNPA and NNPA illustrates provisioning strength. High PCR (> 70%) ensures buffer against future write-offs.',
+    applicableTo: 'bank',
   },
   {
-    title: 'Compound Growth & Statistical Weighting Methodology',
-    icon: Calculator,
-    color: '#4338ca',
-    items: [
-      {
-        name: 'Compound Annual Growth Rate (CAGR)',
-        formula: 'CAGR_n = [ (Value_t / Value_{t-n}) ^ (1 / n) ] − 1',
-        description: 'Smoothed geometric annual growth rate calculated over 1Y, 3Y, 5Y, and 8Y/10Y endpoints. Non-positive endpoints (negative sales or loss years) are invalid for logarithmic CAGR and remain blank.',
-      },
-      {
-        name: 'Trailing Twelve Months (TTM) Growth %',
-        formula: 'TTM Growth = [ (Sum of 4 latest quarters − Sum of prior 4 quarters) / Sum of prior 4 quarters ] × 100',
-        description: 'Real-time rolling 1-year growth benchmark removing quarterly seasonality.',
-      },
-      {
-        name: 'Recency-Weighted Winsorized Historical Average (AVG Column)',
-        formula: 'AVG = [ Σ (w_i × Winsorized_Value_i) ] / [ Σ w_i ], where w_i = i (recency weight 1..N)',
-        description: 'To prevent distortion from one-off cyclical spikes, historical points outside 1.5 × IQR are capped (Winsorized). More recent operational years receive higher linear weights.',
-      },
-      {
-        name: 'Quadratic Growth Trend Fit',
-        formula: 'Fitted Curve: y(t) = a·t² + b·t + c (applied when N ≥ 6 and R² ≥ 80%)',
-        description: 'Where R² is high, historical CAGR is derived from the second-degree quadratic velocity curve rather than point-to-point noise.',
-      },
-    ],
+    id: 'equity-total-assets',
+    name: 'Equity / Total Assets (%)',
+    abbr: 'Equity / Assets',
+    category: 'banking',
+    formula: 'Equity / Total Assets (%) = (Total Equity Capital ÷ Total Balance Sheet Assets) × 100',
+    meaning: 'The ultimate solvency and capital adequacy cushion of a bank. Reflects how much asset loss can be absorbed before depositor funds are impaired.',
+    benchmark: 'Healthy: 8% - 13%. Basel III mandates minimum regulatory Tier-1 capital ratios above 9% - 11.5%.',
+    notes: 'Low ratios (< 6%) signify dangerously high balance-sheet leverage, leaving zero margin for loan portfolio shocks.',
+    applicableTo: 'bank',
+  },
+
+  // Profitability & Margins (Corporate & Banking)
+  {
+    id: 'opm',
+    name: 'Operating Profit Margin (OPM %)',
+    abbr: 'OPM',
+    category: 'margins',
+    formula: 'OPM (%) = (Operating Profit / Operating Revenue) × 100',
+    meaning: 'Operating efficiency and gross pricing power before depreciation, interest, and taxes.',
+    benchmark: 'Asset-light IT: 22% - 28%. Specialty chemicals: 18% - 25%. FMCG: 18% - 24%. Infrastructure: 12% - 18%.',
+    notes: 'A widening gap between OPM and NPM highlights burdensome interest obligations or steep asset depreciation.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'npm',
+    name: 'Net Profit Margin (NPM %)',
+    abbr: 'NPM',
+    category: 'margins',
+    formula: 'NPM (%) = (Net Profit After Tax ÷ Total Revenue) × 100',
+    meaning: 'The bottom-line residual percentage of every rupee of revenue converted into pure net profit for shareholders.',
+    benchmark: 'High-margin software/consumer: 15% - 25%. Heavy manufacturing: 6% - 12%. Retail/distribution: 2% - 5%.',
+    notes: 'Consistently higher NPM relative to industry peers demonstrates structural cost advantages or premium brand pricing.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'gpm',
+    name: 'Gross Profit Margin (GPM %)',
+    abbr: 'GPM',
+    category: 'margins',
+    formula: 'GPM (%) = ((Sales − Raw Material Costs − Manufacturing Expenses) ÷ Sales) × 100',
+    meaning: 'Pure product markup over direct manufacturing input costs, completely excluding overheads and SG&A.',
+    benchmark: 'Consumer brands: 50% - 65%. Industrial manufacturing: 30% - 45%. Commodity processors: 15% - 25%.',
+    notes: 'Automatically suppressed if raw material cost line is unstated or reported as pure gross billing.',
+    applicableTo: 'nonbank',
+  },
+
+  // Returns & Capital Efficiency
+  {
+    id: 'roce',
+    name: 'Return on Capital Employed (ROCE %)',
+    abbr: 'ROCE',
+    category: 'returns',
+    formula: 'ROCE (%) = (EBIT ÷ Total Capital Employed) × 100 | Screener #ratios official integration',
+    meaning: 'Evaluates the operating pre-tax profit generated per rupee of capital deployed across equity and debt.',
+    benchmark: 'Elite compounders: > 20% - 25%+. Good businesses: 15% - 20%. Capital destroyers: < 10% (below WACC).',
+    notes: 'Directly sourced from Screener official #ratios table or calculated via EBIT / Capital Employed. The single most reliable measure of capital allocation prowess.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'roe',
+    name: 'Return on Equity (ROE %)',
+    abbr: 'ROE',
+    category: 'returns',
+    formula: 'ROE (%) = (Net Profit After Tax ÷ Average Shareholders’ Net Worth) × 100',
+    meaning: 'The rate of return earned on shareholders’ capital. Determines the intrinsic compounding speed of book value per share.',
+    benchmark: 'Outstanding: > 18% - 25% without excessive leverage. Good: 14% - 18%. Poor: < 10%.',
+    notes: 'Can be artificially inflated by excessive debt leverage. Always cross-check with ROCE and DuPont leverage multiplier.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'roa',
+    name: 'Return on Assets (ROA %)',
+    abbr: 'ROA',
+    category: 'returns',
+    formula: 'ROA (%) = (Net Profit After Tax ÷ Average Total Assets) × 100',
+    meaning: 'Asset productivity indicator measuring net profit produced per unit of total balance-sheet assets.',
+    benchmark: 'Banks: > 1.2% - 1.8% (world-class > 2.0%). Non-banks: > 8% - 15%.',
+    notes: 'For banks, ROA is the bedrock metric because lending leverage (Assets/Equity) magnifies 1.5% ROA into a 15% ROE.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'dupont',
+    name: 'DuPont 3-Stage Decomposition',
+    abbr: 'DuPont 3-Stage',
+    category: 'returns',
+    formula: 'ROE = Net Profit Margin (%) × Asset Turnover (×) × Financial Leverage (×)',
+    meaning: 'Deconstructs ROE into its three drivers: Operational Profitability (NPM), Capital Velocity (Asset Turnover), and Financial Leverage (Assets/Equity).',
+    benchmark: 'Sustainable compounders derive ROE from high margin and asset turnover rather than reckless debt leverage.',
+    notes: 'Identifies whether rising ROE is fueled by genuine business excellence or dangerous balance-sheet expansion.',
+    applicableTo: 'all',
+  },
+
+  // Solvency & Debt Coverage
+  {
+    id: 'debt-to-equity',
+    name: 'Debt to Equity Ratio (D/E ×)',
+    abbr: 'D/E',
+    category: 'solvency',
+    formula: 'Debt to Equity (×) = Total Borrowings ÷ Net Worth (Share Capital + Reserves)',
+    meaning: 'Measures financial leverage and long-term solvency risk. Shows the proportion of debt financing relative to owners’ equity.',
+    benchmark: 'Conservative: < 0.5x. Moderate: 0.5x - 1.0x. Highly leveraged: > 1.5x (excluding financial companies).',
+    notes: 'Net cash or zero-debt balance sheets provide immense resilience during macroeconomic down-cycles and credit contractions.',
+    applicableTo: 'nonbank',
+  },
+  {
+    id: 'interest-coverage',
+    name: 'Interest Coverage Ratio (ICR ×)',
+    abbr: 'ICR',
+    category: 'solvency',
+    formula: 'ICR (×) = (Profit Before Tax + Interest Expense) ÷ Interest Expense',
+    meaning: 'Determines how easily a company can pay interest on outstanding debt from operating earnings (EBIT).',
+    benchmark: 'Comfortable: > 4.0x. Acceptable: 2.5x - 4.0x. Danger threshold: < 1.5x.',
+    notes: 'Below 1.5x indicates high debt distress risk. An unexpected EBITDA contraction could trigger payment defaults or rating downgrades.',
+    applicableTo: 'nonbank',
+  },
+
+  // Working Capital Cycle & Cash Flows (Screener.in Deeper Schedule Integration)
+  {
+    id: 'debtor-days',
+    name: 'Debtor Days / Days Sales Outstanding (DSO)',
+    abbr: 'Debtor Days',
+    category: 'workingcap',
+    formula: 'DSO (Days) = (Trade Receivables ÷ Annual Sales) × 365 | Screener #ratios official',
+    meaning: 'The average number of days taken to collect cash payments from customers after invoice billing.',
+    benchmark: 'Cash/Retail businesses: < 15 days. Industrial B2B: 45 - 75 days. Government/EPC utilities: 90 - 180+ days.',
+    notes: 'Sourced from Screener official #ratios table or calculated via Trade Receivables / (Sales / 365). A spike signals customer credit strain or channel stuffing.',
+    applicableTo: 'nonbank',
+  },
+  {
+    id: 'creditor-days',
+    name: 'Creditor Days / Days Payable Outstanding (DPO)',
+    abbr: 'Creditor Days',
+    category: 'workingcap',
+    formula: 'DPO (Days) = (Trade Payables ÷ Annual Sales) × 365 | Screener #ratios & Schedule integration',
+    meaning: 'The average number of days the company takes to settle trade obligations with its suppliers and vendors.',
+    benchmark: 'Healthy: 45 - 90 days. Extended supplier credit provides non-interest working capital funding.',
+    notes: 'Extracted directly from Screener official #ratios or expanded Balance Sheet schedule (Trade Payables) and Cash Flow schedule. When unavailable, preserved as null (—) without arbitrary assumptions.',
+    applicableTo: 'nonbank',
+  },
+  {
+    id: 'inventory-days',
+    name: 'Inventory Days / Days Inventory Outstanding (DIO)',
+    abbr: 'Inventory Days',
+    category: 'workingcap',
+    formula: 'DIO (Days) = (Inventories ÷ Annual Sales) × 365 | Screener #ratios official',
+    meaning: 'The average number of days raw materials, work-in-progress, and finished goods sit in stock before being sold.',
+    benchmark: 'FMCG: 20 - 45 days. Auto/Engineering: 50 - 80 days. Capital Goods/EPC: 90 - 150 days. Power utilities: 0 - 20 days.',
+    notes: 'Sourced from Screener official #ratios table or Inventories / (Sales / 365). Rising DIO combined with falling sales points to inventory obsolescence risk.',
+    applicableTo: 'nonbank',
+  },
+  {
+    id: 'ccc',
+    name: 'Cash Conversion Cycle (CCC Days)',
+    abbr: 'CCC',
+    category: 'workingcap',
+    formula: 'CCC (Days) = Debtor Days + Inventory Days − Creditor Days | Screener #ratios official',
+    meaning: 'The net number of days it takes for capital invested in raw materials and inventory to cycle back into operating cash from sales.',
+    benchmark: 'Negative or near-zero is elite (e.g. FMCG/retail using negative working capital funded by suppliers). Standard: 30 - 75 days.',
+    notes: 'Extracted directly from Screener official #ratios or calculated via Debtor Days + Inventory Days - Creditor Days. Expanding CCC drains operating cash flow.',
+    applicableTo: 'nonbank',
+  },
+  {
+    id: 'working-capital-days',
+    name: 'Working Capital Days',
+    abbr: 'WC Days',
+    category: 'workingcap',
+    formula: 'WC Days = (Working Capital ÷ Annual Sales) × 365 | Screener #ratios official',
+    meaning: 'Quantifies the total days of annual revenue tied up in operational working capital assets.',
+    benchmark: 'Negative or low (< 20 days) denotes elite working capital management. > 90 days indicates heavy capital drag.',
+    notes: 'Sourced directly from Screener official #ratios table or calculated via Working Capital / (Sales / 365). Uses verified expanded Screener schedules.',
+    applicableTo: 'nonbank',
+  },
+  {
+    id: 'cfo-pat',
+    name: 'CFO / PAT (Cash Flow Quality Ratio)',
+    abbr: 'CFO / PAT',
+    category: 'cashflow',
+    formula: 'CFO / PAT (×) = Cash from Operating Activities (CFO) ÷ Net Profit After Tax (PAT)',
+    meaning: 'The quintessential earnings quality check: measures how much of reported accounting P&L net profit actually converts into hard bank cash.',
+    benchmark: 'High quality: > 0.85x - 1.1x over a multi-year cumulative period. Below 0.6x is a major red flag.',
+    notes: 'Persistent divergence where PAT grows while CFO stagnates indicates aggressive revenue recognition or ballooning working capital.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'fcf',
+    name: 'Free Cash Flow (FCF ₹ Cr)',
+    abbr: 'FCF',
+    category: 'cashflow',
+    formula: 'FCF = Cash from Operating Activities (CFO) − Capital Work-in-Progress / CapEx additions',
+    meaning: 'The discretionary cash surplus generated by core operations after paying for all asset maintenance and growth capital investments.',
+    benchmark: 'Consistently positive and growing FCF is the truest foundation for dividends, buybacks, and debt reduction.',
+    notes: 'Companies with zero or negative FCF for decades are capital-destroying conveyor belts, regardless of reported net profit.',
+    applicableTo: 'all',
+  },
+
+  // Valuation & Technical Glossary
+  {
+    id: 'pe',
+    name: 'Price to Earnings Ratio (P/E ×)',
+    abbr: 'P/E',
+    category: 'glossary',
+    formula: 'P/E (×) = Current Market Capitalization ÷ Trailing Twelve Months (TTM) Net Profit',
+    meaning: 'Valuation multiple indicating how many rupees investors are willing to pay today for each rupee of annual earnings.',
+    benchmark: 'Mature utilities/banks: 10x - 18x. Steady compounders: 25x - 45x. High-growth market leaders: 50x+.',
+    notes: 'Low P/E can be a value trap if earnings are at cyclical peak or if capital allocation destroys shareholder value.',
+    applicableTo: 'all',
+  },
+  {
+    id: 'pb',
+    name: 'Price to Book Ratio (P/B ×)',
+    abbr: 'P/B',
+    category: 'glossary',
+    formula: 'P/B (×) = Current Market Capitalization ÷ Latest Net Worth (Equity + Reserves)',
+    meaning: 'Valuation comparison between market value and net balance-sheet accounting equity. Indispensable for banks & NBFCs.',
+    benchmark: 'Commercial banks: 1.2x to 3.0x. High-return asset-light leaders: > 8x - 15x.',
+    notes: 'For banks, P/B is directly tied to ROE: a bank compounding book value at 18% ROE commands a 2.5x - 3.5x P/B premium.',
+    applicableTo: 'all',
+  },
+  {
+    id: '52w-range-dma',
+    name: '52-Week Price Range & Moving Averages (50 DMA / 200 DMA)',
+    abbr: '52W Range & DMAs',
+    category: 'glossary',
+    formula: 'Range = 52W Low to 52W High · CMP (Cyan ◆), 50 DMA (Amber ●), 200 DMA (Purple ▲) · Range % = 100 × (CMP − Low) / (High − Low)',
+    meaning: 'Visualizes where the stock price is currently trading relative to its 1-year low and high boundaries, alongside the 50-day and 200-day simple moving averages to identify technical trend strength and key support/resistance levels.',
+    benchmark: 'CMP > 50 DMA > 200 DMA indicates strong bullish momentum. CMP < 200 DMA indicates long-term consolidation or corrective phase.',
+    notes: 'Displayed as an interactive horizontal track widget in the Peer Comparison section across both Bank and Non-Bank peer tables.',
+    applicableTo: 'all',
   },
 ]
 
-const BANK_CATEGORIES: FormulaCategory[] = [
+export const PLOT_DEFINITIONS: PlotDefinition[] = [
+  // Corporate Non-Bank Annual Plots
   {
-    title: 'Banking Growth & Top-Line Momentum (Quarterly & Yearly)',
-    icon: TrendingUp,
-    color: '#0f766e',
-    items: [
-      {
-        name: 'Interest Earned (Revenue) YoY Growth (%)',
-        formula: 'YoY Growth = [ (Interest Earned_t − Interest Earned_{t-1}) / |Interest Earned_{t-1}| ] × 100',
-        description: 'Year-over-year expansion in total gross interest earned from loans, advances, bills discounted, and treasury investments. For quarterly tables, compares Q(t) vs Q(t-4); TTM compares trailing 4 quarters against prior 4 quarters.',
-        benchmark: 'Well-managed commercial banks aim for sustainable loan-book revenue growth of 12%–18% YoY.',
-      },
-      {
-        name: 'Interest Earned (Revenue) QoQ Growth (%)',
-        formula: 'QoQ Growth = [ (Interest Earned_Q(t) − Interest Earned_Q(t-1)) / |Interest Earned_Q(t-1)| ] × 100',
-        description: 'Quarter-on-quarter momentum in gross interest income, capturing sequential lending velocity and interest rate reset cycles.',
-      },
-      {
-        name: 'Net Interest Income (NII) YoY Growth (%)',
-        formula: 'NII Growth = [ (NII_t − NII_{t-1}) / |NII_{t-1}| ] × 100, where NII = Interest Earned − Interest Expended',
-        description: 'Core lending revenue growth after deducting interest paid on customer deposits and borrowings. Captures pure intermediation franchise compounding.',
-        benchmark: 'Top-tier private banks sustain NII growth between 14% and 20% YoY across credit cycles.',
-      },
-      {
-        name: 'Deposits YoY Growth (%)',
-        formula: 'Deposits Growth = [ (Deposits_t − Deposits_{t-1}) / |Deposits_{t-1}| ] × 100',
-        description: 'Annual growth in the bank\'s aggregate customer deposit base (CASA and term deposits), reflecting liability franchise strength and customer trust.',
-        benchmark: 'Deposit growth should ideally match or pace advance growth to prevent elevated liquidity strains.',
-      },
-      {
-        name: 'Net Profit YoY Growth (%)',
-        formula: 'Net Profit Growth = [ (Net Profit_t − Net Profit_{t-1}) / |Net Profit_{t-1}| ] × 100',
-        description: 'Annual bottom-line profit after tax (PAT) expansion after operating costs, loan provisions, and corporate taxes.',
-        benchmark: 'Consistent double-digit earnings growth (>15% YoY) signals high operating leverage and disciplined credit underwriting.',
-      },
-      {
-        name: 'Net Profit QoQ Growth (%)',
-        formula: 'Net Profit QoQ = [ (Net Profit_Q(t) − Net Profit_Q(t-1)) / |Net Profit_Q(t-1)| ] × 100',
-        description: 'Sequential quarterly net income trend, capturing immediate quarterly provisioning shifts or seasonal tax swings.',
-      },
-    ],
+    id: 'annual-growth',
+    title: 'Sales & Net Profit Growth',
+    subtitle: 'Sales and Net profit YoY % bars',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Sales Growth YoY (%) · Net Profit Growth YoY (%)',
+    dataSource: 'Screener P&L Statement (Annual Sales & Net Profit Disclosures)',
+    meaning: 'Compares top-line revenue momentum against bottom-line net earnings expansion year over year.',
+    interpretation: 'When profit growth consistently outpaces revenue growth, the company is enjoying positive operational leverage and expanding margins. If sales grow while profits collapse, cost inflation or pricing erosion is occurring.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
   },
   {
-    title: 'Spread, Margins & Operational Efficiency',
-    icon: Landmark,
-    color: '#0284c7',
-    items: [
-      {
-        name: 'Net Interest Margin (NIM Proxy %)',
-        formula: 'NIM Proxy = [ (Interest Earned − Interest Expended) / Total Assets ] × 100',
-        description: 'Core lending efficiency metric measuring net interest revenue generated per unit of funded balance-sheet assets.',
-        benchmark: 'High-performing Indian commercial banks typically sustain NIM between 3.2% and 4.3%.',
-      },
-      {
-        name: 'NII Spread — NII / Revenue (%)',
-        formula: 'NII Spread = [ (Interest Earned − Interest Expended) / Interest Earned ] × 100',
-        description: 'Proportion of gross lending revenue retained as net interest income after meeting deposit and funding borrowing costs.',
-        benchmark: 'Leading retail deposit franchises sustain NII Spreads above 40%–50%.',
-      },
-      {
-        name: 'Financing Margin (OPM %)',
-        formula: 'Financing Margin = (Financing Profit / Interest Earned) × 100',
-        description: 'Operating profitability of core financial operations before non-interest other income, overhead, and corporate taxes.',
-        benchmark: 'Positive and expanding financing margin indicates core lending operations cover basic operating costs.',
-      },
-      {
-        name: 'Cost-to-Income Ratio (incl. Provisions %)',
-        formula: 'Cost-to-Income = [ Operating Expenses / (Net Interest Income + Other Income) ] × 100',
-        description: 'Operational efficiency ratio indicating proportion of net revenues consumed by staff, branch networks, and administrative overhead.',
-        benchmark: 'Digitized, lean banking franchises operate with Cost-to-Income < 45%–50%.',
-      },
-      {
-        name: 'Other Income vs Total Income (%)',
-        formula: 'Other Income Share = [ Other Income / (Interest Earned + Other Income) ] × 100',
-        description: 'Proportion of total bank revenues sourced from fee income, commissions, distribution, forex, and treasury trading.',
-        benchmark: 'Healthy diversified banks maintain other income between 15% and 25% of total income.',
-      },
-      {
-        name: 'Non-Interest Income Share — Other Inc / (NII + Other Inc) (%)',
-        formula: 'Non-Interest Income Share = [ Other Income / (Net Interest Income + Other Income) ] × 100',
-        description: 'Contribution of fee, forex, and non-fund-based income relative to total net revenue (NII + Other Income). High non-interest income reduces capital charge requirements.',
-        benchmark: 'Diversified corporate and retail franchises achieve 25%–35% non-interest income share.',
-      },
-      {
-        name: 'Net Profit Margin (NPM %)',
-        formula: 'NPM = (Net Profit after Tax / Total Revenue) × 100',
-        description: 'Final bottom-line conversion percentage of total top-line bank revenue flowing to shareholders after all interest, provisions, costs, and taxes.',
-      },
-    ],
+    id: 'annual-margins',
+    title: 'Operating & Net Margins',
+    subtitle: 'Operating & net profit margins · %',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Operating Profit Margin (OPM %) · Net Profit Margin (NPM %)',
+    dataSource: 'P&L Statement (Operating Profit ÷ Sales & Net Profit ÷ Sales)',
+    meaning: 'Tracks core manufacturing and business profitability margins across business cycles.',
+    interpretation: 'Rising OPM reflects pricing power, raw material efficiency, and economies of scale. Wide gap between OPM and NPM highlights high borrowing costs or heavy depreciation.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
   },
   {
-    title: 'Asset Quality, Solvency & Funding Mix',
-    icon: Scale,
-    color: '#b45309',
-    items: [
-      {
-        name: 'Gross NPA (%)',
-        formula: 'Gross NPA % = (Gross Non-Performing Assets / Gross Advances) × 100',
-        description: 'Recognized loans overdue past 90 days as a percentage of total loan book (Reported Standalone Bank Book).',
-        benchmark: 'Top-tier Indian private banks maintain Gross NPA < 1.5%–2.0%; systemic stress occurs above 5.0%.',
-      },
-      {
-        name: 'Net NPA (%)',
-        formula: 'Net NPA % = (Net Non-Performing Assets / Net Advances) × 100 = [ (Gross NPA − Provisions) / Net Advances ] × 100',
-        description: 'Bad loans remaining on the balance sheet after specific credit impairment provisions have been deducted.',
-        benchmark: 'Conservative banking standards target Net NPA < 0.5%–0.8%.',
-      },
-      {
-        name: 'Provision Coverage Ratio (PCR Proxy %)',
-        formula: 'PCR Proxy = [ (Gross NPA % − Net NPA %) / Gross NPA % ] × 100',
-        description: 'Proportion of recognized bad loans already covered by provisioning reserves, insulating future profits and equity capital from slippages.',
-        benchmark: 'Prudent regulatory and banking comfort levels require PCR > 70%–80%.',
-      },
-      {
-        name: 'Credit-to-Deposit / Loan-to-Deposit Ratio (LDR %)',
-        formula: 'LDR = (Total Loans & Advances / Total Customer Deposits) × 100',
-        description: 'Measures how much of customer deposits are deployed into loans and advances. Ratios exceeding 85%–90% signal heavy reliance on wholesale borrowings and tightening structural liquidity.',
-        benchmark: 'Comfortable RBI regulatory and liquidity range is typically 70% to 80%.',
-      },
-      {
-        name: 'Borrowings / Deposits (%) [Wholesale Funding Reliance]',
-        formula: 'Borrowings / Deposits = (Non-Deposit Wholesale Borrowings / Customer Deposits) × 100',
-        description: 'Gauges bank reliance on expensive or volatile wholesale market borrowings (subordinated debt, certificates of deposit, refinance) relative to sticky retail deposits.',
-        benchmark: 'Retail-heavy deposit franchises keep wholesale borrowings < 15%–20% of customer deposits.',
-      },
-      {
-        name: 'Equity / Total Assets (%) [Capital Buffer Cushion]',
-        formula: 'Equity / Total Assets = [ (Equity Share Capital + Reserves & Surplus) / Total Assets ] × 100',
-        description: 'Net worth cushion safeguarding depositors and creditors against asset deflation or severe loan book write-offs.',
-        benchmark: 'Well-capitalized commercial banks sustain Equity / Total Assets between 10% and 14%.',
-      },
-      {
-        name: 'Investments / Deposits (%) [Treasury / SLR Liquidity Buffer]',
-        formula: 'Investments / Deposits = (Total Investments / Total Customer Deposits) × 100',
-        description: 'Measures liquidity deployed in central government securities (G-Secs), statutory liquidity ratio (SLR) assets, and corporate debt relative to deposits.',
-        benchmark: 'Standard range is 25%–32% to fulfill statutory SLR requirements and liquidity coverage ratios.',
-      },
-      {
-        name: 'Cash & Liquidity Coverage Buffer %',
-        formula: 'Liquidity Ratio = [ Cash & Bank Balances / (Borrowings + Other Liabilities) ] × 100',
-        description: 'Immediate liquid cash and central bank reserve buffer available to cover non-deposit borrowings and near-term obligations.',
-      },
-    ],
+    id: 'annual-returns',
+    title: 'Return on Capital',
+    subtitle: 'ROCE, ROE and ROA · %',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Return on Capital Employed (ROCE %) · Return on Equity (ROE %) · Return on Assets (ROA %)',
+    dataSource: 'Screener official #ratios table + Balance Sheet & P&L',
+    meaning: 'The defining benchmark of capital efficiency: how effectively management generates operating and net profits from deployed capital.',
+    interpretation: 'Companies maintaining ROCE > 20% over 5-10 years possess enduring economic moats. When ROE dramatically exceeds ROCE, high debt leverage is present.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
   },
   {
-    title: 'Capital Returns, Leverage & DuPont Framework for Banks',
-    icon: PieChart,
-    color: '#1d4ed8',
-    items: [
-      {
-        name: 'Return on Assets (ROA %)',
-        formula: 'ROA = (Net Profit after Tax / Average Total Assets) × 100',
-        description: 'Primary gold-standard profitability metric for financial institutions, measuring return generated on the overall funded balance sheet.',
-        benchmark: 'ROA > 1.0% is considered healthy; ROA > 1.5% represents elite banking execution.',
-      },
-      {
-        name: 'Return on Equity (ROE %)',
-        formula: 'ROE = (Net Profit after Tax / Average Shareholders\' Equity) × 100',
-        description: 'Annualized net accounting return generated on equity share capital and accumulated retained reserves.',
-        benchmark: 'Tier-1 Indian banks target sustainable ROE between 14% and 18%.',
-      },
-      {
-        name: 'Asset Leverage Multiplier (Assets / Net Worth ×)',
-        formula: 'Asset Leverage = Total Balance-Sheet Assets / Total Shareholders\' Equity (Net Worth)',
-        description: 'Balance-sheet gearing multiplier. Reflects how many rupees of assets are funded for every rupee of shareholder equity.',
-        benchmark: 'Commercial banks typically operate with leverage between 7.0× and 9.5×. Excessive leverage (>12×) magnifies insolvency risk during credit downturns.',
-      },
-      {
-        name: 'Banking DuPont ROE Decomposition',
-        formula: 'ROE = Return on Assets (ROA) × Financial Leverage Multiplier (Assets / Net Worth)',
-        description: 'Deconstructs bank equity returns into underlying asset earning power versus balance-sheet leverage gearing.',
-      },
-      {
-        name: 'Asset Utilization (AU %)',
-        formula: 'AU = [ (Interest Income + Other Income) / Average Total Assets ] × 100',
-        description: 'Total revenue-generating capacity across the entire funded and liquid asset book.',
-      },
-    ],
+    id: 'annual-dupont',
+    title: 'DuPont Analysis (3-Stage)',
+    subtitle: 'Net margin, asset turnover & financial leverage',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Net Profit Margin (%) · Asset Turnover (×) · Financial Leverage (Assets/Equity ×)',
+    dataSource: 'Comprehensive multi-statement DuPont model',
+    meaning: 'Dissects ROE into its three foundational pillars: margin quality, asset velocity, and capital structure leverage.',
+    interpretation: 'Identifies whether rising ROE is powered by healthy business fundamentals (higher margin / turnover) or risky balance-sheet borrowing.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
   },
   {
-    title: 'Banking Per-Share Metrics, Valuation & Payout',
-    icon: Building2,
-    color: '#059669',
-    items: [
-      {
-        name: 'Earnings Per Share (EPS ₹)',
-        formula: 'EPS = Net Profit after Tax / Number of Diluted Equity Shares',
-        description: 'Quarterly or annual bottom-line profit attributable to each unit of equity ownership.',
-      },
-      {
-        name: 'Book Value Per Share (BVPS ₹)',
-        formula: 'BVPS = (Equity Share Capital + Reserves & Surplus) / Number of Equity Shares',
-        description: 'Primary baseline equity valuation anchor for banks and non-banking financial companies.',
-      },
-      {
-        name: 'Price-to-Book (P/B) Multiple',
-        formula: 'P/B = Current Market Price / Latest BVPS = Market Capitalization / Total Equity',
-        description: 'Standard valuation multiple comparing market price against net balance-sheet equity value.',
-        benchmark: 'High-quality Indian banks command P/B valuations between 2.0× and 3.5× based on sustained ROE > 15%.',
-      },
-      {
-        name: 'Price-to-Earnings (P/E) Multiple',
-        formula: 'P/E = Current Market Price / TTM EPS = Market Capitalization / TTM Net Profit',
-        description: 'Market valuation multiple relative to trailing twelve-month net profit.',
-      },
-      {
-        name: 'Effective Tax Rate (%)',
-        formula: 'Effective Tax Rate = [ (Profit Before Tax − Net Profit) / Profit Before Tax ] × 100 (or Screener reported tax %)',
-        description: 'Statutory corporate tax proportion incurred on banking profits before exceptional items.',
-      },
-      {
-        name: 'Dividend Payout Ratio %',
-        formula: 'Dividend Payout = (Dividends Disbursed / Net Profit after Tax) × 100',
-        description: 'Proportion of banking profits distributed to shareholders in dividends after RBI capital conservation buffer rules.',
-        benchmark: 'Indian commercial banks typically maintain dividend payouts between 15% and 30%.',
-      },
-    ],
+    id: 'annual-debt',
+    title: 'Debt & Solvency',
+    subtitle: 'Total borrowings · ₹ crore; debt / equity & interest coverage ratio lines',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Borrowings (₹ Cr) · Debt / Equity (×) · Interest Coverage Ratio (×)',
+    dataSource: 'Balance Sheet Borrowings & P&L EBIT / Interest schedules',
+    meaning: 'Evaluates balance sheet leverage and debt service coverage safety.',
+    interpretation: 'Healthy businesses exhibit declining D/E (< 0.5x) and comfortable ICR (> 4.0x). A debt spike with falling ICR signals solvency vulnerability.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
   },
   {
-    title: 'Corporate Scope & Statistical Methodology',
-    icon: Calculator,
-    color: '#4338ca',
-    items: [
-      {
-        name: 'Standalone vs Consolidated Revenue (%)',
-        formula: 'Standalone Revenue Ratio = (Standalone Revenue / Consolidated Revenue) × 100',
-        description: 'Proportion of total consolidated revenue generated directly by the parent bank book versus capital market/subsidiary units (AMC, insurance, securities).',
-      },
-      {
-        name: 'Standalone vs Consolidated Net Profit (%)',
-        formula: 'Standalone Profit Ratio = (Standalone Net Profit / Consolidated Net Profit) × 100',
-        description: 'Proportion of total bottom-line earnings contributed by the parent bank book.',
-      },
-      {
-        name: 'Compound Annual Growth Rate (CAGR)',
-        formula: 'CAGR_n = [ (Value_t / Value_{t-n}) ^ (1 / n) ] − 1',
-        description: 'Geometric compound growth calculated over 1Y, 3Y, 5Y, and 8Y/10Y endpoints across advances, deposits, NII, and net profit.',
-      },
-      {
-        name: 'Recency-Weighted Winsorized Historical Average (AVG Column)',
-        formula: 'AVG = [ Σ (w_i × Winsorized_Value_i) ] / [ Σ w_i ], where w_i = i (recency weight 1..N)',
-        description: 'Robust statistical average weighting recent fiscal years higher while capping extreme one-off provisioning or credit cycle outliers.',
-      },
-      {
-        name: 'Trailing Twelve Months (TTM) Rolling Calculation',
-        formula: 'TTM Metric = Sum of 4 latest consecutive reported quarters',
-        description: 'Smooths seasonal variations in credit growth, fee booking, and fiscal-year-end recoveries.',
-      },
-    ],
+    id: 'annual-liquidity',
+    title: 'Working Capital & Liquidity',
+    subtitle: 'Current, quick and cash ratios · ratio (×)',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Current Ratio (×) · Quick Ratio (×) · Cash Ratio (×)',
+    dataSource: 'Balance Sheet assets, liabilities & cash equivalents',
+    meaning: 'Assesses short-term liquidity buffer against immediate operational liabilities.',
+    interpretation: 'Current ratio between 1.33x and 2.0x is ideal. Quick ratio > 1.0x ensures liquidity without relying on forced inventory liquidation.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-eps-dividend',
+    title: 'EPS, Dividend per Share & Payout',
+    subtitle: 'EPS & dividend per share in ₹; payout ratio · %',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Earnings Per Share (₹) · Dividend Per Share (₹) · Dividend Payout (%)',
+    dataSource: 'P&L Net Profit, share count & Cash Flow dividend distributions',
+    meaning: 'Measures shareholder cash return policy and per-share compounding.',
+    interpretation: 'Steady growth in EPS accompanied by sustainable dividend payouts (20%-40%) signifies disciplined capital allocation.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-cash-flow-activities',
+    title: 'Cash Flow Activities',
+    subtitle: 'Operating, investing, financing and net cash flow · ₹ crore',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Cash from Operating (CFO ₹ Cr) · Cash from Investing (CFI ₹ Cr) · Cash from Financing (CFF ₹ Cr) · Net Cash Flow (₹ Cr)',
+    dataSource: 'Cash Flow Statement top-level activity lines',
+    meaning: 'Visualizes the complete macro cash generation and allocation cycle of the business.',
+    interpretation: 'The classic hallmark of high-quality compounders is robust positive CFO funding negative CFI (productive CapEx) and negative CFF (dividends & debt repayment).',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-cash-profit',
+    title: 'Profit & Cash Generation',
+    subtitle: 'Operating profit, OCF, FCF & net profit · ₹ crore',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Operating Profit (₹ Cr) · Operating Cash Flow (₹ Cr) · Free Cash Flow (₹ Cr) · Net Profit (₹ Cr)',
+    dataSource: 'P&L Operating Profit, Net Profit & Cash Flow CFO / FCF additions',
+    meaning: 'The definitive earnings reality check: compares accounting accrual profits against actual cash collected.',
+    interpretation: 'Healthy companies produce CFO equal to or exceeding Net Profit. If Net Profit grows while CFO and FCF lag or turn negative, working capital is trapping earnings.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-sales-wc-cfo',
+    title: 'Sales vs Working Capital vs Cash from Operation',
+    subtitle: 'Sales, working capital changes & cash from operations · ₹ crore',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Sales (₹ Cr) · Working Capital Changes / Balance (₹ Cr) · Cash from Operation (₹ Cr)',
+    dataSource: 'Screener.in Expanded Cash from Operating Activity schedule (+ button) & P&L',
+    meaning: 'Directly illustrates how working capital movements absorb or liberate operating cash during top-line revenue expansion.',
+    interpretation: 'When sales expand with stable or negative working capital changes, the company enjoys negative working capital (suppliers fund growth). If working capital changes consume massive cash, growth is capital-hungry.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-cfo-wc-breakdown',
+    title: 'Cash from Operation vs Receivables vs Inventory vs Payables',
+    subtitle: 'CFO, receivables, inventory & payables breakdown · ₹ crore',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Cash from Operation (₹ Cr) · Receivables (₹ Cr) · Inventory (₹ Cr) · Payables (₹ Cr)',
+    dataSource: 'Screener.in Detailed Cash Flow Schedules (expanded behind "+" button on Cash from Operating Activity)',
+    meaning: 'Root-cause diagnostic isolating the individual working capital line items that drive or impair operating cash flows.',
+    interpretation: 'Shows exactly why CFO surged or contracted in any given fiscal year—whether driven by customer collections (Receivables), stock management (Inventory), or supplier credit (Payables).',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-working-capital',
+    title: 'Sales, Receivables & Inventory',
+    subtitle: 'Sales, receivables & inventory in ₹ crore',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Sales (₹ Cr) · Receivables (₹ Cr) · Inventory (₹ Cr)',
+    dataSource: 'Balance Sheet Other Assets schedules & P&L Sales',
+    meaning: 'Evaluates working capital assets relative to overall revenue scale.',
+    interpretation: 'Receivables growing faster than sales indicates customer payment delays or aggressive revenue booking. Rapidly mounting inventory signals slowdown in demand.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-net-block',
+    title: 'Net Block & CWIP / Net Block',
+    subtitle: 'Net block · ₹ crore; CWIP / net block · %',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Net Block (₹ Cr) · CWIP / Net Block (%)',
+    dataSource: 'Balance Sheet Fixed Assets & Capital Work in Progress schedules',
+    meaning: 'Tracks fixed productive asset expansion and ongoing capital expenditure projects.',
+    interpretation: 'Elevated CWIP / Net Block (> 30%-50%) indicates major capacity expansion under construction. When CWIP capitalizes into Net Block, revenue should surge.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'annual-cwip',
+    title: 'Capital Work in Progress',
+    subtitle: 'CWIP in ₹ crore',
+    category: 'annual-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Capital Work in Progress (CWIP ₹ Cr)',
+    dataSource: 'Balance Sheet Capital Work in Progress',
+    meaning: 'Monitors uncommissioned plant, machinery, and facility construction projects.',
+    interpretation: 'Chronically high CWIP without capitalization indicates project execution delays, cost overruns, or impaired capital assets.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+
+  // Corporate Non-Bank Quarterly Plots
+  {
+    id: 'quarter-sales-opm',
+    title: 'Sales & OPM (Quarterly)',
+    subtitle: 'Quarterly sales · ₹ crore; OPM · %',
+    category: 'quarterly-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Quarterly Sales (₹ Cr) · Operating Profit Margin (OPM %)',
+    dataSource: 'Screener Quarterly Financial Results',
+    meaning: 'High-frequency quarterly trend analysis tracking revenue seasonality and quarterly margin resilience.',
+    interpretation: 'Uncovers seasonal demand spikes (e.g. Q3 festival season, Q4 closing) and sudden quarterly margin compressions caused by raw material surges.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'quarter-profit-npm',
+    title: 'Operating Profit, Net Profit & NPM (Quarterly)',
+    subtitle: 'Quarterly profits · ₹ crore; NPM · %',
+    category: 'quarterly-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Operating Profit (₹ Cr) · Net Profit (₹ Cr) · Net Profit Margin (NPM %)',
+    dataSource: 'Screener Quarterly Disclosures',
+    meaning: 'Evaluates bottom-line net profit delivery across recent sequential quarters.',
+    interpretation: 'Identifies sudden quarterly tax or interest hits that depress net margins despite stable operating earnings.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'quarter-cost-structure',
+    title: 'Cost Structure Breakdown (Quarterly)',
+    subtitle: 'Cost metrics as % of sales',
+    category: 'quarterly-corporate',
+    applicableTo: 'nonbank',
+    metrics: 'Material Cost % of Sales · Employee Cost % of Sales · Other Expenses % of Sales',
+    dataSource: 'Quarterly Disclosures Cost Breakdown',
+    meaning: 'Breaks down the operational cost anatomy into raw materials, labor, and overheads.',
+    interpretation: 'Shows whether margin expansion is driven by cheaper raw materials, employee productivity gains, or fixed overhead absorption.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+
+  // Banking (BFSI) Annual Plots
+  {
+    id: 'bank-revenue-expenses',
+    title: 'Total Revenue & Total Expense',
+    subtitle: '₹ crore · Total Revenue = Interest Earned + Other Income; Total Expense = Operating + Provisions + Interest Paid',
+    category: 'annual-bank',
+    applicableTo: 'bank',
+    metrics: 'Total Revenue (₹ Cr) · Total Expense (₹ Cr) · Operating Profit Margin (OPM %)',
+    dataSource: 'Banking P&L Disclosures (Form B)',
+    meaning: 'Comprehensive banking revenue vs total overheads, funding costs, and provisioning expenses.',
+    interpretation: 'Healthy banks generate wide jaws between total revenue and operating expenses, driving strong operating profit before loan-loss provisions.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-interest',
+    title: 'Interest Earned & Interest Paid',
+    subtitle: '₹ crore · Interest Gap = Net Interest Income (NII)',
+    category: 'annual-bank',
+    applicableTo: 'bank',
+    metrics: 'Interest Earned (₹ Cr) · Interest Paid (₹ Cr) · Interest Gap / NII (₹ Cr)',
+    dataSource: 'Banking P&L Interest Schedules',
+    meaning: 'The foundational revenue engine of a financial institution: interest earned on advances/treasury minus interest paid on deposits/borrowings.',
+    interpretation: 'A widening Interest Gap reflects expanding Net Interest Margin (NIM) and superior low-cost CASA deposit funding.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-returns',
+    title: 'Return on Equity (ROE) & Return on Assets (ROA)',
+    subtitle: 'ROE and ROA columns share scale; ROA overlaid as right-axis line',
+    category: 'annual-bank',
+    applicableTo: 'bank',
+    metrics: 'ROE (%) · ROA (%) · ROA Overlay Line (%)',
+    dataSource: 'Banking Financial Ratios & Balance Sheet Schedules',
+    meaning: 'Core profitability benchmark for commercial banking operations.',
+    interpretation: 'Elite commercial banks sustain ROA > 1.5% - 2.0% and ROE > 15% - 18% with pristine credit quality and high capital buffers.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-ldr',
+    title: 'Loan-to-Deposit Ratio (LDR %) [Credit-to-Deposit Ratio]',
+    subtitle: 'Loans & Advances, Deposits (₹ crore left axis); LDR % (right axis line)',
+    category: 'annual-bank',
+    applicableTo: 'bank',
+    metrics: 'Loans & Advances (₹ Cr) · Customer Deposits (₹ Cr) · LDR (%)',
+    dataSource: 'Banking Balance Sheet Form A (Advances & Deposits schedules)',
+    meaning: 'Monitors the proportion of customer deposits deployed into commercial lending.',
+    interpretation: 'Healthy LDR is 70%-80%. Ratios above 85% indicate aggressive loan expansion requiring high-cost market borrowings.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-borrowings-deposits',
+    title: 'Borrowings / Deposits (%)',
+    subtitle: 'Wholesale Borrowings & Deposits (₹ Cr left); Ratio % (right axis)',
+    category: 'annual-bank',
+    applicableTo: 'bank',
+    metrics: 'Borrowings (₹ Cr) · Customer Deposits (₹ Cr) · Borrowings / Deposits (%)',
+    dataSource: 'Balance Sheet Schedule 4 (Borrowings) & Schedule 3 (Deposits)',
+    meaning: 'Measures reliance on wholesale interbank borrowing versus retail customer deposits.',
+    interpretation: 'Lower is safer (< 15%-20%). Heavy wholesale borrowing exposes the bank to volatile money-market rate hikes.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-equity-assets',
+    title: 'Equity / Total Assets (%)',
+    subtitle: 'Equity Capital & Total Assets (₹ Cr left); Equity / Total Assets % (right axis)',
+    category: 'annual-bank',
+    applicableTo: 'bank',
+    metrics: 'Equity Capital (₹ Cr) · Total Assets (₹ Cr) · Equity / Total Assets (%)',
+    dataSource: 'Balance Sheet Capital & Total Assets Disclosures',
+    meaning: 'Capital adequacy cushion protecting depositors against bad loan write-offs.',
+    interpretation: 'Healthy banks operate with Equity/Assets of 8%-13%, providing solid buffers against macroeconomic downturns.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+
+  // Banking (BFSI) Quarterly Plots
+  {
+    id: 'bank-quarter-interest-gap',
+    title: 'Interest Earned & Interest Paid (Quarterly)',
+    subtitle: '₹ crore · Interest Ratio = Interest Paid ÷ Interest Earned (%)',
+    category: 'quarterly-bank',
+    applicableTo: 'bank',
+    metrics: 'Quarterly Interest Earned (₹ Cr) · Interest Paid (₹ Cr) · Interest Ratio (%)',
+    dataSource: 'Quarterly Financial Results for Banks',
+    meaning: 'Quarterly interest spread tracking cost of funds versus lending yield.',
+    interpretation: 'Falling interest ratio demonstrates expanding NIM and strong quarterly asset repricing.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-quarter-income',
+    title: 'Interest Earned & Other Income (Quarterly)',
+    subtitle: '₹ crore · Interest Income Contribution %',
+    category: 'quarterly-bank',
+    applicableTo: 'bank',
+    metrics: 'Interest Earned (₹ Cr) · Other Income (₹ Cr) · Interest Income Contribution (%)',
+    dataSource: 'Quarterly Banking Statements',
+    meaning: 'Reveals the quarterly contribution of core interest income versus fee/treasury other income.',
+    interpretation: 'Healthy banks generate 15%-25% non-interest income from recurring fees (cards, wealth, FX) rather than volatile bond trading gains.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
+  },
+  {
+    id: 'bank-quarter-revenue-expense',
+    title: 'Total Revenue & Total Expense (Quarterly)',
+    subtitle: 'Quarterly total revenue, total expense & OPM %',
+    category: 'quarterly-bank',
+    applicableTo: 'bank',
+    metrics: 'Total Revenue (₹ Cr) · Total Expense (₹ Cr) · Operating Profit Margin (%)',
+    dataSource: 'Quarterly Banking Statements',
+    meaning: 'High-frequency quarterly operating profitability and cost-to-income tracking.',
+    interpretation: 'Consistently wide margins across all four quarters reflect robust risk-adjusted profitability.',
+    interactiveControls: 'X-axis period slider · Y-axis scale zoom (0-1000) · Mouse drag range selection · Reset button',
   },
 ]
 
 export function DataChecksView({ data }: { data: FinancialData }) {
+  const [activeTab, setActiveTab] = useState<'ratios' | 'plots'>('ratios')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+
   const isBank = data.mode === 'bank'
-  const categories = isBank ? BANK_CATEGORIES : NON_BANK_CATEGORIES
-  const firstPeriod = data.annual[0]?.period ?? '—'
-  const lastPeriod = data.annual.at(-1)?.period ?? '—'
-  const warningsCount = data.warnings.length
+
+  // Filter ratio definitions
+  const filteredRatios = useMemo(() => {
+    return RATIO_DEFINITIONS.filter(item => {
+      if (item.applicableTo === 'bank' && !isBank) return false
+      if (item.applicableTo === 'nonbank' && isBank) return false
+      if (selectedCategory !== 'all' && item.category !== selectedCategory) return false
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const matchName = item.name.toLowerCase().includes(q)
+        const matchAbbr = item.abbr.toLowerCase().includes(q)
+        const matchFormula = item.formula.toLowerCase().includes(q)
+        const matchMeaning = item.meaning.toLowerCase().includes(q)
+        const matchNotes = item.notes.toLowerCase().includes(q)
+        const matchBenchmark = item.benchmark.toLowerCase().includes(q)
+        return matchName || matchAbbr || matchFormula || matchMeaning || matchNotes || matchBenchmark
+      }
+      return true
+    })
+  }, [isBank, selectedCategory, searchQuery])
+
+  // Filter plot definitions
+  const filteredPlots = useMemo(() => {
+    return PLOT_DEFINITIONS.filter(item => {
+      if (item.applicableTo === 'bank' && !isBank) return false
+      if (item.applicableTo === 'nonbank' && isBank) return false
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const matchTitle = item.title.toLowerCase().includes(q)
+        const matchSub = item.subtitle.toLowerCase().includes(q)
+        const matchMetrics = item.metrics.toLowerCase().includes(q)
+        const matchSource = item.dataSource.toLowerCase().includes(q)
+        const matchMeaning = item.meaning.toLowerCase().includes(q)
+        const matchInterp = item.interpretation.toLowerCase().includes(q)
+        return matchTitle || matchSub || matchMetrics || matchSource || matchMeaning || matchInterp
+      }
+      return true
+    })
+  }, [isBank, searchQuery])
+
+  // Count by category for filter pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 }
+    RATIO_DEFINITIONS.forEach(item => {
+      if (item.applicableTo === 'bank' && !isBank) return
+      if (item.applicableTo === 'nonbank' && isBank) return
+      counts.all = (counts.all || 0) + 1
+      counts[item.category] = (counts[item.category] || 0) + 1
+    })
+    return counts
+  }, [isBank])
+
+  const categories = [
+    { key: 'all', label: 'All Ratios' },
+    ...(isBank ? [{ key: 'banking', label: 'Banking & Credit (BFSI)' }] : []),
+    { key: 'margins', label: 'Margins & Spreads' },
+    { key: 'returns', label: 'Returns & Capital' },
+    { key: 'liquidity', label: 'Liquidity & Solvency' },
+    ...(!isBank ? [{ key: 'workingcap', label: 'Working Capital & CCC' }] : []),
+    { key: 'cashflow', label: 'Cash Flow & Quality' },
+    { key: 'glossary', label: 'Glossary & Valuation' },
+  ]
+
+  const warningCount = data.warnings.length + (data.missingMetrics?.length || 0)
+  const totalRatiosCount = RATIO_DEFINITIONS.filter(r => (r.applicableTo === 'bank' ? isBank : !isBank || r.applicableTo === 'all')).length
+  const totalPlotsCount = PLOT_DEFINITIONS.filter(p => (p.applicableTo === 'bank' ? isBank : !isBank || p.applicableTo === 'all')).length
 
   return (
-    <div className="checks-section-wrap">
-      {/* Intro Heading */}
-      <div className="section-intro">
+    <div className="checks-page-container">
+      {/* 1. HERO TOP BANNER */}
+      <header className="checks-hero-banner">
+        <div className="checks-hero-left">
+          <div className="checks-icon-orb">
+            <ShieldCheck size={26} />
+          </div>
+          <div>
+            <div className="checks-hero-kicker">FINANCIAL AUDIT & METRICS DIRECTORY</div>
+            <h1 className="checks-hero-title">Data Checks, Ratio Formulas & Plot Directory</h1>
+            <p className="checks-hero-subtitle">
+              Exhaustive compendium of all financial ratios, mathematical formulas, Screener.in deeper schedules integration,
+              benchmarks, and comprehensive explanations for every interactive chart and plot in this project.
+            </p>
+          </div>
+        </div>
         <div>
-          <div className="hero-kicker">
-            <Sparkles size={14} /> METHODOLOGY &amp; DATA INTEGRITY
-          </div>
-          <h2>Data Checks, Financial Formulas &amp; Methodology</h2>
-          <p>
-            Complete mathematical definitions, formulas, DuPont decomposition, and data audit checks
-            applied across {data.companyName}&apos;s financial statements.
-          </p>
+          <span className={`checks-status-pill ${warningCount > 0 ? 'attention' : 'ready'}`}>
+            {warningCount > 0 ? (
+              <>
+                <AlertTriangle size={15} /> {warningCount} DATA NOTES
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={15} /> ALL INPUTS VERIFIED
+              </>
+            )}
+          </span>
         </div>
-        <span className={`check-status ${warningsCount ? 'attention' : ''}`}>
-          {warningsCount ? (
-            <>
-              <AlertTriangle size={15} /> {warningsCount} DATA DISCLOSURES
-            </>
-          ) : (
-            <>
-              <Check size={15} /> DATA INTEGRITY VERIFIED
-            </>
-          )}
-        </span>
-      </div>
+      </header>
 
-      {/* Top Source Summary & Warnings */}
-      <div className="checks-top-grid">
-        <div className="checks-card checks-card-source">
-          <div className="checks-card-header">
-            <ShieldCheck size={18} className="checks-icon-shield" />
-            <h3>Source &amp; Dataset Coverage</h3>
+      {/* 2. SOURCE COVERAGE & VERIFICATION METRICS */}
+      <section className="checks-meta-grid" aria-label="Workbook verification">
+        <div className="checks-info-card">
+          <h3>
+            <BookOpen size={17} style={{ color: '#38bdf8' }} /> Source Coverage & Metadata
+          </h3>
+          <div className="checks-kv-row">
+            <span className="checks-kv-label">Company Name</span>
+            <span className="checks-kv-value">{data.companyName}</span>
           </div>
-          <div className="check-row">
-            <span>Company Name</span>
-            <b>{data.companyName}</b>
+          <div className="checks-kv-row">
+            <span className="checks-kv-label">Reporting Classification</span>
+            <span className="checks-kv-value">{isBank ? 'Bank / BFSI Institution' : 'Corporate Non-Bank'}</span>
           </div>
-          <div className="check-row">
-            <span>Analysis Architecture</span>
-            <b>{isBank ? 'Banking & Financial Institution' : 'Corporate Non-Bank Analysis'}</b>
+          <div className="checks-kv-row">
+            <span className="checks-kv-label">Annual Periods Verified</span>
+            <span className="checks-kv-value">
+              {data.annual[0]?.period ?? '—'} to {data.annual.at(-1)?.period ?? '—'} ({data.annual.length} Periods)
+            </span>
           </div>
-          <div className="check-row">
-            <span>Annual Reporting Horizon</span>
-            <b>{firstPeriod} — {lastPeriod} ({data.annual.length} Fiscal Years)</b>
+          <div className="checks-kv-row">
+            <span className="checks-kv-label">Quarterly Disclosures</span>
+            <span className="checks-kv-value">{data.quarterly.length} Quarters · TTM Included</span>
           </div>
-          <div className="check-row">
-            <span>Quarterly Disclosures</span>
-            <b>{data.quarterly.length} Quarters Available + TTM</b>
+          <div className="checks-kv-row">
+            <span className="checks-kv-label">Screener.in Integration</span>
+            <span className="checks-kv-value" style={{ color: '#34d399', fontWeight: 700 }}>
+              Official #ratios + Deeper Cash Flow & BS Schedules
+            </span>
           </div>
-          <div className="check-row">
-            <span>Face Value Per Share</span>
-            <b>{data.faceValue === null ? 'Not provided in sheet' : `₹${data.faceValue}`}</b>
-          </div>
-          <div className="check-row">
-            <span>Primary Input Workbook</span>
-            <b>{data.sourceFileName}</b>
+          <div className="checks-kv-row">
+            <span className="checks-kv-label">Source Document</span>
+            <span className="checks-kv-value" style={{ fontSize: '12px' }}>{data.sourceFileName}</span>
           </div>
         </div>
 
-        <div className="checks-card checks-card-warnings">
-          <div className="checks-card-header">
-            <AlertTriangle size={18} className="checks-icon-alert" />
-            <h3>Workbook Notes &amp; Edge-Case Safeguards</h3>
-          </div>
-          {warningsCount > 0 ? (
-            <ul className="checks-warnings-list">
-              {data.warnings.map((warn, i) => (
-                <li key={i}>{warn}</li>
+        <div className="checks-info-card">
+          <h3>
+            <AlertTriangle size={17} style={{ color: warningCount > 0 ? '#f59e0b' : '#10b981' }} />
+            Data Quality & Screener.in Schedules
+          </h3>
+          {warningCount > 0 ? (
+            <ul className="checks-warning-list">
+              {[...data.warnings, ...(data.missingMetrics || [])].map((item, i) => (
+                <li key={i}>{item}</li>
               ))}
             </ul>
           ) : (
-            <p className="checks-clean-notice">
-              All financial statements reconciled cleanly. No missing balance-sheet rows or zero-denominator
-              divisions were detected for this workbook.
+            <p className="checks-ready-notice">
+              <CheckCircle2 size={16} /> All core mathematical schedules, P&L statements, Balance Sheet rows, and Screener.in schedule endpoints match verified criteria.
             </p>
           )}
+          <div className="ratio-note-box" style={{ marginTop: '14px' }}>
+            <strong>Deeper Schedules Rule:</strong> For working capital, payables, and receivables, the engine extracts exact schedule lines from Screener.in (behind the `+` buttons) and official #ratios table (`Debtor Days`, `Days Payable`, `CCC`, `Working Capital Days`, `ROCE %`). Unstated values stay strictly null (`—`) without artificial assumptions.
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Mathematical Formulas & Financial Methodology Grid */}
-      <div className="formula-sections-container">
-        <div className="formula-main-kicker">
-          <Calculator size={16} /> MATHEMATICAL EXPRESSIONS &amp; RATIO FORMULAS
+      {/* 3. MAIN SECTION TABS: RATIOS VS PLOTS */}
+      <section className="checks-tabs-container">
+        <div className="checks-main-tabs">
+          <button
+            type="button"
+            className={`checks-main-tab-btn ${activeTab === 'ratios' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ratios')}
+          >
+            <Calculator size={18} />
+            <span>Financial Ratios & Formulas</span>
+            <span className="checks-tab-badge">{totalRatiosCount}</span>
+          </button>
+          <button
+            type="button"
+            className={`checks-main-tab-btn ${activeTab === 'plots' ? 'active' : ''}`}
+            onClick={() => setActiveTab('plots')}
+          >
+            <BarChart3 size={18} />
+            <span>Visual Plots & Chart Directory</span>
+            <span className="checks-tab-badge">{totalPlotsCount}</span>
+          </button>
+        </div>
+      </section>
+
+      {/* 4. SEARCH & FILTER TOOLBAR */}
+      <section className="checks-toolbar" aria-label="Search and filter">
+        <div className="checks-search-box">
+          <Search size={18} className="checks-search-icon" />
+          <input
+            type="text"
+            className="checks-search-input"
+            placeholder={
+              activeTab === 'ratios'
+                ? 'Search ratio, formula, abbreviation, benchmark or keyword (e.g. Creditor Days, ROCE, NIM, CCC, LDR)...'
+                : 'Search plot title, metrics, data source, or interpretation (e.g. Cash flow, Working capital, Dupont)...'
+            }
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="checks-clear-btn" onClick={() => setSearchQuery('')} aria-label="Clear search">
+              <X size={16} />
+            </button>
+          )}
         </div>
 
-        <div className="formula-grid">
-          {categories.map((cat, catIdx) => {
-            const Icon = cat.icon
-            return (
-              <div key={catIdx} className="formula-card">
-                <div className="formula-card-head" style={{ borderTopColor: cat.color }}>
-                  <div className="formula-card-title-wrap">
-                    <Icon size={18} style={{ color: cat.color }} />
-                    <h3>{cat.title}</h3>
-                  </div>
-                  <span className="formula-count-pill">{cat.items.length} Formulations</span>
-                </div>
+        {activeTab === 'ratios' && (
+          <div className="checks-filter-row">
+            <SlidersHorizontal size={15} style={{ color: '#64748b', marginRight: '4px' }} />
+            {categories.map(cat => (
+              <button
+                key={cat.key}
+                className={`checks-filter-btn ${selectedCategory === cat.key ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(cat.key)}
+              >
+                {cat.label}
+                <span className="checks-count-chip">{categoryCounts[cat.key] || 0}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
-                <div className="formula-items-list">
-                  {cat.items.map((item, itemIdx) => (
-                    <div key={itemIdx} className="formula-item">
-                      <div className="formula-item-name">{item.name}</div>
-                      <div className="formula-math-box">
-                        <code>{item.formula}</code>
-                      </div>
-                      <p className="formula-desc">{item.description}</p>
-                      {item.benchmark && (
-                        <div className="formula-benchmark-note">
-                          <strong>Benchmark / Interpretation:</strong> {item.benchmark}
-                        </div>
-                      )}
+      {/* 5. CONTENT GRID */}
+      {activeTab === 'ratios' ? (
+        <>
+          <div className="checks-grid-section-title">
+            <h3>
+              <Calculator size={19} style={{ color: '#38bdf8' }} />
+              Financial Metrics & Ratio Compendium
+            </h3>
+            <span className="checks-results-meta">
+              Showing {filteredRatios.length} of {totalRatiosCount} ratios
+            </span>
+          </div>
+
+          {filteredRatios.length > 0 ? (
+            <div className="checks-compendium-grid">
+              {filteredRatios.map(item => (
+                <article key={item.id} className="ratio-card">
+                  <div className="ratio-card-top">
+                    <div className="ratio-card-title-group">
+                      <span className="ratio-card-abbr">{item.abbr}</span>
+                      <h4 className="ratio-card-name">{item.name}</h4>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                    <span className={`ratio-cat-badge badge-${item.category}`}>
+                      {item.category.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="ratio-formula-box">
+                    <div className="ratio-formula-label">MATHEMATICAL FORMULA & SOURCING</div>
+                    <div className="ratio-formula-text">{item.formula}</div>
+                  </div>
+
+                  <p className="ratio-details-content">{item.meaning}</p>
+
+                  <div className="ratio-benchmark-strip">
+                    <span className="benchmark-tag">BENCHMARK:</span>
+                    <span className="benchmark-value">{item.benchmark}</span>
+                  </div>
+
+                  <div className="ratio-note-box">
+                    <strong>Analyst Note:</strong> {item.notes}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="checks-empty-state">
+              <CircleHelp size={40} style={{ color: '#64748b', margin: '0 auto' }} />
+              <h4>No matching ratios found</h4>
+              <p>Try searching for a different keyword or select "All Ratios" in the category filter.</p>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="checks-grid-section-title">
+            <h3>
+              <BarChart3 size={19} style={{ color: '#38bdf8' }} />
+              Visual Analytics & Interactive Plot Directory
+            </h3>
+            <span className="checks-results-meta">
+              Showing {filteredPlots.length} of {totalPlotsCount} plots
+            </span>
+          </div>
+
+          {filteredPlots.length > 0 ? (
+            <div className="checks-compendium-grid">
+              {filteredPlots.map(plot => (
+                <article key={plot.id} className="plot-guide-card">
+                  <div className="plot-card-top">
+                    <div className="plot-card-title-group">
+                      <span className="plot-card-cat-pill">
+                        {plot.category.includes('quarterly') ? 'QUARTERLY' : 'YEARLY'}
+                      </span>
+                      <h4 className="plot-card-title">{plot.title}</h4>
+                      <p className="plot-card-subtitle">{plot.subtitle}</p>
+                    </div>
+                  </div>
+
+                  <div className="plot-metrics-box">
+                    <div className="plot-meta-label">METRICS & VISUAL SERIES</div>
+                    <div className="plot-metrics-tags">
+                      {plot.metrics.split('·').map((m, idx) => (
+                        <span key={idx} className="plot-metric-chip">
+                          {m.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="plot-source-box">
+                    <span className="plot-source-label">DATA SOURCING:</span>
+                    <span className="plot-source-value">{plot.dataSource}</span>
+                  </div>
+
+                  <div className="plot-details-section">
+                    <p className="plot-meaning-text">{plot.meaning}</p>
+                    <div className="plot-interp-box">
+                      <strong>How to Interpret:</strong> {plot.interpretation}
+                    </div>
+                  </div>
+
+                  <div className="plot-controls-footer">
+                    <Sparkles size={14} style={{ color: '#38bdf8', flexShrink: 0 }} />
+                    <span><strong>Interactive Controls:</strong> {plot.interactiveControls}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="checks-empty-state">
+              <CircleHelp size={40} style={{ color: '#64748b', margin: '0 auto' }} />
+              <h4>No matching charts or plots found</h4>
+              <p>Try searching for a different keyword or check the spelling.</p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
