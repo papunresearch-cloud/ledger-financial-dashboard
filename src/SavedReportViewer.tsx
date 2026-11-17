@@ -1,14 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
-  Calendar,
-  Cloud,
   Download,
-  ExternalLink,
   Maximize2,
   Minimize2,
   RefreshCw,
-  Sparkles,
   X,
 } from 'lucide-react'
 import type { SavedReportInfo } from './types'
@@ -18,39 +14,6 @@ type Props = {
   info: SavedReportInfo
   onClose: () => void
   onGenerateFresh: (code: string) => void
-}
-
-function formatDdMmYy(lastModified?: string, fallbackFormatted?: string): string {
-  if (lastModified) {
-    const d = new Date(lastModified)
-    if (!isNaN(d.getTime())) {
-      const dd = String(d.getDate()).padStart(2, '0')
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const yy = String(d.getFullYear()).slice(-2)
-      return `${dd}|${mm}|${yy}`
-    }
-  }
-  if (fallbackFormatted) {
-    const d = new Date(fallbackFormatted)
-    if (!isNaN(d.getTime())) {
-      const dd = String(d.getDate()).padStart(2, '0')
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const yy = String(d.getFullYear()).slice(-2)
-      return `${dd}|${mm}|${yy}`
-    }
-    const m = fallbackFormatted.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/)
-    if (m) {
-      const dd = m[1].padStart(2, '0')
-      const mm = m[2].padStart(2, '0')
-      const yy = m[3].length === 4 ? m[3].slice(-2) : m[3]
-      return `${dd}|${mm}|${yy}`
-    }
-  }
-  const now = new Date()
-  const dd = String(now.getDate()).padStart(2, '0')
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const yy = String(now.getFullYear()).slice(-2)
-  return `${dd}|${mm}|${yy}`
 }
 
 export function SavedReportViewer({
@@ -63,7 +26,18 @@ export function SavedReportViewer({
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const dateBadge = formatDdMmYy(info.lastModified, info.formattedDate)
+  // Strip sticky navigation ribbon from any existing or legacy web report HTML
+  const sanitizedHtml = useMemo(() => {
+    if (!html) return ''
+    let clean = html.replace(/<header\s+class=["']web-report-sticky-nav["']>[\s\S]*?<\/header>/gi, '')
+    const hideNavCss = '<style>.web-report-sticky-nav{display:none!important;visibility:hidden!important;height:0!important;padding:0!important;overflow:hidden!important;}</style>'
+    if (clean.includes('</head>')) {
+      clean = clean.replace('</head>', `${hideNavCss}</head>`)
+    } else {
+      clean = hideNavCss + clean
+    }
+    return clean
+  }, [html])
 
   // Sync fullscreen state with document fullscreenchange events
   useEffect(() => {
@@ -119,7 +93,7 @@ export function SavedReportViewer({
 
   function handleDownload() {
     const filename = info.fileName || `${info.code}_Complete_Report.html`
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([sanitizedHtml || html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -128,12 +102,6 @@ export function SavedReportViewer({
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  }
-
-  function handleOpenNewTab() {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    window.open(url, '_blank')
   }
 
   return (
@@ -152,29 +120,10 @@ export function SavedReportViewer({
             <ArrowLeft size={16} />
             <span>Back</span>
           </button>
-
-          <div className="viewer-title-info">
-            <span className="viewer-code-pill">{info.code}</span>
-            <span className="viewer-company-name">
-              {info.companyName || info.code}
-            </span>
-            <span className="viewer-date-tag" title={`Saved: ${info.formattedDate || 'Recent'}`}>
-              <Calendar size={13} />
-              <span>Updated: <strong>{dateBadge}</strong></span>
-            </span>
-            <span className="viewer-version-tag">
-              <Cloud size={13} />
-              <span>Drive Mirror</span>
-            </span>
-            <span className="viewer-mode-tag">
-              <Sparkles size={12} />
-              <span>Web Report (Bright Mode)</span>
-            </span>
-          </div>
         </div>
 
         <div className="saved-report-header-right">
-          {/* Full Screen / Enlarge Toggle Button */}
+          {/* Full Screen Toggle Button */}
           <button
             type="button"
             className={`button ${isFullscreen ? 'button-primary' : 'button-soft'} viewer-action-btn viewer-fullscreen-btn`}
@@ -185,6 +134,7 @@ export function SavedReportViewer({
             <span>{isFullscreen ? 'Exit Full Screen' : 'Full Screen'}</span>
           </button>
 
+          {/* Update Button */}
           <button
             type="button"
             className="button button-soft viewer-action-btn"
@@ -192,9 +142,10 @@ export function SavedReportViewer({
             title="Fetch latest financial data from Screener and update this report in Google Drive"
           >
             <RefreshCw size={14} />
-            <span>Update Report</span>
+            <span>Update</span>
           </button>
 
+          {/* Download Button */}
           <button
             type="button"
             className="button button-soft viewer-action-btn"
@@ -205,15 +156,7 @@ export function SavedReportViewer({
             <span>Download</span>
           </button>
 
-          <button
-            type="button"
-            className="button button-soft viewer-action-btn"
-            onClick={handleOpenNewTab}
-            title="Open in a new browser tab"
-          >
-            <ExternalLink size={14} />
-          </button>
-
+          {/* Close Viewer Button */}
           <button
             type="button"
             className="viewer-close-btn"
@@ -229,7 +172,7 @@ export function SavedReportViewer({
       <main className="saved-report-viewer-body">
         <iframe
           ref={iframeRef}
-          srcDoc={html}
+          srcDoc={sanitizedHtml}
           title={`${info.code} - Saved Web Report`}
           className="saved-report-iframe"
           sandbox="allow-same-origin allow-scripts allow-popups"

@@ -198,83 +198,6 @@ export function buildStandaloneWebReportHtml(
       line-height: 1.5;
     }
 
-    /* Sticky Quick-Navigation Header */
-    .web-report-sticky-nav {
-      position: sticky;
-      top: 0;
-      z-index: 9999;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-bottom: 2px solid #e2e8f0;
-      box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.08);
-      padding: 10px 18px;
-    }
-    .web-report-nav-inner {
-      max-width: 1440px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .web-report-nav-brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #0f172a;
-    }
-    .web-report-nav-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
-    }
-    .web-report-nav-pill {
-      font-size: 10.5px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 9999px;
-      background: #dcfce7;
-      color: #065f46;
-      border: 1px solid #86efac;
-      letter-spacing: 0.3px;
-    }
-    .web-report-nav-links {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .web-report-nav-links a {
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 600;
-      color: #334155;
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-      background: #ffffff;
-      transition: all 0.15s ease;
-    }
-    .web-report-nav-links a:hover {
-      background: #f1f5f9;
-      color: #0284c7;
-      border-color: #cbd5e1;
-    }
-    .web-report-nav-links a.top-link {
-      background: #0f766e;
-      color: #ffffff;
-      border-color: #0d9488;
-    }
-    .web-report-nav-links a.top-link:hover {
-      background: #115e59;
-    }
-
     /* Fluid Outer Container */
     .web-report-container {
       max-width: 1620px;
@@ -730,22 +653,6 @@ export function buildStandaloneWebReportHtml(
       .about-ratio-table td {
         padding: 6px 8px !important;
       }
-      .web-report-nav-inner {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 10px !important;
-      }
-      .web-report-nav-links {
-        width: 100% !important;
-        display: flex !important;
-        justify-content: space-between !important;
-      }
-      .web-report-nav-links a {
-        flex: 1 1 auto !important;
-        text-align: center !important;
-        padding: 6px 6px !important;
-        font-size: 11.5px !important;
-      }
     }
 
     @media (max-width: 480px) {
@@ -763,9 +670,6 @@ export function buildStandaloneWebReportHtml(
 
     /* Print optimization if user prints HTML directly */
     @media print {
-      .web-report-sticky-nav {
-        display: none !important;
-      }
       .web-report-container {
         padding: 0 !important;
         max-width: 100% !important;
@@ -872,27 +776,6 @@ export function buildStandaloneWebReportHtml(
 <style>${webReportCss}</style>
 </head>
 <body>
-  <header class="web-report-sticky-nav">
-    <div class="web-report-nav-inner">
-      <div class="web-report-nav-brand">
-        <span class="web-report-nav-dot"></span>
-        <span>${data.companyName.replace(/</g, '&lt;')}</span>
-        <span class="web-report-nav-pill">${data.mode === 'bank' ? 'BANK ANALYSIS' : 'EQUITY ANALYSIS'}</span>
-      </div>
-      <nav class="web-report-nav-links">
-        <a href="#about-section-anchor">About</a>
-        <a href="#comparison-section-anchor">Comparison</a>
-        <a href="#overview-section-anchor">Overview</a>
-        <a href="#quarterly-ratio-anchor">Quarterly-Ratio</a>
-        <a href="#yearly-ratio-anchor">Yearly-ratio</a>
-        <a href="#plots-section-anchor">Plots</a>
-        <a href="#holding-section-anchor">Holding-%</a>
-        <a href="#tables-section-anchor">Data Sheet</a>
-        <a href="#checks-section-anchor">Data Checks</a>
-        <a href="#top" class="top-link">↑ Top</a>
-      </nav>
-    </div>
-  </header>
   <main class="web-report-container">
     <div class="app-shell ${modeClass} theme-bright web-report-stage">
       ${clone.outerHTML}
