@@ -26,15 +26,26 @@ export function SavedReportViewer({
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Strip sticky navigation ribbon from any existing or legacy web report HTML
+  // Strip sticky navigation ribbon and ensure readable typography for shareholding pattern tables in existing reports
   const sanitizedHtml = useMemo(() => {
     if (!html) return ''
     let clean = html.replace(/<header\s+class=["']web-report-sticky-nav["']>[\s\S]*?<\/header>/gi, '')
-    const hideNavCss = '<style>.web-report-sticky-nav{display:none!important;visibility:hidden!important;height:0!important;padding:0!important;overflow:hidden!important;}</style>'
+    const injectedCss = '<style>' +
+      '.web-report-sticky-nav{display:none!important;visibility:hidden!important;height:0!important;padding:0!important;overflow:hidden!important;}' +
+      '.sh-cell-value{font-size:12.5px!important;font-weight:800!important;}' +
+      '.sh-delta-chip{font-size:9px!important;padding:1px 3px!important;}' +
+      '.sh-delta-chip svg{width:8px!important;height:8px!important;}' +
+      '.sh-period-text{font-size:11px!important;font-weight:800!important;}' +
+      '.sh-latest-tag{font-size:8px!important;}' +
+      '.sh-cat-badge{font-size:12px!important;padding:3px 7px!important;}' +
+      '.sh-cat-icon{width:12px!important;height:12px!important;}' +
+      '.sh-td-cell,.sh-th-period{min-width:48px!important;padding:4px 4px!important;}' +
+      '.sh-th-category,.sh-td-category{min-width:125px!important;max-width:160px!important;width:140px!important;padding:6px 8px!important;}' +
+      '</style>'
     if (clean.includes('</head>')) {
-      clean = clean.replace('</head>', `${hideNavCss}</head>`)
+      clean = clean.replace('</head>', `${injectedCss}</head>`)
     } else {
-      clean = hideNavCss + clean
+      clean = injectedCss + clean
     }
     return clean
   }, [html])

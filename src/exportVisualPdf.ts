@@ -434,17 +434,17 @@ export function buildStandaloneWebReportHtml(
       table-layout: auto !important;
       border-collapse: separate !important;
       border-spacing: 0 !important;
-      font-size: 9.5px !important;
+      font-size: 13px !important;
     }
     .sh-th-category,
     .sh-td-category {
       position: sticky !important;
       left: 0 !important;
       z-index: 10 !important;
-      min-width: 95px !important;
-      max-width: 120px !important;
-      width: 105px !important;
-      padding: 3.5px 6px !important;
+      min-width: 125px !important;
+      max-width: 160px !important;
+      width: 140px !important;
+      padding: 6px 8px !important;
       background: #f8fafc !important;
       color: #0f172a !important;
       border-bottom: 1px solid #e2e8f0 !important;
@@ -452,21 +452,21 @@ export function buildStandaloneWebReportHtml(
       box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05) !important;
     }
     .sh-cat-badge {
-      padding: 2px 5px !important;
-      font-size: 9px !important;
-      gap: 3px !important;
+      padding: 3px 7px !important;
+      font-size: 12px !important;
+      gap: 5px !important;
       border-radius: 5px !important;
       box-shadow: none !important;
       font-weight: 750 !important;
     }
     .sh-cat-icon {
-      width: 9px !important;
-      height: 9px !important;
+      width: 12px !important;
+      height: 12px !important;
     }
     .sh-th-period {
-      min-width: 36px !important;
+      min-width: 48px !important;
       max-width: none !important;
-      padding: 3.5px 2px !important;
+      padding: 5px 4px !important;
       text-align: right !important;
       background: #f1f5f9 !important;
       color: #1e293b !important;
@@ -474,15 +474,15 @@ export function buildStandaloneWebReportHtml(
       border-right: 1px solid #f1f5f9 !important;
     }
     .sh-period-text {
-      font-size: 8.5px !important;
+      font-size: 11px !important;
       font-weight: 800 !important;
-      letter-spacing: -0.3px !important;
+      letter-spacing: -0.2px !important;
       display: block !important;
       white-space: nowrap !important;
     }
     .sh-latest-tag {
-      font-size: 6.5px !important;
-      padding: 0 2px !important;
+      font-size: 8px !important;
+      padding: 1px 3px !important;
       letter-spacing: 0.2px !important;
       border-radius: 2px !important;
       line-height: 1 !important;
@@ -490,9 +490,9 @@ export function buildStandaloneWebReportHtml(
       display: inline-block !important;
     }
     .sh-td-cell {
-      min-width: 36px !important;
+      min-width: 48px !important;
       max-width: none !important;
-      padding: 2px 2px !important;
+      padding: 4px 4px !important;
       text-align: right !important;
       border-bottom: 1px solid #e2e8f0 !important;
       border-right: 1px solid #f8fafc !important;
@@ -502,29 +502,29 @@ export function buildStandaloneWebReportHtml(
       flex-direction: column !important;
       align-items: flex-end !important;
       justify-content: center !important;
-      gap: 0.5px !important;
-      line-height: 1 !important;
+      gap: 1.5px !important;
+      line-height: 1.15 !important;
     }
     .sh-cell-value {
-      font-size: 9px !important;
-      font-weight: 700 !important;
+      font-size: 12.5px !important;
+      font-weight: 800 !important;
       font-family: 'DM Mono', monospace !important;
       color: #0f172a !important;
       white-space: nowrap !important;
     }
     .sh-delta-chip {
-      font-size: 7px !important;
-      padding: 0 2px !important;
-      border-radius: 2px !important;
-      gap: 1px !important;
-      line-height: 1 !important;
+      font-size: 9px !important;
+      padding: 1px 3px !important;
+      border-radius: 3px !important;
+      gap: 2px !important;
+      line-height: 1.1 !important;
       white-space: nowrap !important;
-      font-weight: 700 !important;
+      font-weight: 750 !important;
       box-shadow: none !important;
     }
     .sh-delta-chip svg {
-      width: 6px !important;
-      height: 6px !important;
+      width: 8px !important;
+      height: 8px !important;
     }
     .delta-zero {
       color: #0369a1 !important;
@@ -695,41 +695,42 @@ export function buildStandaloneWebReportHtml(
       }
       .sh-th-category,
       .sh-td-category {
-        min-width: 90px !important;
-        max-width: 115px !important;
-        width: 105px !important;
-        padding: 3px 4px !important;
+        min-width: 110px !important;
+        max-width: 140px !important;
+        width: 125px !important;
+        padding: 4px 6px !important;
       }
       .sh-cat-badge {
-        font-size: 8.5px !important;
-        padding: 1.5px 4px !important;
+        font-size: 10.5px !important;
+        padding: 2px 5px !important;
       }
       .sh-cat-icon {
-        width: 9px !important;
-        height: 9px !important;
+        width: 11px !important;
+        height: 11px !important;
       }
       .sh-th-period,
       .sh-td-cell {
-        min-width: 36px !important;
+        min-width: 44px !important;
         max-width: none !important;
-        padding: 3px 2px !important;
+        padding: 4px 3px !important;
       }
       .sh-period-text {
-        font-size: 8.5px !important;
+        font-size: 10px !important;
       }
       .sh-latest-tag {
-        font-size: 6.5px !important;
+        font-size: 7.5px !important;
       }
       .sh-cell-value {
-        font-size: 9px !important;
+        font-size: 11.5px !important;
+        font-weight: 800 !important;
       }
       .sh-delta-chip {
-        font-size: 7px !important;
-        padding: 0 1.5px !important;
+        font-size: 8.5px !important;
+        padding: 0.5px 2px !important;
       }
       .sh-delta-chip svg {
-        width: 6.5px !important;
-        height: 6.5px !important;
+        width: 7.5px !important;
+        height: 7.5px !important;
       }
       @page {
         size: landscape;
