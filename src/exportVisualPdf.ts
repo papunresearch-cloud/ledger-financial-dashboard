@@ -352,6 +352,13 @@ export function buildStandaloneWebReportHtml(
     .theme-bright .about-ratio-table td {
       color: #000000 !important;
     }
+    .theme-bright .about-peer-table th:first-child,
+    .theme-bright .about-peer-table td:first-child {
+      min-width: 175px !important;
+      max-width: 230px !important;
+      width: 200px !important;
+      white-space: normal !important;
+    }
 
     /* Table Responsiveness: Horizontal scrolling with smooth touch support */
     .about-table-scroll,

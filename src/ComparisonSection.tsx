@@ -191,19 +191,24 @@ function PeerTableRow({
   return (
     <tr className={rowClass}>
       <td>
-        {row.s_no && !row.is_median && <span className="about-peer-sno">{row.s_no}</span>}
-        {row.screener_url && !row.is_median ? (
-          <a
-            href={row.screener_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="about-peer-link"
-          >
-            {row.company}
-          </a>
-        ) : (
-          <span className="about-peer-name-text">{row.company}</span>
-        )}
+        <div className="about-peer-company-cell">
+          {row.s_no && !row.is_median && <span className="about-peer-sno">{row.s_no}</span>}
+          {row.screener_url && !row.is_median ? (
+            <a
+              href={row.screener_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="about-peer-link"
+              title={row.company}
+            >
+              {row.company}
+            </a>
+          ) : (
+            <span className="about-peer-name-text" title={row.company}>
+              {row.company}
+            </span>
+          )}
+        </div>
       </td>
       {columns.map(col => {
         if (col.key === 'price_range') {
