@@ -470,6 +470,11 @@ export type AboutSourcesResponse = {
   shareholding?: AboutShareholding
   shareholding_pattern?: ShareholdingPattern
   financial_snapshot?: AboutFinancialSnapshot
+  cash_flow_schedule?: Record<string, Record<string, string>>
+  screener_ratios?: {
+    headers: string[]
+    rows: Array<{ label: string; values: string[] }>
+  }
   market_intelligence?: AboutMarketIntelligence
   generated_at?: string
   prompt_context: {
@@ -480,6 +485,8 @@ export type AboutSourcesResponse = {
     market_intel?: string
   }
 }
+
+export type ScreenerAboutData = AboutSourcesResponse
 
 export type AboutAiData = {
   summary_report?: AboutSummaryReport

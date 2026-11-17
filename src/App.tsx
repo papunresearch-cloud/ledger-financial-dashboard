@@ -18,7 +18,7 @@ import { SavedReportViewer } from './SavedReportViewer'
 import { ReportVaultModal } from './ReportVaultModal'
 import companies from './companies.json'
 import { DataChecksView } from './DataChecksView'
-import type { AboutAiData, AboutSourcesResponse, AboutState, AppTheme, FinancialData, LocalSettingsSummary, SavedReportInfo, SavedReportItem, Section } from './types'
+import type { AboutAiData, AboutSourcesResponse, AboutState, AnnualRow, AppTheme, CompanyData, FinancialData, LocalSettingsSummary, SavedReportInfo, SavedReportItem, Section } from './types'
 import './cloud-download.css'
 import './frontpage3d.css'
 
@@ -135,6 +135,68 @@ function enrichBankDataWithSnapshot(
   }
 }
 
+function enrichCompanyDataWithScreener(
+  currentData: FinancialData,
+  payload?: AboutSourcesResponse | null,
+): FinancialData {
+  if (currentData.mode === 'bank' || !payload?.cash_flow_schedule) return currentData
+  const companyData = currentData as CompanyData
+  const sched = payload.cash_flow_schedule
+  const payablesMap = sched['Payables'] || sched['Trade Payables'] || {}
+  const wcMap = sched['Working capital changes'] || sched['Working Capital'] || {}
+
+  const cleanNum = (valStr?: unknown): number | null => {
+    if (valStr === null || valStr === undefined) return null
+    if (typeof valStr === 'number') return Number.isFinite(valStr) ? valStr : null
+    const cleaned = String(valStr).replace(/,/g, '').trim()
+    if (!cleaned || cleaned === '-' || cleaned === '--') return null
+    const n = parseFloat(cleaned)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const findValueForPeriod = (sourceMap: Record<string, string>, period: string): number | null => {
+    const rowYearMatch = period.match(/(?:20)?(\d{2})$/)
+    const twoDigitYear = rowYearMatch ? rowYearMatch[1] : null
+
+    for (const [key, val] of Object.entries(sourceMap)) {
+      if (key === 'setAttributes') continue
+      const keyYearMatch = key.match(/(?:20)?(\d{2})$/)
+      if (twoDigitYear && keyYearMatch && keyYearMatch[1] === twoDigitYear) {
+        return cleanNum(val)
+      }
+      if (key.toLowerCase().includes(period.toLowerCase())) {
+        return cleanNum(val)
+      }
+    }
+    return null
+  }
+
+  let anyModified = false
+  const enrichedAnnual: AnnualRow[] = companyData.annual.map(row => {
+    const pVal = findValueForPeriod(payablesMap, row.period)
+    const wcVal = findValueForPeriod(wcMap, row.period)
+
+    const finalPayables = pVal !== null ? pVal : row.payables
+    const finalWc = wcVal !== null ? wcVal : row.workingCapital
+
+    if (finalPayables !== row.payables || finalWc !== row.workingCapital) {
+      anyModified = true
+    }
+
+    return {
+      ...row,
+      payables: finalPayables,
+      workingCapital: finalWc,
+    }
+  })
+
+  if (!anyModified) return companyData
+  return {
+    ...companyData,
+    annual: enrichedAnnual,
+  }
+}
+
 function App() {
   const [mode, setMode] = useState<Mode>('nonbank')
   const [section, setSection] = useState<Section>('about')
@@ -210,13 +272,15 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (data && data.mode === 'bank' && about.sources?.financial_snapshot) {
+    if (!data || !about.sources) return
+    if (data.mode === 'bank' && about.sources.financial_snapshot) {
       const enriched = enrichBankDataWithSnapshot(data, about.sources.financial_snapshot)
-      if (enriched !== data) {
-        setData(enriched)
-      }
+      if (enriched !== data) setData(enriched)
+    } else if (data.mode !== 'bank' && about.sources.cash_flow_schedule) {
+      const enriched = enrichCompanyDataWithScreener(data, about.sources)
+      if (enriched !== data) setData(enriched)
     }
-  }, [about.sources?.financial_snapshot, data])
+  }, [about.sources, data])
 
   const companySpecs = useMemo(() => !data || data.mode === 'bank' ? null : makeChartSpecs(data.annual, data.quarterly), [data])
   const bankSpecs = useMemo(() => !data || data.mode !== 'bank' ? null : makeBankChartSpecs(data.annual, data.quarterly), [data])
@@ -376,14 +440,32 @@ function App() {
             }
             aboutCacheRef.current.set(cacheKey, diskState)
             setAbout(diskState)
-            if (disk.sources.financial_snapshot) {
-              setData(prev => prev ? enrichBankDataWithSnapshot(prev, disk.sources?.financial_snapshot) : prev)
+            if (disk.sources) {
+              setData(prev => {
+                if (!prev) return prev
+                let next = prev
+                if (next.mode === 'bank' && disk.sources?.financial_snapshot) {
+                  next = enrichBankDataWithSnapshot(next, disk.sources.financial_snapshot)
+                } else if (next.mode !== 'bank' && disk.sources?.cash_flow_schedule) {
+                  next = enrichCompanyDataWithScreener(next, disk.sources)
+                }
+                return next
+              })
             }
             return
           }
           if (disk.hit && disk.sources && !disk.ai) {
-            if (disk.sources.financial_snapshot) {
-              setData(prev => prev ? enrichBankDataWithSnapshot(prev, disk.sources?.financial_snapshot) : prev)
+            if (disk.sources) {
+              setData(prev => {
+                if (!prev) return prev
+                let next = prev
+                if (next.mode === 'bank' && disk.sources?.financial_snapshot) {
+                  next = enrichBankDataWithSnapshot(next, disk.sources.financial_snapshot)
+                } else if (next.mode !== 'bank' && disk.sources?.cash_flow_schedule) {
+                  next = enrichCompanyDataWithScreener(next, disk.sources)
+                }
+                return next
+              })
             }
             await synthesizeAiStep(cacheKey, disk.sources, headers, reqId)
             return
@@ -414,9 +496,16 @@ function App() {
       const sourcesPayload = await srcResp.json() as AboutSourcesResponse
       if (reqId !== aboutReqIdRef.current) return
 
-      if (sourcesPayload.financial_snapshot) {
-        setData(prev => prev ? enrichBankDataWithSnapshot(prev, sourcesPayload.financial_snapshot) : prev)
-      }
+      setData(prev => {
+        if (!prev) return prev
+        let next = prev
+        if (next.mode === 'bank' && sourcesPayload.financial_snapshot) {
+          next = enrichBankDataWithSnapshot(next, sourcesPayload.financial_snapshot)
+        } else if (next.mode !== 'bank' && sourcesPayload.cash_flow_schedule) {
+          next = enrichCompanyDataWithScreener(next, sourcesPayload)
+        }
+        return next
+      })
 
       await synthesizeAiStep(cacheKey, sourcesPayload, headers, reqId)
     } catch (cause) {

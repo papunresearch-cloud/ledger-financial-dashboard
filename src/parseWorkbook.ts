@@ -219,7 +219,8 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
       const interestCoverage = ebit === null || interest === null || interest <= 0 ? null : ebit / interest
       const effCurrentAssets = currentAssets ?? otherAssets
       const effCurrentLiabilities = currentLiabilities ?? otherLiabilities
-      const workingCapital = (effCurrentAssets !== null && effCurrentLiabilities !== null) ? effCurrentAssets - effCurrentLiabilities : null
+      const workingCapital = get(cash, 'Working capital changes', i, ['Working Capital', 'Change in Working Capital'])
+        ?? get(balance, 'Working Capital', i)
       const currentRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0 ? null : effCurrentAssets / effCurrentLiabilities
       const quickRatio = effCurrentAssets === null || effCurrentLiabilities === null || effCurrentLiabilities <= 0
         ? null
@@ -240,7 +241,8 @@ export async function parseCompanyWorkbook(file: File): Promise<CompanyData> {
         operatingProfitMargin: safeMargin(sales, operatingProfit),
         netProfitMargin: safeMargin(sales, netProfit),
         receivables: get(balance, 'Receivables', i), inventory,
-        payables: get(balance, 'Trade Payables', i, ['Payables', 'Trade Creditors', 'Creditors', 'Trade payables']) ?? otherLiabilities,
+        payables: get(cash, 'Payables', i, ['Trade Payables', 'Change in Payables', 'Trade Creditors', 'Creditors'])
+          ?? get(balance, 'Trade Payables', i, ['Payables', 'Trade Creditors', 'Creditors', 'Trade payables']),
         workingCapital,
         netBlock, cwip,
         netBlockToCwip: cwip === null || cwip === 0 || netBlock === null || netBlock === 0 ? null : 100 * cwip / netBlock,

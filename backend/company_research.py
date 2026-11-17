@@ -2067,6 +2067,33 @@ def _extract_screener_market_docs(soup: BeautifulSoup) -> dict[str, Any]:
     }
 
 
+def parse_screener_ratios(soup: BeautifulSoup) -> dict[str, Any]:
+    """Extract Screener #ratios table (Debtor Days, Inventory Days, Days Payable, CCC, Working Capital Days, etc.)."""
+    r_sec = soup.select_one("#ratios")
+    if not r_sec:
+        return {}
+    tbl = r_sec.select_one("table")
+    if not tbl:
+        return {}
+    thead = tbl.select_one("thead")
+    headers = [th.get_text(" ", strip=True) for th in thead.select("th")] if thead else []
+    if not headers:
+        first_tr = tbl.select_one("tr")
+        if first_tr:
+            headers = [th.get_text(" ", strip=True) for th in first_tr.select("th, td")]
+    rows = []
+    tbody = tbl.select_one("tbody") or tbl
+    for tr in tbody.select("tr"):
+        tds = [td.get_text(" ", strip=True) for td in tr.select("th, td")]
+        if tds and tds[0] and (not headers or tds[0] != headers[0]):
+            lbl = tds[0].replace("+", "").strip()
+            rows.append({"label": lbl, "values": tds[1:]})
+    return {
+        "headers": headers,
+        "rows": rows,
+    }
+
+
 def fetch_screener_http(
     session: requests.Session,
     company_info: dict[str, Any],
@@ -2194,6 +2221,10 @@ def fetch_screener_http(
             safe_get_json,
             f"/api/company/{company_id}/schedules/?parent=Borrowings&section=balance-sheet{sched_suffix}" if company_id else "",
         )
+        f_sched_cf = pool.submit(
+            safe_get_json,
+            f"/api/company/{company_id}/schedules/?parent=Cash+from+Operating+Activity&section=cash-flow{sched_suffix}" if company_id else "",
+        )
 
         raw_comm_html = f_comm.result()
         standalone_html = f_standalone.result()
@@ -2293,6 +2324,8 @@ def fetch_screener_http(
         "shareholding": shareholding,
         "shareholding_pattern": shareholding_pattern,
         "financial_snapshot": financial_snapshot,
+        "cash_flow_schedule": f_sched_cf.result() or {},
+        "screener_ratios": parse_screener_ratios(soup),
         "promoters_data": promoters_data,
         "website": official_website,
         "sources": unique_sources,
@@ -3450,6 +3483,8 @@ def gather_company_sources(
         "shareholding": popup_data.get("shareholding"),
         "shareholding_pattern": popup_data.get("shareholding_pattern"),
         "financial_snapshot": popup_data.get("financial_snapshot"),
+        "cash_flow_schedule": popup_data.get("cash_flow_schedule") or {},
+        "screener_ratios": popup_data.get("screener_ratios") or {},
         "generated_at": time.strftime("%d %b %Y, %I:%M %p"),
         "prompt_context": {
             "popup_text": (popup_data.get("text") or "")[:18000],

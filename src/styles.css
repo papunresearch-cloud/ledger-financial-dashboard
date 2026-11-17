@@ -589,8 +589,8 @@ html,body{width:100%;min-width:320px;max-width:100%;overflow-x:hidden}
 /* Zoom Slider Controls */
 .chart-zoom-bar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 12px;
   padding: 6px 14px 10px;
   margin: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -598,6 +598,56 @@ html,body{width:100%;min-width:320px;max-width:100%;overflow-x:hidden}
 
 .chart-card-bright .chart-zoom-bar {
   border-bottom: 1px solid #e2e8f0;
+}
+
+.chart-zoom-sliders-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-zoom-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: rgba(45, 212, 191, 0.12);
+  color: #5eead4;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.chart-zoom-reset-btn:hover {
+  background: rgba(45, 212, 191, 0.25);
+  border-color: #5eead4;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.chart-card-bright .chart-zoom-reset-btn {
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+
+.chart-card-bright .chart-zoom-reset-btn:hover {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #0284c7;
+  transform: translateY(-1px);
 }
 
 .zoom-slider-row {
