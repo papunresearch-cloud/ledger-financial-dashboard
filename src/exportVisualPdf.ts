@@ -480,34 +480,64 @@ export function buildStandaloneWebReportHtml(
     /* Light green table headers with dark deep blue text for Peers & Ratios */
     .theme-bright .about-peer-table thead,
     .theme-bright .about-peer-table thead th,
-    .theme-bright .about-peer-table thead th:first-child,
     .theme-bright .about-ratio-table thead,
     .theme-bright .about-ratio-table thead th,
-    .theme-bright .about-ratio-table thead th:first-child {
+    .theme-bright .ratio-table thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 15 !important;
       background: #dcfce7 !important;
       color: #0f2b5c !important;
       border-bottom: 2px solid #86efac !important;
       font-weight: 800 !important;
     }
-    .theme-bright .about-ratio-table thead th.about-ratio-ttm-col {
+    .theme-bright .about-peer-table thead th:first-child,
+    .theme-bright .about-ratio-table thead th:first-child,
+    .theme-bright .ratio-table thead th.col-sticky {
+      position: sticky !important;
+      top: 0 !important;
+      left: 0 !important;
+      z-index: 30 !important;
+      background: #dcfce7 !important;
+      color: #0f2b5c !important;
+      border-bottom: 2px solid #86efac !important;
+      border-right: 1.5px solid #86efac !important;
+      font-weight: 800 !important;
+    }
+    .theme-bright .about-ratio-table thead th.about-ratio-ttm-col,
+    .theme-bright .ratio-table thead th.col-header-ttm {
       background: #bbf7d0 !important;
       color: #0f2b5c !important;
       border-bottom: 2px solid #4ade80 !important;
       font-weight: 800 !important;
     }
     .theme-bright .about-peer-table td,
-    .theme-bright .about-ratio-table td {
+    .theme-bright .about-ratio-table td,
+    .theme-bright .ratio-table td {
       color: #000000 !important;
     }
     .theme-bright .about-peer-table th:first-child,
-    .theme-bright .about-peer-table td:first-child {
+    .theme-bright .about-peer-table td:first-child,
+    .theme-bright .about-ratio-table td.col-sticky,
+    .theme-bright .ratio-table td.col-sticky {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 8 !important;
       min-width: 175px !important;
       max-width: 230px !important;
       width: 200px !important;
       white-space: normal !important;
+      background: #ffffff !important;
+      border-right: 1.5px solid #cbd5e1 !important;
+      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    }
+    .theme-bright .about-peer-table tbody tr:hover td:first-child,
+    .theme-bright .about-ratio-table tbody tr:hover td.col-sticky,
+    .theme-bright .ratio-table tbody tr:hover td.col-sticky {
+      background: #f1f5f9 !important;
     }
 
-    /* Table Responsiveness: Horizontal scrolling with smooth touch support */
+    /* Table Responsiveness: Horizontal & Vertical scrolling with sticky frozen headers */
     .about-table-scroll,
     .company-table-scroll,
     .bank-growth-scroll,
@@ -522,9 +552,61 @@ export function buildStandaloneWebReportHtml(
     .table-container {
       width: 100% !important;
       max-width: 100% !important;
-      overflow-x: auto !important;
+      overflow: auto !important;
       -webkit-overflow-scrolling: touch !important;
       display: block !important;
+      position: relative !important;
+      max-height: clamp(380px, 72vh, 760px) !important;
+    }
+
+    /* Rock-solid separate table layout for sticky freezing */
+    .about-peer-table,
+    .about-ratio-table,
+    .ratio-table,
+    .sh-data-table,
+    .company-growth-table,
+    .bank-growth-table {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+
+    /* Pinned Sticky Column Headers (Top) */
+    .about-peer-table thead th,
+    .about-ratio-table thead th,
+    .ratio-table thead th,
+    .sh-data-table thead th,
+    .company-growth-table thead th,
+    .bank-growth-table thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 15 !important;
+    }
+
+    /* Pinned Sticky Row Headers (Left) */
+    .about-peer-table tbody td:first-child,
+    .about-peer-table tfoot td:first-child,
+    .about-ratio-table tbody td.col-sticky,
+    .ratio-table tbody td.col-sticky,
+    .sh-data-table tbody .sh-td-category,
+    .company-growth-table tbody th,
+    .bank-growth-table tbody th {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 8 !important;
+    }
+
+    /* Top-Left Intersection Corner Cells */
+    .about-peer-table thead th:first-child,
+    .about-ratio-table thead th:first-child,
+    .about-ratio-table thead th.col-sticky,
+    .ratio-table thead th.col-sticky,
+    .sh-data-table thead th.sh-th-category,
+    .company-growth-table thead th:first-child,
+    .bank-growth-table thead th:first-child {
+      position: sticky !important;
+      top: 0 !important;
+      left: 0 !important;
+      z-index: 30 !important;
     }
 
     /* Ultra-Compact Shareholding Tables (Quarterly & Yearly) so all recent periods fit on screen & print */
@@ -829,10 +911,36 @@ export function buildStandaloneWebReportHtml(
         max-width: 100% !important;
         margin: 0 !important;
       }
-      .sh-table-scroll-wrap {
+      .about-table-scroll,
+      .company-table-scroll,
+      .bank-growth-scroll,
+      .about-peer-wrap,
+      .about-ratio-wrap,
+      .peer-table-scroll-wrap,
+      .sh-table-scroll-wrap,
+      .ratio-table-wrapper,
+      .company-source-scroll,
+      .bank-source-scroll,
+      .checks-table-wrapper,
+      .table-container {
+        max-height: none !important;
         overflow: visible !important;
         width: 100% !important;
         max-width: 100% !important;
+      }
+      .about-peer-table th,
+      .about-peer-table td,
+      .about-ratio-table th,
+      .about-ratio-table td,
+      .ratio-table th,
+      .ratio-table td,
+      .sh-data-table th,
+      .sh-data-table td,
+      .company-growth-table th,
+      .company-growth-table td,
+      .bank-growth-table th,
+      .bank-growth-table td {
+        position: static !important;
       }
       .sh-data-table {
         width: 100% !important;
