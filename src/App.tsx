@@ -277,6 +277,7 @@ function App() {
   const [data, setData] = useState<FinancialData | null>(null)
   const [activeCode, setActiveCode] = useState('')
   const [companyCode, setCompanyCode] = useState('')
+  const [deepLinkSymbol, setDeepLinkSymbol] = useState('')
   const [companySuggestionsOpen, setCompanySuggestionsOpen] = useState(false)
   const [activeCompanySuggestion, setActiveCompanySuggestion] = useState(0)
   const [accessKey, setAccessKey] = useState<string>(() => {
@@ -408,12 +409,16 @@ function App() {
     finally { setBusy(false); if (fileInput.current) fileInput.current.value = '' }
   }
 
-  async function fetchFromScreener(targetCode?: string, targetKey?: string) {
+  async function fetchFromScreener(targetCode?: string, targetKey?: string, targetMode?: Mode) {
     const code = (targetCode ?? companyCode).trim().toUpperCase()
     if (!code) { setError('Enter a Screener company code such as INFY, ITC, or RELIANCE.'); return }
     if (!/^[A-Z0-9][A-Z0-9&._-]{0,31}$/.test(code)) { setError('Use the company code from its Screener URL, for example INFY or RELIANCE.'); return }
     setBusy(true); setError('')
     const keyToUse = (targetKey ?? accessKey).trim()
+    const modeToUse = targetMode ?? mode
+    if (targetMode && targetMode !== mode) {
+      setMode(targetMode)
+    }
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (supportsCloudScreener && keyToUse) headers['X-Ledger-Key'] = keyToUse
@@ -425,7 +430,7 @@ function App() {
       }
       const blob = await response.blob()
       const file = new File([blob], `${code}.xlsx`, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const parsed = mode === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
+      const parsed = modeToUse === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
       setActiveCode(code)
       setData(parsed); setSection('about')
       void loadAboutForCompany(parsed, code, parsed.companyName, keyToUse)
@@ -435,28 +440,31 @@ function App() {
     } finally { setBusy(false) }
   }
 
-  // Handle direct script deep-linking from Stock Monitor or Watchlist (?symbol=...&key=...)
+  // Handle direct script deep-linking from Stock Monitor or Watchlist (?symbol=...&mode=...&key=...)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const urlSymbol = params.get('symbol') || params.get('code')
     const urlKey = params.get('key') || params.get('accessKey')
+    const urlMode = params.get('mode')
 
-    let effectiveKey = (typeof window !== 'undefined' && localStorage.getItem('ledger_access_key')) || accessKey
     if (urlKey) {
-      effectiveKey = urlKey.trim()
-      updateAccessKey(effectiveKey)
+      updateAccessKey(urlKey.trim())
+    }
+
+    if (urlMode === 'bank' || urlMode === 'nonbank') {
+      setMode(urlMode)
     }
 
     if (urlSymbol) {
       const clean = urlSymbol.trim().toUpperCase()
       setCompanyCode(clean)
+      setDeepLinkSymbol(clean)
       try {
         window.history.replaceState({}, document.title, window.location.pathname)
       } catch {
         /* ignore */
       }
-      void fetchFromScreener(clean, effectiveKey)
     }
   }, [])
 
@@ -501,6 +509,101 @@ function App() {
       </>}</div>
     </header>
     <main id="top" className="main-wrap">
+      {deepLinkSymbol && !data && (
+        <div className="deep-link-backdrop">
+          <div className="deep-link-card">
+            <div className="deep-link-header">
+              <span className="deep-link-badge">ANALYSIS SETUP</span>
+              <h3>
+                Analyze Script: <span className="highlight-symbol">{deepLinkSymbol}</span>
+              </h3>
+              <p>Choose your report accounting type and verify your access key to open the financial report.</p>
+            </div>
+
+            <div className="deep-link-body">
+              <div>
+                <span className="deep-link-section-title">1. Type of Report</span>
+                <div className="deep-link-mode-grid">
+                  <button
+                    type="button"
+                    className={`deep-link-mode-card ${mode === 'nonbank' ? 'selected' : ''}`}
+                    onClick={() => setMode('nonbank')}
+                  >
+                    <div className="mode-icon-title">
+                      <BarChart3 size={18} />
+                      <span>Non-Bank Company</span>
+                    </div>
+                    <small>Manufacturing, IT, FMCG, Pharma, Services</small>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`deep-link-mode-card ${mode === 'bank' ? 'selected' : ''}`}
+                    onClick={() => setMode('bank')}
+                  >
+                    <div className="mode-icon-title">
+                      <Landmark size={18} />
+                      <span>Banking & Financials</span>
+                    </div>
+                    <small>Interest spread, Advances, NPA & Bank metrics</small>
+                  </button>
+                </div>
+              </div>
+
+              {!supportsLocalScreener && (
+                <div className="deep-link-field">
+                  <label htmlFor="modal-access-key" className="deep-link-section-title">2. Ledger Access Key</label>
+                  <input
+                    id="modal-access-key"
+                    type="password"
+                    value={accessKey}
+                    onChange={e => updateAccessKey(e.target.value)}
+                    placeholder="Enter your private access key"
+                    autoComplete="current-password"
+                  />
+                  <small className="deep-link-field-hint">
+                    {accessKey ? '✓ Access key remembered in browser' : 'Enter access key once to authorize Screener downloads.'}
+                  </small>
+                </div>
+              )}
+
+              {error && (
+                <div className="deep-link-error">
+                  <AlertTriangle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="deep-link-actions">
+                <button
+                  type="button"
+                  className="deep-link-btn-primary"
+                  disabled={busy || (!supportsLocalScreener && !accessKey.trim())}
+                  onClick={async () => {
+                    const code = deepLinkSymbol.trim().toUpperCase()
+                    await fetchFromScreener(code, accessKey, mode)
+                    setDeepLinkSymbol('')
+                  }}
+                >
+                  {busy ? (
+                    <><LoaderCircle className="spin" size={16}/> Downloading & Analyzing…</>
+                  ) : (
+                    <><Sparkles size={16}/> Open Analyzed Report</>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="deep-link-btn-secondary"
+                  disabled={busy}
+                  onClick={() => setDeepLinkSymbol('')}
+                >
+                  Cancel / Edit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {!data ? <section className="welcome-view">
         <div className="welcome-copy">
           <div className="hero-kicker">
