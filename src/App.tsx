@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, Layers, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2, TrendingUp, Zap } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { ComparisonSection } from './ComparisonSection'
@@ -279,7 +279,25 @@ function App() {
   const [companyCode, setCompanyCode] = useState('')
   const [companySuggestionsOpen, setCompanySuggestionsOpen] = useState(false)
   const [activeCompanySuggestion, setActiveCompanySuggestion] = useState(0)
-  const [accessKey, setAccessKey] = useState('')
+  const [accessKey, setAccessKey] = useState<string>(() => {
+    try {
+      return (typeof window !== 'undefined' && localStorage.getItem('ledger_access_key')) || ''
+    } catch {
+      return ''
+    }
+  })
+
+  const updateAccessKey = (newKey: string) => {
+    setAccessKey(newKey)
+    try {
+      if (typeof window !== 'undefined') {
+        if (newKey) localStorage.setItem('ledger_access_key', newKey)
+        else localStorage.removeItem('ledger_access_key')
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
@@ -390,14 +408,15 @@ function App() {
     finally { setBusy(false); if (fileInput.current) fileInput.current.value = '' }
   }
 
-  async function fetchFromScreener() {
-    const code = companyCode.trim().toUpperCase()
+  async function fetchFromScreener(targetCode?: string, targetKey?: string) {
+    const code = (targetCode ?? companyCode).trim().toUpperCase()
     if (!code) { setError('Enter a Screener company code such as INFY, ITC, or RELIANCE.'); return }
     if (!/^[A-Z0-9][A-Z0-9&._-]{0,31}$/.test(code)) { setError('Use the company code from its Screener URL, for example INFY or RELIANCE.'); return }
     setBusy(true); setError('')
+    const keyToUse = (targetKey ?? accessKey).trim()
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (supportsCloudScreener) headers['X-Ledger-Key'] = accessKey
+      if (supportsCloudScreener && keyToUse) headers['X-Ledger-Key'] = keyToUse
       const response = await fetch('/api/download', { method: 'POST', headers, body: JSON.stringify({ code }) })
       if (!response.ok) {
         let message = `Screener download failed (HTTP ${response.status}).`
@@ -409,12 +428,37 @@ function App() {
       const parsed = mode === 'bank' ? await parseBankWorkbook(file) : await parseCompanyWorkbook(file)
       setActiveCode(code)
       setData(parsed); setSection('about')
-      void loadAboutForCompany(parsed, code, parsed.companyName)
+      void loadAboutForCompany(parsed, code, parsed.companyName, keyToUse)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(cause instanceof TypeError || /failed to fetch|networkerror/i.test(message) ? supportsLocalScreener ? 'The local Python download service is not running. Start it with the README instructions, then retry.' : 'The cloud download service could not be reached. Check its Vercel deployment and try again.' : message)
     } finally { setBusy(false) }
   }
+
+  // Handle direct script deep-linking from Stock Monitor or Watchlist (?symbol=...&key=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const urlSymbol = params.get('symbol') || params.get('code')
+    const urlKey = params.get('key') || params.get('accessKey')
+
+    let effectiveKey = (typeof window !== 'undefined' && localStorage.getItem('ledger_access_key')) || accessKey
+    if (urlKey) {
+      effectiveKey = urlKey.trim()
+      updateAccessKey(effectiveKey)
+    }
+
+    if (urlSymbol) {
+      const clean = urlSymbol.trim().toUpperCase()
+      setCompanyCode(clean)
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname)
+      } catch {
+        /* ignore */
+      }
+      void fetchFromScreener(clean, effectiveKey)
+    }
+  }, [])
 
   const reset = () => { aboutReqIdRef.current++; setData(null); setActiveCode(''); setAbout(emptyAboutState()); setError(''); setSection('about'); if (fileInput.current) fileInput.current.value = '' }
   const handleExport = (kind: 'excel' | 'html') => async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -548,7 +592,7 @@ function App() {
                     id="ledger-access-key"
                     type="password"
                     value={accessKey}
-                    onChange={event => setAccessKey(event.target.value)}
+                    onChange={event => updateAccessKey(event.target.value)}
                     autoComplete="current-password"
                     className="access-key-input"
                     placeholder="Enter your private access key"
@@ -691,7 +735,7 @@ function App() {
                 fallbackCompanyName={data.companyName}
                 onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
                 onUnlockWithKey={enteredKey => {
-                  setAccessKey(enteredKey)
+                  updateAccessKey(enteredKey)
                   void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
                 }}
               />
@@ -725,7 +769,7 @@ function App() {
                 fallbackCompanyName={data.companyName}
                 onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
                 onUnlockWithKey={enteredKey => {
-                  setAccessKey(enteredKey)
+                  updateAccessKey(enteredKey)
                   void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
                 }}
               />
@@ -783,7 +827,7 @@ function App() {
             fallbackCompanyName={data.companyName}
             onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
             onUnlockWithKey={enteredKey => {
-              setAccessKey(enteredKey)
+              updateAccessKey(enteredKey)
               void loadAboutForCompany(data, activeCode, data.companyName, enteredKey, true)
             }}
           />
