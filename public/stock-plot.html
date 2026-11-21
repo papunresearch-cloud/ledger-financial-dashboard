@@ -1107,8 +1107,66 @@
         -webkit-overflow-scrolling: touch !important;
       }
 
-      .pane-splitter {
+      /* Flexible Main Window Splitter on Mobile */
+      #price-sub-splitter {
+        display: flex !important;
+        height: 12px !important;
+        background: rgba(30, 41, 59, 0.75) !important;
+        border-top: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-bottom: 1px solid rgba(56, 189, 248, 0.35) !important;
+        cursor: row-resize !important;
+        touch-action: none !important;
+        margin: 2px 0 !important;
+      }
+      #price-sub-splitter .splitter-pill {
+        width: 44px !important;
+        height: 3px !important;
+        background: #38bdf8 !important;
+        border-radius: 2px !important;
+        box-shadow: 0 0 6px rgba(56, 189, 248, 0.7) !important;
+      }
+      #subwindows-container .pane-splitter {
         display: none !important;
+      }
+
+      /* Parameter Name, Settings Icon & Maximize Button Box: Smaller & Semi-Transparent on Mobile */
+      .window-header {
+        top: 4px !important;
+        left: 6px !important;
+        padding: 2px 6px !important;
+        gap: 6px !important;
+        font-size: 8.5px !important;
+        background: rgba(13, 24, 46, 0.40) !important;
+        backdrop-filter: blur(2px) !important;
+        -webkit-backdrop-filter: blur(2px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+        border-radius: 4px !important;
+      }
+      .bright-theme .window-header {
+        background: rgba(255, 255, 255, 0.50) !important;
+        border-color: rgba(0, 0, 0, 0.15) !important;
+      }
+      #mw-price-card .window-header {
+        top: 22px !important;
+        left: 6px !important;
+      }
+      .window-header .title-text {
+        font-size: 8.5px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.3px !important;
+      }
+      .window-header .settings-gear-icon {
+        font-size: 8.5px !important;
+      }
+      .window-header .btn-win-tool {
+        font-size: 8.5px !important;
+        width: 16px !important;
+        height: 16px !important;
+        padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
     }
   </style>
@@ -2372,17 +2430,42 @@
 
       // Responsive Mobile Layout
       if (window.innerWidth <= 768) {
-        if (mwCard) {
-          const ratio = isRibbonMinimized ? 0.48 : 0.40;
-          mwCard.style.height = `${Math.max(170, Math.round(stackH * ratio))}px`;
+        const mobileSubH = 125;
+        const minMainH = mobileSubH + 25; // 150px: height of main window is ALWAYS higher than sub-windows!
+        const maxMainH = Math.max(minMainH, stackH - (S > 0 ? 80 : 0));
+
+        let mainH = customPaneHeights['mw_price'];
+        if (!mainH) {
+          if (S === 0) {
+            mainH = stackH;
+          } else if (S === 1) {
+            mainH = Math.round(stackH * (isRibbonMinimized ? 0.60 : 0.52));
+          } else {
+            mainH = Math.round(stackH * (isRibbonMinimized ? 0.48 : 0.40));
+          }
         }
+        // Enforce: height of main window should be ALWAYS higher than sub-windows!
+        mainH = Math.max(minMainH, Math.min(maxMainH, mainH));
+        if (mwCard) {
+          mwCard.style.height = `${mainH}px`;
+          mwCard.style.minHeight = `${minMainH}px`;
+        }
+
+        if (mainSplitter) {
+          mainSplitter.style.display = S > 0 ? 'flex' : 'none';
+        }
+
         if (subContainer) {
           subContainer.style.overflowY = 'auto';
           subContainer.style.flex = '1 1 0';
         }
         activeConfigs.forEach(sConfig => {
           const card = document.getElementById(`card-${sConfig.id}`);
-          if (card) card.style.height = '140px';
+          if (card) {
+            const h = customPaneHeights[sConfig.id] || mobileSubH;
+            card.style.height = `${h}px`;
+            card.style.minHeight = `${mobileSubH}px`;
+          }
         });
         return;
       }
@@ -2474,11 +2557,12 @@
     let belowPaneKey = null;
 
     function startSplitterDrag(e, splitIdx) {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
       e.stopPropagation();
       isSplitterDragging = true;
       activeSplitIdx = splitIdx;
-      splitterStartY = e.clientY;
+      const clientY = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
+      splitterStartY = clientY;
 
       const activeConfigs = subwindowConfig.filter(s => s.enabled);
       if (splitIdx === 0) {
@@ -2627,6 +2711,7 @@
           splitter.dataset.splitIdx = idx;
           splitter.innerHTML = '<div class="splitter-pill"></div>';
           splitter.onmousedown = (e) => startSplitterDrag(e, idx);
+          splitter.ontouchstart = (e) => startSplitterDrag(e, idx);
           container.appendChild(splitter);
         }
 
@@ -2665,6 +2750,7 @@
           mainSplitter.dataset.splitIdx = 0;
           mainSplitter.innerHTML = '<div class="splitter-pill"></div>';
           mainSplitter.onmousedown = (e) => startSplitterDrag(e, 0);
+          mainSplitter.ontouchstart = (e) => startSplitterDrag(e, 0);
           chartStack.insertBefore(mainSplitter, container);
         }
         if (mainSplitter) mainSplitter.style.display = 'flex';
@@ -3282,8 +3368,9 @@
             ctx.lineTo(w - PADDING.right, y);
             ctx.stroke();
 
+            const isMobile = window.innerWidth <= 768;
             ctx.fillStyle = color;
-            ctx.font = 'bold 9.5px monospace';
+            ctx.font = isMobile ? 'bold 8px monospace' : 'bold 9.5px monospace';
             ctx.textAlign = 'right';
             ctx.fillText(label, w - PADDING.right - 4, y - 3);
           }
@@ -3481,9 +3568,10 @@
       const css = getComputedStyle(document.documentElement);
       const textColor = css.getPropertyValue('--axis-text').trim();
       const tickColor = css.getPropertyValue('--axis-tick').trim();
+      const isMobile = window.innerWidth <= 768;
 
       ctx.fillStyle = textColor;
-      ctx.font = 'bold 10px -apple-system, monospace';
+      ctx.font = isMobile ? 'bold 8.5px -apple-system, monospace' : 'bold 10px -apple-system, monospace';
       ctx.textAlign = 'left';
 
       // Draw Y-Axis labels & right-side tick marks only (NO horizontal grid across chart!)
@@ -3493,14 +3581,14 @@
 
         // Tick mark extending right from the axis boundary
         ctx.strokeStyle = tickColor;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = isMobile ? 1.0 : 1.2;
         ctx.beginPath();
         ctx.moveTo(w - PADDING.right, y);
-        ctx.lineTo(w - PADDING.right + 4, y);
+        ctx.lineTo(w - PADDING.right + (isMobile ? 3 : 4), y);
         ctx.stroke();
 
         // High-contrast label
-        ctx.fillText(formatter(val), w - PADDING.right + 6, y + 3.5);
+        ctx.fillText(formatter(val), w - PADDING.right + (isMobile ? 5 : 6), y + (isMobile ? 3 : 3.5));
       }
 
       // Vertical right boundary line
@@ -3601,10 +3689,11 @@
 
     function drawYAxisPill(ctx, w, y, text, bg, fg) {
       ctx.save();
-      ctx.font = 'bold 10px monospace';
+      const isMobile = window.innerWidth <= 768;
+      ctx.font = isMobile ? 'bold 8.5px monospace' : 'bold 10px monospace';
       const textW = ctx.measureText(text).width;
-      const pillW = Math.min(PADDING.right - 4, textW + 8);
-      const pillH = 17;
+      const pillW = Math.min(PADDING.right - 4, textW + (isMobile ? 6 : 8));
+      const pillH = isMobile ? 15 : 17;
       const pillX = w - PADDING.right + 2;
       const pillY = Math.max(PADDING.top, Math.min(y - pillH / 2, ctx.canvas.height - PADDING.bottom - pillH));
 
@@ -4041,14 +4130,20 @@
       }
 
       // 3. Horizontal Splitter Dragging (TradingView pane height divider)
-      if (isSplitterDragging && abovePaneEl && belowPaneEl) {
+      if (isSplitterDragging && abovePaneEl) {
         const dy = e.clientY - splitterStartY;
-        const newAboveH = Math.max(60, abovePaneInitialH + dy);
-        const newBelowH = Math.max(60, belowPaneInitialH - dy);
+        const isMobile = window.innerWidth <= 768;
+        const minAboveH = (activeSplitIdx === 0 && isMobile) ? 150 : 60;
+        const maxAboveH = isMobile ? (chartStack.clientHeight - 80) : 2000;
+        const newAboveH = Math.max(minAboveH, Math.min(maxAboveH, abovePaneInitialH + dy));
         abovePaneEl.style.height = `${newAboveH}px`;
-        belowPaneEl.style.height = `${newBelowH}px`;
         if (abovePaneKey) customPaneHeights[abovePaneKey] = newAboveH;
-        if (belowPaneKey) customPaneHeights[belowPaneKey] = newBelowH;
+
+        if (belowPaneEl && !isMobile) {
+          const newBelowH = Math.max(60, belowPaneInitialH - dy);
+          belowPaneEl.style.height = `${newBelowH}px`;
+          if (belowPaneKey) customPaneHeights[belowPaneKey] = newBelowH;
+        }
         resizeAndRender();
         return;
       }
@@ -4341,6 +4436,26 @@
     }, { passive: true });
 
     chartStack.addEventListener('touchmove', (e) => {
+      if (isSplitterDragging && abovePaneEl) {
+        if (e.cancelable) e.preventDefault();
+        const clientY = e.touches[0].clientY;
+        const dy = clientY - splitterStartY;
+        const isMobile = window.innerWidth <= 768;
+        const minAboveH = (activeSplitIdx === 0 && isMobile) ? 150 : 60;
+        const maxAboveH = isMobile ? (chartStack.clientHeight - 80) : 2000;
+        const newAboveH = Math.max(minAboveH, Math.min(maxAboveH, abovePaneInitialH + dy));
+        abovePaneEl.style.height = `${newAboveH}px`;
+        if (abovePaneKey) customPaneHeights[abovePaneKey] = newAboveH;
+
+        if (belowPaneEl && !isMobile) {
+          const newBelowH = Math.max(60, belowPaneInitialH - dy);
+          belowPaneEl.style.height = `${newBelowH}px`;
+          if (belowPaneKey) customPaneHeights[belowPaneKey] = newBelowH;
+        }
+        resizeAndRender();
+        return;
+      }
+
       if (e.touches.length === 1) {
         const dx = e.touches[0].clientX - touchStartX;
         const dy = e.touches[0].clientY - touchStartY;
@@ -4390,10 +4505,42 @@
     }, { passive: true });
 
     chartStack.addEventListener('touchend', () => {
+      if (isSplitterDragging) {
+        isSplitterDragging = false;
+        abovePaneEl = null;
+        belowPaneEl = null;
+        document.body.style.cursor = 'default';
+        resizeAndRender();
+      }
       isDragging = false;
       touchStartDist = 0;
       touchDecided = false;
       touchIsHorizontalPan = false;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (isSplitterDragging && abovePaneEl) {
+        if (e.cancelable) e.preventDefault();
+        const clientY = e.touches[0].clientY;
+        const dy = clientY - splitterStartY;
+        const isMobile = window.innerWidth <= 768;
+        const minAboveH = (activeSplitIdx === 0 && isMobile) ? 150 : 60;
+        const maxAboveH = isMobile ? (chartStack.clientHeight - 80) : 2000;
+        const newAboveH = Math.max(minAboveH, Math.min(maxAboveH, abovePaneInitialH + dy));
+        abovePaneEl.style.height = `${newAboveH}px`;
+        if (abovePaneKey) customPaneHeights[abovePaneKey] = newAboveH;
+        resizeAndRender();
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => {
+      if (isSplitterDragging) {
+        isSplitterDragging = false;
+        abovePaneEl = null;
+        belowPaneEl = null;
+        document.body.style.cursor = 'default';
+        resizeAndRender();
+      }
     });
 
     window.addEventListener('resize', () => {
