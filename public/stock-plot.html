@@ -49,6 +49,7 @@
       --c-bv: #ef4444;
       --c-opm: #fbbf24;
       --c-gpm: #a3e635;
+      --c-npm: #f43f5e;
       --c-deliv-pct: #2dd4bf;
 
       /* Statistical SD Lines - High Contrast & Vivid in Dark Mode */
@@ -98,6 +99,7 @@
       --c-bv: #b91c1c;
       --c-opm: #b45309;
       --c-gpm: #4d7c0f;
+      --c-npm: #be123c;
       --c-deliv-pct: #0d9488;
 
       /* Statistical SD Lines - High Contrast & Vivid in Bright Mode */
@@ -520,6 +522,7 @@
     .border-bv { border-color: var(--c-bv); }
     .border-opm { border-color: var(--c-opm); }
     .border-gpm { border-color: var(--c-gpm); }
+    .border-npm { border-color: var(--c-npm); }
 
     .window-header {
       position: absolute;
@@ -1169,6 +1172,7 @@
       { id: 'book_value', name: 'Book Value', colorClass: 'border-bv', colorVar: '--c-bv', type: 'bar', suffix: ' ₹' },
       { id: 'opm', name: 'OPM', colorClass: 'border-opm', colorVar: '--c-opm', type: 'line', suffix: '%' },
       { id: 'gpm', name: 'GPM', colorClass: 'border-gpm', colorVar: '--c-gpm', type: 'line', suffix: '%' },
+      { id: 'npm', name: 'NPM', colorClass: 'border-npm', colorVar: '--c-npm', type: 'line', suffix: '%' },
       { id: 'ebitda', name: 'EBITDA', colorClass: 'border-ebitda', colorVar: '--c-ebitda', type: 'bar', formatUnit: true },
       { id: 'quarter_sales', name: 'Sales (Qtr)', colorClass: 'border-qsales', colorVar: '--c-qsales', type: 'bar', formatUnit: true },
       { id: 'vol', name: 'Volume', colorClass: 'border-vol', colorVar: '--c-vol', type: 'bar' },
@@ -1205,6 +1209,7 @@
       book_value: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       opm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       gpm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      npm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       ebitda: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       quarter_sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
@@ -1212,7 +1217,7 @@
       deliv_pct: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
     };
 
-    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v3';
+    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v4';
     let paramStyles = {};
 
     function initParamStyles() {
@@ -1610,7 +1615,7 @@
       updateSlimRibbon();
     }
 
-    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v4';
+    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v5';
 
     const urlParams = new URLSearchParams(window.location.search);
     let symbol = (urlParams.get('symbol') || 'RELIANCE').trim().toUpperCase();
@@ -1871,6 +1876,7 @@
       const bvMap = buildAlignedMap('Book value');
       const opmMap = buildAlignedMap('OPM');
       const gpmMap = buildAlignedMap('GPM');
+      const npmMap = buildAlignedMap('NPM');
 
       // Volume & Delivery
       const volDs = datasets.find(d => d.metric === 'Volume');
@@ -1906,7 +1912,8 @@
           ebitda: ebitdaMap.get(d),
           book_value: bvMap.get(d),
           opm: opmMap.get(d),
-          gpm: gpmMap.get(d)
+          gpm: gpmMap.get(d),
+          npm: npmMap.get(d)
         };
       });
 
@@ -1932,6 +1939,7 @@
       let baseBV = 649.5;
       let baseOPM = 71.0;
       let baseGPM = 100.0;
+      let baseNPM = 45.0;
       const now = new Date();
 
       for (let i = count - 1; i >= 0; i--) {
@@ -1951,6 +1959,7 @@
         baseEbitda = baseSales * 0.82;
         baseBV = Math.max(300, baseBV + (Math.random() - 0.47) * 1.5);
         baseOPM = Math.max(40, Math.min(95, baseOPM + (Math.random() - 0.49) * 0.5));
+        baseNPM = Math.max(10, Math.min(85, baseNPM + (Math.random() - 0.49) * 0.5));
 
         rawData.push({
           date: dt.toISOString().split('T')[0],
@@ -1971,7 +1980,8 @@
           ebitda: Math.round(baseEbitda),
           book_value: parseFloat(baseBV.toFixed(1)),
           opm: parseFloat(baseOPM.toFixed(1)),
-          gpm: baseGPM
+          gpm: baseGPM,
+          npm: parseFloat(baseNPM.toFixed(1))
         });
       }
 
@@ -2914,7 +2924,7 @@
       let maxVal = validVals.length ? Math.max(...validVals) : 10;
 
       const isLineOrStep = (style.chartType === 'line' || style.chartType === 'step-line');
-      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'deliv_pct'].includes(paramId);
+      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'npm', 'deliv_pct'].includes(paramId);
 
       // Statistical bands (MA, +/- 1SD, 2SD) for line/step-line or ratios
       let ma = 0, sd = 0, p1sd = 0, m1sd = 0, p2sd = 0, m2sd = 0;
