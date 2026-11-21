@@ -918,14 +918,6 @@
               <span class="title-text" id="mw-price-title" style="color: var(--color-price); font-weight: 800;">PRICE (₹)</span>
               <span class="settings-gear-icon">⚙</span>
             </span>
-            <div class="dma-toggles">
-              <label class="dma-chk" style="color: var(--color-dma50);">
-                <input type="checkbox" id="chk-50" checked onchange="requestRender()"> 50-DMA
-              </label>
-              <label class="dma-chk" style="color: var(--color-dma200);">
-                <input type="checkbox" id="chk-200" checked onchange="requestRender()"> 200-DMA
-              </label>
-            </div>
             <button class="btn-win-tool" id="btn-max-mw_price" onclick="toggleMaximizePane('mw_price')" title="Maximize / Restore Price Window">⛶</button>
           </div>
           <div class="canvas-container">
@@ -2557,35 +2549,31 @@
         });
       }
 
-      // DMA 50 (Sleek line)
-      if (document.getElementById('chk-50').checked) {
-        ctx.beginPath();
-        let started = false;
-        data.forEach((d, i) => {
-          if (d.dma50) {
-            let x = getX(i), y = getY(d.dma50);
-            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-          }
-        });
-        ctx.strokeStyle = cssStyles.getPropertyValue('--color-dma50').trim();
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      }
+      // DMA 50 (Sleek line - always on)
+      ctx.beginPath();
+      let started50 = false;
+      data.forEach((d, i) => {
+        if (d.dma50) {
+          let x = getX(i), y = getY(d.dma50);
+          if (!started50) { ctx.moveTo(x, y); started50 = true; } else ctx.lineTo(x, y);
+        }
+      });
+      ctx.strokeStyle = cssStyles.getPropertyValue('--color-dma50').trim();
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
 
-      // DMA 200 (Sleek line)
-      if (document.getElementById('chk-200').checked) {
-        ctx.beginPath();
-        let started = false;
-        data.forEach((d, i) => {
-          if (d.dma200) {
-            let x = getX(i), y = getY(d.dma200);
-            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-          }
-        });
-        ctx.strokeStyle = cssStyles.getPropertyValue('--color-dma200').trim();
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      }
+      // DMA 200 (Sleek line - always on)
+      ctx.beginPath();
+      let started200 = false;
+      data.forEach((d, i) => {
+        if (d.dma200) {
+          let x = getX(i), y = getY(d.dma200);
+          if (!started200) { ctx.moveTo(x, y); started200 = true; } else ctx.lineTo(x, y);
+        }
+      });
+      ctx.strokeStyle = cssStyles.getPropertyValue('--color-dma200').trim();
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
 
       // Requirement 1: Display date (X-axis mark) on both top of the main window and bottom (as it is now)
       const activeConfigs = subwindowConfig.filter(s => s.enabled);
