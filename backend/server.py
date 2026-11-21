@@ -13,7 +13,8 @@ import tempfile
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
+import urllib.request
 
 try:
     from backend.company_research import CompanyResearchError, gather_company_sources, synthesize_about_ai
@@ -89,6 +90,78 @@ ALLOWED_BROWSER_ORIGINS = {
 }
 
 
+CHART_CACHE: dict[str, dict] = {}
+CHART_QUERIES = [
+    'Price-DMA50-DMA200-Volume',
+    'Price to Earning-Median PE-EPS',
+    'Price to book value-Median PBV-Book value',
+    'Market Cap to Sales-Median Market Cap to Sales-Sales',
+    'EV Multiple-Median EV Multiple-EBITDA',
+    'GPM-OPM-NPM-Quarter Sales'
+]
+
+def fetch_screener_chart_data(symbol: str, days: str = "365", view: str = "") -> dict:
+    clean_symbol = symbol.strip().upper()
+    clean_view = view.strip().lower()
+
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    search_url = f"https://www.screener.in/api/company/search/?q={quote(clean_symbol)}"
+    search_req = urllib.request.Request(search_url, headers=headers)
+    search_res = json.loads(urllib.request.urlopen(search_req, timeout=10).read().decode('utf-8'))
+
+    if not search_res:
+        raise ValueError(f"Symbol {clean_symbol} not found on Screener")
+
+    company_info = search_res[0]
+    company_id = company_info['id']
+    company_name = company_info['name']
+    comp_url = company_info.get('url', '')
+
+    # Check whether Screener offers consolidated statements for this company
+    has_consolidated = '/consolidated/' in comp_url
+
+    # Determine active view (Consolidated vs Standalone)
+    if clean_view == 'standalone':
+        use_consolidated = False
+    elif clean_view == 'consolidated':
+        use_consolidated = True
+    else:
+        use_consolidated = has_consolidated
+
+    view_type = "Consolidated" if use_consolidated else "Standalone"
+    cons_flag = "&consolidated=true" if use_consolidated else ""
+
+    cache_key = f"{clean_symbol}_{days}_{view_type}"
+    if cache_key in CHART_CACHE:
+        return CHART_CACHE[cache_key]
+
+    all_datasets = []
+    for q in CHART_QUERIES:
+        chart_q = quote(q)
+        chart_url = f"https://www.screener.in/api/company/{company_id}/chart/?q={chart_q}&days={days}{cons_flag}"
+        try:
+            chart_req = urllib.request.Request(chart_url, headers=headers)
+            c_data = json.loads(urllib.request.urlopen(chart_req, timeout=10).read().decode('utf-8'))
+            all_datasets.extend(c_data.get('datasets', []))
+        except Exception as e:
+            print(f"Chart query {q} note: {e}")
+
+    payload = {
+        "symbol": clean_symbol,
+        "companyName": company_name,
+        "companyId": company_id,
+        "days": int(days) if str(days).isdigit() else 365,
+        "isConsolidated": use_consolidated,
+        "hasConsolidated": has_consolidated,
+        "viewType": view_type,
+        "chartData": {
+            "datasets": all_datasets
+        }
+    }
+    CHART_CACHE[cache_key] = payload
+    return payload
+
+
 class LocalAppHandler(BaseHTTPRequestHandler):
     server_version = "LedgerLocal/1.0"
 
@@ -138,6 +211,16 @@ class LocalAppHandler(BaseHTTPRequestHandler):
             return self._send_json(200, get_drive_sync_status())
         if parsed.path == "/api/drive/history":
             return self._send_json(200, list_all_saved_reports())
+        if parsed.path == "/api/chart":
+            query_params = parse_qs(parsed.query)
+            symbol = query_params.get("symbol", ["SBIN"])[0].strip().upper()
+            days = query_params.get("days", ["365"])[0].strip()
+            view = query_params.get("view", [""])[0].strip()
+            try:
+                data = fetch_screener_chart_data(symbol, days, view)
+                return self._send_json(200, data)
+            except Exception as e:
+                return self._send_json(500, {"detail": f"Error fetching chart data: {str(e)}"})
         if parsed.path.startswith("/api/"):
             return self._send_json(404, {"detail": "API route not found."})
         if not DIST_DIR.exists():

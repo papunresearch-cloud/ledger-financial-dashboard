@@ -1415,6 +1415,8 @@ def _compute_yearly_ratios_table(
     sa_y_full: dict[str, Any] | None = None,
     sa_bs_full: dict[str, Any] | None = None,
     bs_schedules: dict[str, Any] | None = None,
+    cf_schedule: dict[str, Any] | None = None,
+    screener_ratios: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compute Yearly Ratios (Up to Last 8 Full Years), including Liquidity & Consol-vs-Standalone or Banking Ratios."""
     y_map_primary = _table_row_map(y_full)
@@ -1688,6 +1690,16 @@ def _compute_yearly_ratios_table(
 
         int_t, _ = _lookup_row_val(y_map, int_keys, yi)
         roce_val, _ = _lookup_row_val(rat_map, ("roce %",), ri) if ri is not None else (None, "-")
+        if roce_val is None and screener_ratios:
+            scr_hdrs = (screener_ratios.get("headers") or [])
+            scr_d_hdrs = scr_hdrs[1:] if len(scr_hdrs) > 1 and not scr_hdrs[0] else scr_hdrs
+            if yr in scr_d_hdrs:
+                y_idx = scr_d_hdrs.index(yr)
+                for r in (screener_ratios.get("rows") or []):
+                    if "roce" in str(r.get("label", "")).lower() and y_idx < len(r.get("values") or []):
+                        roce_val = _parse_screener_num((r.get("values") or [])[y_idx])
+                        if roce_val is not None:
+                            break
         if roce_val is None and pbt_t is not None and net_worth is not None:
             cap_emp = net_worth + (debt or 0.0)
             if cap_emp > 0.05:
@@ -1728,11 +1740,22 @@ def _compute_yearly_ratios_table(
         for target_list, r_keys in (
             (r_debtor, ("debtor days",)),
             (r_inv, ("inventory days",)),
-            (r_payable, ("days payable",)),
+            (r_payable, ("days payable", "creditor days")),
             (r_ccc, ("cash conversion cycle",)),
             (r_wcd, ("working capital days",)),
         ):
             r_val, _ = _lookup_row_val(rat_map, r_keys, ri) if ri is not None else (None, "-")
+            if r_val is None and screener_ratios:
+                scr_hdrs = (screener_ratios.get("headers") or [])
+                scr_d_hdrs = scr_hdrs[1:] if len(scr_hdrs) > 1 and not scr_hdrs[0] else scr_hdrs
+                if yr in scr_d_hdrs:
+                    y_idx = scr_d_hdrs.index(yr)
+                    for r in (screener_ratios.get("rows") or []):
+                        lbl_l = str(r.get("label", "")).lower()
+                        if any(rk in lbl_l for rk in r_keys) and y_idx < len(r.get("values") or []):
+                            r_val = _parse_screener_num((r.get("values") or [])[y_idx])
+                            if r_val is not None:
+                                break
             target_list.append(str(int(round(r_val))) if r_val is not None else "-")
 
     raw_rows = [{"label": lbl, "category": cat, "values": vals} for lbl, cat, _, vals in metric_specs]
@@ -1745,6 +1768,8 @@ def parse_screener_financial_snapshot(
     main_html: str,
     standalone_html: str = "",
     bs_schedules: dict[str, Any] | None = None,
+    cf_schedule: dict[str, Any] | None = None,
+    screener_ratios: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Deterministically extract financial snapshots and computed 8Q+TTM / 8Y Ratio tables."""
     empty_tbl = {"headers": [], "rows": []}
@@ -1816,9 +1841,55 @@ def parse_screener_financial_snapshot(
         "yearly_ratios": _compute_yearly_ratios_table(
             y_full, bs_full, cf_full, rat_full,
             sa_y_full=sa_y_full, sa_bs_full=sa_bs_full, bs_schedules=bs_schedules,
+            cf_schedule=cf_schedule, screener_ratios=screener_ratios,
         ),
         "growth_ranges": growth_ranges,
     }
+
+
+def _format_schedule_table(title: str, sched: dict[str, Any] | None, max_cols: int = 8) -> str | None:
+    if not isinstance(sched, dict) or not sched:
+        return None
+    valid_items = {k: v for k, v in sched.items() if k != "setAttributes" and isinstance(v, dict)}
+    if not valid_items:
+        return None
+    all_periods: list[str] = []
+    seen = set()
+    for item_dict in valid_items.values():
+        for p in item_dict.keys():
+            if p != "setAttributes" and p not in seen:
+                seen.add(p)
+                all_periods.append(p)
+    if not all_periods:
+        return None
+    selected_periods = all_periods[-max_cols:]
+    header_line = "Line Item | " + " | ".join(selected_periods)
+    row_lines = [header_line]
+    for lbl, item_dict in valid_items.items():
+        vals = [str(item_dict.get(p) or "-") for p in selected_periods]
+        row_lines.append(f"{lbl} | " + " | ".join(vals))
+    return f"{title}:\n  " + "\n  ".join(row_lines)
+
+
+def _format_screener_ratios_table(ratios_dict: dict[str, Any] | None, max_cols: int = 8) -> str | None:
+    if not isinstance(ratios_dict, dict) or not ratios_dict:
+        return None
+    headers = ratios_dict.get("headers") or []
+    rows = ratios_dict.get("rows") or []
+    if not rows or not headers:
+        return None
+    date_headers = headers[1:] if len(headers) > 1 and not headers[0] else headers
+    if not date_headers:
+        return None
+    selected_dates = date_headers[-max_cols:]
+    start_col = len(date_headers) - len(selected_dates)
+    header_line = "Ratio | " + " | ".join(selected_dates)
+    row_lines = [header_line]
+    for r in rows:
+        lbl = r.get("label", "")
+        vals = (r.get("values") or [])[start_col:]
+        row_lines.append(f"{lbl} | " + " | ".join(str(v or "-") for v in vals))
+    return "SCREENER OFFICIAL PRECALCULATED RATIOS (#ratios):\n  " + "\n  ".join(row_lines)
 
 
 def parse_screener_financial_intelligence(
@@ -1830,6 +1901,9 @@ def parse_screener_financial_intelligence(
     peer_comparison: dict[str, Any] | None = None,
     shareholding: dict[str, Any] | None = None,
     financial_snapshot: dict[str, Any] | None = None,
+    schedules: dict[str, Any] | None = None,
+    cash_flow_schedule: dict[str, Any] | None = None,
+    screener_ratios: dict[str, Any] | None = None,
 ) -> str:
     """Extract structured verified financials, peers, promoters, segments, and consolidated vs standalone context."""
     soup = BeautifulSoup(main_html, "html.parser")
@@ -1985,6 +2059,39 @@ def parse_screener_financial_intelligence(
 
     format_snap_table("BALANCE SHEET (Last 5-6 Periods)", snap.get("balance_sheet") or {})
     format_snap_table("CASH FLOW STATEMENT (Last 5-6 Years)", snap.get("cash_flow") or {})
+
+    cf_sched_tbl = _format_schedule_table(
+        "ITEMIZED CASH FLOW OPERATING SCHEDULE (Working Capital Breakdown)",
+        cash_flow_schedule or (schedules or {}).get("cash_flow_operating"),
+    )
+    if cf_sched_tbl:
+        lines.append(cf_sched_tbl)
+
+    other_liab_tbl = _format_schedule_table(
+        "ITEMIZED OTHER LIABILITIES SCHEDULE (Trade Payables & Customer Advances Breakdown)",
+        (schedules or {}).get("other_liabilities"),
+    )
+    if other_liab_tbl:
+        lines.append(other_liab_tbl)
+
+    other_assets_tbl = _format_schedule_table(
+        "ITEMIZED OTHER ASSETS SCHEDULE (Inventories, Trade Receivables & Cash Breakdown)",
+        (schedules or {}).get("other_assets"),
+    )
+    if other_assets_tbl:
+        lines.append(other_assets_tbl)
+
+    borr_tbl = _format_schedule_table(
+        "ITEMIZED BORROWINGS SCHEDULE (Short-term & Long-term Debt Breakdown)",
+        (schedules or {}).get("borrowings"),
+    )
+    if borr_tbl:
+        lines.append(borr_tbl)
+
+    official_ratios_tbl = _format_screener_ratios_table(screener_ratios)
+    if official_ratios_tbl:
+        lines.append(official_ratios_tbl)
+
     format_snap_table("WORKING CAPITAL & EFFICIENCY RATIOS (Last 5-6 Years)", snap.get("ratios") or {})
     format_snap_table("COMPUTED QUARTERLY RATIOS (Last 5 Quarters + TTM)", snap.get("quarterly_ratios") or {})
     format_snap_table("COMPUTED YEARLY RATIOS (Last 5 Full Years)", snap.get("yearly_ratios") or {})
@@ -2138,6 +2245,9 @@ def fetch_screener_http(
             "peer_comparison": parse_screener_peers_section("", screener_url=primary_url),
             "shareholding": parse_screener_shareholding_section("", screener_url=primary_url),
             "financial_snapshot": parse_screener_financial_snapshot(""),
+            "schedules": {},
+            "cash_flow_schedule": {},
+            "screener_ratios": {},
             "website": "N/A",
             "sources": [],
             "screener_url": primary_url,
@@ -2231,11 +2341,19 @@ def fetch_screener_http(
         peers_html = f_peers.result()
         segments_html = f_segments.result()
         promoters_data = f_promoters.result()
+        cf_schedule = f_sched_cf.result() or {}
         bs_schedules = {
-            "other_assets": f_sched_assets.result(),
-            "other_liabilities": f_sched_liab.result(),
-            "borrowings": f_sched_borr.result(),
+            "other_assets": f_sched_assets.result() or {},
+            "other_liabilities": f_sched_liab.result() or {},
+            "borrowings": f_sched_borr.result() or {},
         }
+        all_schedules = {
+            "cash_flow_operating": cf_schedule,
+            "other_liabilities": bs_schedules["other_liabilities"],
+            "other_assets": bs_schedules["other_assets"],
+            "borrowings": bs_schedules["borrowings"],
+        }
+        screener_ratios = parse_screener_ratios(soup)
 
     peer_comparison = parse_screener_peers_section(
         main_html,
@@ -2256,6 +2374,8 @@ def fetch_screener_http(
         main_html,
         standalone_html=standalone_html,
         bs_schedules=bs_schedules,
+        cf_schedule=cf_schedule,
+        screener_ratios=screener_ratios,
     )
 
     financial_intel_text = parse_screener_financial_intelligence(
@@ -2267,6 +2387,9 @@ def fetch_screener_http(
         peer_comparison=peer_comparison,
         shareholding=shareholding,
         financial_snapshot=financial_snapshot,
+        schedules=all_schedules,
+        cash_flow_schedule=cf_schedule,
+        screener_ratios=screener_ratios,
     )
 
     if raw_comm_html:
@@ -2324,14 +2447,9 @@ def fetch_screener_http(
         "shareholding": shareholding,
         "shareholding_pattern": shareholding_pattern,
         "financial_snapshot": financial_snapshot,
-        "schedules": {
-            "cash_flow_operating": f_sched_cf.result() or {},
-            "other_liabilities": f_sched_liab.result() or {},
-            "other_assets": f_sched_assets.result() or {},
-            "borrowings": f_sched_borr.result() or {},
-        },
-        "cash_flow_schedule": f_sched_cf.result() or {},
-        "screener_ratios": parse_screener_ratios(soup),
+        "schedules": all_schedules,
+        "cash_flow_schedule": cf_schedule,
+        "screener_ratios": screener_ratios,
         "promoters_data": promoters_data,
         "website": official_website,
         "sources": unique_sources,
@@ -3495,7 +3613,7 @@ def gather_company_sources(
         "generated_at": time.strftime("%d %b %Y, %I:%M %p"),
         "prompt_context": {
             "popup_text": (popup_data.get("text") or "")[:18000],
-            "financial_intel": (popup_data.get("financial_intel") or "")[:20000],
+            "financial_intel": (popup_data.get("financial_intel") or "")[:30000],
             "official_content": (official_site.get("content") or "")[:3000],
             "promoter_intel": promoter_prompt_text[:10000],
             "market_intel": market_prompt_text[:10000],
@@ -3860,6 +3978,7 @@ def synthesize_about_ai(sources_payload: dict[str, Any], api_key: str, cloud_mod
         "Maintain exhaustive operational depth! NEVER output Market Capitalization, Dividend Yield, or TTM Net Profit inside 'quick_stats' (leave 'quick_stats' empty []). "
         "Populate 'factories_and_plants' ONLY with verified plants/facilities found in SOURCES A-D ([] if unavailable/inapplicable), and 'subsidiaries_list' ONLY with verified subsidiaries/JVs/associates ([] if standalone/unavailable). "
         "Write 'financial_position_summary' like an institutional credit & equity analyst using exact quarterly + yearly P&L, Balance Sheet, Cash Flow, and Computed Ratios from SOURCE B (including dedicated 'sales_yearly_and_ttm' and 'sales_quarterly_momentum' sales explanations, plus Good strengths, Bad watchpoints, and current trend). "
+        "Rigorously evaluate the company's Cash Flow Quality and Working Capital Trajectory using the deeper schedule lines from SOURCE B (Profit from operations, Receivables, Inventory, Payables, Working capital changes). Explicitly determine whether operating cash flow growth is backed by supplier credit, inventory destocking, or genuine customer cash collections, and whether working capital is expanding or absorbing liquidity. "
         "Inside 'financial_position_summary' text values: ALWAYS wrap key calculated numerical values (e.g. **+18.4%**, **14.2%**, **Rs 13,477 Cr**, **29.9% ROE**) in **double asterisks** AND wrap important conclusive summary statements (1 per field) in __double underscores__ (e.g. __Long-term top-line compounding remains structurally strong despite cyclical moderation.__). "
         "Include 3-4 distinct items in 'capex_and_order_book' (synthesizing all Capex & Order Win news references plus Screener filings), "
         "2-4 distinct items in 'regulatory_and_litigation' (synthesizing all Regulatory & Legal Risk news references), and 2-3 metric-dense bullet points in EVERY ONE of the 18 'sections'.\n"
@@ -3942,7 +4061,7 @@ Return ONLY a valid JSON object matching this exact schema:
       "profitability_factors": "Key structural, realization, raw material cost, or operating leverage factors driving margins.",
       "profit_contribution_consol_vs_standalone": "Profit contribution across key product segments (PBIT & Margin %) AND exact Consolidated vs Standalone Net Profit / OPM comparison."
     }},
-    "financial_issues": "Clear assessment of Operating Cash Flow (CFO) vs Net Profit, Free Cash Flow (FCF), Total Borrowings & Debt-to-Equity (compare Consol vs Standalone Debt if distinct!), CWIP/working capital strain, and whether any high debt or financial statement doubts/red flags exist.",
+    "financial_issues": "Clear assessment of Operating Cash Flow (CFO) vs Net Profit, Free Cash Flow (FCF), Total Borrowings & Debt-to-Equity (compare Consol vs Standalone Debt if distinct!), Working Capital Trajectory (receivables, inventory, supplier payables absorption), and whether any high debt or financial statement doubts/red flags exist.",
     "partners_and_subsidiaries": "Key subsidiaries, joint ventures, associates, and strategic business/EPC partners.",
     "growth_capex_orderbook": "Future growth probability, order book / contract visibility, volume targets, and ongoing capex / CWIP pipeline.",
     "current_issues": "Major current legal disputes, arbitrations, regulatory penalties, or operational headwinds.",
@@ -3976,8 +4095,8 @@ Return ONLY a valid JSON object matching this exact schema:
     "sales_quarterly_momentum": "2-3 sentences explaining the last 5 quarters' sales momentum across QoQ & YoY growth rates, sequential trajectory, and acceleration/moderation conclusion (bold **QoQ / YoY growth % values** and underline __conclusive takeaway__) [[{screener_ref_id or 1}]].",
     "pnl_yearly_and_ttm": "2-3 metric-dense sentences on 5Y -> TTM Operating Profit, OPM%, Net Profit, EPS, and Profit CAGR ranges (bold **calculated figures** and underline __conclusive statement__) [[{screener_ref_id or 1}]].",
     "pnl_quarterly_trend": "2-3 crisp sentences comparing the latest 5 quarters (QoQ & YoY): margin expansion/compression, other income/interest/depreciation impact, and EPS momentum (bold **calculated figures** and underline __conclusive statement__) [[{screener_ref_id or 1}]].",
-    "balance_sheet_health": "2-3 crisp sentences covering Equity+Reserves compounding, Borrowings trend & Debt-to-Equity, Fixed Assets + CWIP, liquidity, and Working Capital cycle or ROCE%/ROE% (bold **calculated figures** and underline __conclusive statement__) [[{screener_ref_id or 1}]].",
-    "cash_flow_quality": "2-3 crisp sentences analyzing CFO / Sales %, CFO / Operating Profit %, CFO / Net Profit %, FCF / OCF %, and FCF / Net Profit % (bold **calculated figures** and underline __conclusive statement__) [[{screener_ref_id or 1}]].",
+    "balance_sheet_health": "2-3 crisp sentences covering Equity+Reserves compounding, Borrowings trend & Debt-to-Equity, Fixed Assets + CWIP, liquidity, Working Capital Trajectory (Debtor Days, Inventory Days, Creditor Days, CCC, Working Capital Days), and ROCE%/ROE% (bold **calculated figures** and underline __conclusive statement__) [[{screener_ref_id or 1}]].",
+    "cash_flow_quality": "2-3 crisp sentences analyzing CFO / Sales %, CFO / Operating Profit %, CFO / Net Profit %, FCF / OCF %, and FCF / Net Profit % using exact deeper schedule figures (Profit from operations, Working capital changes, Receivables, Inventory, Payables). Explicitly evaluate whether CFO growth is backed by supplier credit, inventory destocking, or genuine customer cash collections (bold **calculated figures** and underline __conclusive statement__) [[{screener_ref_id or 1}]].",
     "strengths_good": [
       "Good financial strength 1 with **bold calculated Rs Cr / % / days** [[{screener_ref_id or 1}]].",
       "Good financial strength 2 [[{screener_ref_id or 1}]]."

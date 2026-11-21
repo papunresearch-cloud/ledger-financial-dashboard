@@ -483,8 +483,7 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'Trade Payables / (Sales / 365)',
     a => {
       if (a.screenerDaysPayable !== null && a.screenerDaysPayable !== undefined) return a.screenerDaysPayable
-      const p = a.payables
-      return a.sales && p !== null && a.sales > 0 ? (p / a.sales) * 365 : null
+      return a.sales && a.payables !== null && a.sales > 0 ? (a.payables / a.sales) * 365 : null
     },
     'days'
   )
@@ -500,14 +499,12 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'WORKING CAPITAL CYCLE',
     'Debtor Days + Inventory Days − Creditor Days',
     a => {
-      if (a.screenerCashConversionCycle !== null && a.screenerCashConversionCycle !== undefined) {
-        return a.screenerCashConversionCycle
-      }
+      if (a.screenerCashConversionCycle !== null && a.screenerCashConversionCycle !== undefined) return a.screenerCashConversionCycle
       const d = a.screenerDebtorDays ?? (a.sales && a.receivables !== null && a.sales > 0 ? (a.receivables / a.sales) * 365 : null)
       const inv = a.screenerInventoryDays ?? (a.sales && a.inventory !== null && a.sales > 0 ? (a.inventory / a.sales) * 365 : null)
-      const p = a.screenerDaysPayable ?? (a.sales && a.payables !== null && a.sales > 0 ? (a.payables / a.sales) * 365 : null)
-      if (p === null) return null
-      return (d ?? 0) + (inv ?? 0) - p
+      const cred = a.screenerDaysPayable ?? (a.sales && a.payables !== null && a.sales > 0 ? (a.payables / a.sales) * 365 : null)
+      if (cred === null) return null
+      return (d ?? 0) + (inv ?? 0) - cred
     },
     'days'
   )
@@ -516,12 +513,8 @@ function computeCorporateYearlyRatios(data: CompanyData): RatioTable {
     'WORKING CAPITAL CYCLE',
     'Working Capital / (Sales / 365)',
     a => {
-      if (a.screenerWorkingCapitalDays !== null && a.screenerWorkingCapitalDays !== undefined) {
-        return a.screenerWorkingCapitalDays
-      }
-      const wc = a.workingCapital
-      if (wc === null || !a.sales || a.sales <= 0) return null
-      return (wc / a.sales) * 365
+      if (a.screenerWorkingCapitalDays !== null && a.screenerWorkingCapitalDays !== undefined) return a.screenerWorkingCapitalDays
+      return a.workingCapital !== null && a.sales && a.sales > 0 ? (a.workingCapital / a.sales) * 365 : null
     },
     'days'
   )

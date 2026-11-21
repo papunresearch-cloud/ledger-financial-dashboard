@@ -1,0 +1,242 @@
+/* Stock Time Series Studio - Modal Styles for Ledger Desktop */
+.plot-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(5, 9, 15, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  animation: plotFadeIn 0.2s ease-out;
+}
+
+@keyframes plotFadeIn {
+  from { opacity: 0; transform: scale(0.99); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.plot-modal-card {
+  width: 96vw;
+  max-width: 1480px;
+  height: 92vh;
+  max-height: 960px;
+  background: #090e17;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(56, 189, 248, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.plot-modal-card.maximized {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+}
+
+/* Header Topbar */
+.plot-modal-topbar {
+  height: 48px;
+  background: #0d1527;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 16px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.plot-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.plot-modal-brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+  flex-shrink: 0;
+}
+
+.plot-modal-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.plot-modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plot-modal-main-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.plot-symbol-badge {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 1px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.plot-modal-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+/* Ticker Switcher Form */
+.plot-ticker-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 3px 6px;
+}
+
+.plot-ticker-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-family: monospace;
+  font-weight: 600;
+  width: 170px;
+  padding: 2px 4px;
+}
+
+.plot-ticker-input::placeholder {
+  color: #64748b;
+  font-family: sans-serif;
+  font-size: 11px;
+}
+
+.plot-ticker-btn {
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  height: 24px;
+  gap: 4px !important;
+  border-radius: 6px !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+}
+
+.plot-ticker-btn:hover {
+  background: rgba(56, 189, 248, 0.22) !important;
+  border-color: #38bdf8 !important;
+}
+
+/* Right Control Actions */
+.plot-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.plot-ctrl-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plot-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.plot-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Main Iframe */
+.plot-iframe-container {
+  flex: 1;
+  width: 100%;
+  height: calc(100% - 48px);
+  position: relative;
+  background: #090e17;
+}
+
+.plot-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Topbar Plot Button in Ledger Desktop */
+.plot-ribbon-button {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.3px;
+  border: 1px solid rgba(56, 189, 248, 0.5) !important;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35) !important;
+}
+
+.plot-ribbon-button:hover {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.55) !important;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .btn-label-desktop {
+    display: none;
+  }
+  .plot-ticker-input {
+    width: 110px;
+  }
+  .plot-modal-subtitle {
+    display: none;
+  }
+}

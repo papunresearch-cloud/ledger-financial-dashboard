@@ -16,6 +16,7 @@ import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
 import { GoogleDrivePromptModal } from './GoogleDrivePromptModal'
 import { SavedReportViewer } from './SavedReportViewer'
 import { ReportVaultModal } from './ReportVaultModal'
+import { PlotModal } from './PlotModal'
 import companies from './companies.json'
 import { DataChecksView } from './DataChecksView'
 import type { AboutAiData, AboutSourcesResponse, AboutState, AnnualRow, AppTheme, CompanyData, FinancialData, LocalSettingsSummary, SavedReportInfo, SavedReportItem, Section } from './types'
@@ -146,19 +147,37 @@ function enrichCompanyDataWithScreener(
   const schedAssets = payload.schedules?.other_assets || {}
   const screenerRatios = payload.screener_ratios
 
+  // Case-insensitive schedule map finder across aliases
+  const findScheduleMap = (sched: Record<string, any> | undefined, candidates: string[]): Record<string, string> => {
+    if (!sched || typeof sched !== 'object') return {}
+    for (const cand of candidates) {
+      const target = cand.toLowerCase().trim()
+      for (const [k, v] of Object.entries(sched)) {
+        if (k.toLowerCase().trim() === target && v && typeof v === 'object') {
+          return v as Record<string, string>
+        }
+      }
+    }
+    return {}
+  }
+
   // Cash flow breakdown maps
-  const cfPayablesMap = schedCf['Payables'] || schedCf['Trade Payables'] || {}
-  const cfReceivablesMap = schedCf['Receivables'] || schedCf['Trade Receivables'] || {}
-  const cfInventoryMap = schedCf['Inventory'] || schedCf['Inventories'] || {}
-  const cfWcMap = schedCf['Working capital changes'] || schedCf['Working Capital'] || {}
+  const cfPayablesMap = findScheduleMap(schedCf, ['Payables', 'Trade Payables', 'Change in Payables', 'Trade Creditors', 'Creditors'])
+  const cfReceivablesMap = findScheduleMap(schedCf, ['Receivables', 'Trade Receivables', 'Change in Receivables', 'Debtors'])
+  const cfInventoryMap = findScheduleMap(schedCf, ['Inventory', 'Inventories', 'Change in Inventory'])
+  const cfWcMap = findScheduleMap(schedCf, ['Working capital changes', 'Working Capital', 'Change in Working Capital'])
 
   // Balance sheet maps
-  const bsPayablesMap = schedLiab['Trade Payables'] || schedLiab['Payables'] || {}
-  const bsReceivablesMap = schedAssets['Trade receivables'] || schedAssets['Receivables'] || {}
-  const bsInventoryMap = schedAssets['Inventories'] || schedAssets['Inventory'] || {}
+  const bsPayablesMap = findScheduleMap(schedLiab, ['Trade Payables', 'Payables', 'Trade Creditors', 'Creditors', 'Trade payables'])
+  const bsReceivablesMap = findScheduleMap(schedAssets, ['Trade receivables', 'Trade Receivables', 'Receivables', 'Debtors'])
+  const bsInventoryMap = findScheduleMap(schedAssets, ['Inventories', 'Inventory'])
 
-  // Screener official ratios
-  const ratioHeaders = screenerRatios?.headers?.slice(1) || []
+  // Screener official ratios (header handling for empty corner cell)
+  const rawHeaders = screenerRatios?.headers || []
+  const ratioHeaders = rawHeaders.length > 0 && (!rawHeaders[0] || rawHeaders[0].trim() === '')
+    ? rawHeaders.slice(1)
+    : rawHeaders
+
   const getRatioRow = (pattern: RegExp) =>
     screenerRatios?.rows?.find(r => pattern.test(r.label.trim()))
 
@@ -179,6 +198,7 @@ function enrichCompanyDataWithScreener(
   }
 
   const findValueForPeriod = (sourceMap: Record<string, string>, period: string): number | null => {
+    if (!sourceMap || typeof sourceMap !== 'object') return null
     const rowYearMatch = period.match(/(?:20)?(\d{2})$/)
     const twoDigitYear = rowYearMatch ? rowYearMatch[1] : null
 
@@ -230,20 +250,39 @@ function enrichCompanyDataWithScreener(
     const screenerWorkingCapitalDays = findRatioForPeriod(wcDaysRow, row.period)
     const screenerRoce = findRatioForPeriod(roceRow, row.period)
 
-    const finalPayables = bsPayables ?? cfPayables ?? row.payables
-    const finalReceivables = bsReceivables ?? row.receivables
-    const finalInventory = bsInventory ?? row.inventory
-    const finalWc = cfWc ?? row.workingCapital
+    // Payables: Prefer balance sheet Trade Payables; fall back to Cash Flow Payables. If neither found, null (—). Never guess or fall back to other liabilities.
+    const finalPayables = (bsPayables !== null && bsPayables !== undefined)
+      ? bsPayables
+      : ((cfPayables !== null && cfPayables !== undefined) ? cfPayables : null)
+
+    // Working capital: Map from Cash Flow Working capital changes. If missing, leave as null. Never guess or use CA - CL as fallback.
+    const finalWc = (cfWc !== null && cfWc !== undefined)
+      ? cfWc
+      : null
+
+    const finalReceivables = (bsReceivables !== null && bsReceivables !== undefined)
+      ? bsReceivables
+      : ((cfReceivables !== null && cfReceivables !== undefined) ? cfReceivables : (row.receivables ?? null))
+
+    const finalInventory = (bsInventory !== null && bsInventory !== undefined)
+      ? bsInventory
+      : ((cfInventory !== null && cfInventory !== undefined) ? cfInventory : (row.inventory ?? null))
 
     if (
       finalPayables !== row.payables ||
       finalReceivables !== row.receivables ||
       finalInventory !== row.inventory ||
       finalWc !== row.workingCapital ||
+      screenerDebtorDays !== row.screenerDebtorDays ||
+      screenerInventoryDays !== row.screenerInventoryDays ||
       screenerDaysPayable !== row.screenerDaysPayable ||
       screenerCashConversionCycle !== row.screenerCashConversionCycle ||
       screenerWorkingCapitalDays !== row.screenerWorkingCapitalDays ||
-      screenerRoce !== row.screenerRoce
+      screenerRoce !== row.screenerRoce ||
+      cfPayables !== row.cfPayables ||
+      cfReceivables !== row.cfReceivables ||
+      cfInventory !== row.cfInventory ||
+      cfWc !== row.cfWorkingCapital
     ) {
       anyModified = true
     }
@@ -304,6 +343,7 @@ function App() {
   const [driveHistory, setDriveHistory] = useState<SavedReportItem[]>([])
   const [driveHistoryLoading, setDriveHistoryLoading] = useState(false)
   const [vaultOpen, setVaultOpen] = useState(false)
+  const [plotModalOpen, setPlotModalOpen] = useState(false)
   const [historyPrompt, setHistoryPrompt] = useState<{
     info: SavedReportInfo
     targetCode: string
@@ -353,7 +393,7 @@ function App() {
     if (data.mode === 'bank' && about.sources.financial_snapshot) {
       const enriched = enrichBankDataWithSnapshot(data, about.sources.financial_snapshot)
       if (enriched !== data) setData(enriched)
-    } else if (data.mode !== 'bank' && about.sources.cash_flow_schedule) {
+    } else if (data.mode !== 'bank' && (about.sources.cash_flow_schedule || about.sources.schedules || about.sources.screener_ratios)) {
       const enriched = enrichCompanyDataWithScreener(data, about.sources)
       if (enriched !== data) setData(enriched)
     }
@@ -523,7 +563,7 @@ function App() {
                 let next = prev
                 if (next.mode === 'bank' && disk.sources?.financial_snapshot) {
                   next = enrichBankDataWithSnapshot(next, disk.sources.financial_snapshot)
-                } else if (next.mode !== 'bank' && disk.sources?.cash_flow_schedule) {
+                } else if (next.mode !== 'bank' && (disk.sources?.cash_flow_schedule || disk.sources?.schedules || disk.sources?.screener_ratios)) {
                   next = enrichCompanyDataWithScreener(next, disk.sources)
                 }
                 return next
@@ -538,7 +578,7 @@ function App() {
                 let next = prev
                 if (next.mode === 'bank' && disk.sources?.financial_snapshot) {
                   next = enrichBankDataWithSnapshot(next, disk.sources.financial_snapshot)
-                } else if (next.mode !== 'bank' && disk.sources?.cash_flow_schedule) {
+                } else if (next.mode !== 'bank' && (disk.sources?.cash_flow_schedule || disk.sources?.schedules || disk.sources?.screener_ratios)) {
                   next = enrichCompanyDataWithScreener(next, disk.sources)
                 }
                 return next
@@ -578,7 +618,7 @@ function App() {
         let next = prev
         if (next.mode === 'bank' && sourcesPayload.financial_snapshot) {
           next = enrichBankDataWithSnapshot(next, sourcesPayload.financial_snapshot)
-        } else if (next.mode !== 'bank' && sourcesPayload.cash_flow_schedule) {
+        } else if (next.mode !== 'bank' && (sourcesPayload.cash_flow_schedule || sourcesPayload.schedules || sourcesPayload.screener_ratios)) {
           next = enrichCompanyDataWithScreener(next, sourcesPayload)
         }
         return next
@@ -850,7 +890,17 @@ function App() {
             {driveHistory.length > 0 && <span className="vault-topbar-badge">{driveHistory.length}</span>}
           </button>
         )}
-        {supportsLocalScreener && <button type="button" className="button button-soft" onClick={() => setSettingsOpen(true)} title="Gemini API key, Screener browser & disk cache settings"><Settings size={16}/> Settings{localSettings && !localSettings.hasGeminiApiKey && <span className="settings-button-dot" aria-label="Gemini API key not configured"/>}</button>}{data && <>
+        {supportsLocalScreener && <button type="button" className="button button-soft" onClick={() => setSettingsOpen(true)} title="Gemini API key, Screener browser & disk cache settings"><Settings size={16}/> Settings{localSettings && !localSettings.hasGeminiApiKey && <span className="settings-button-dot" aria-label="Gemini API key not configured"/>}</button>}
+        <button
+          type="button"
+          className="button plot-ribbon-button"
+          onClick={() => setPlotModalOpen(true)}
+          title="Open Interactive Stock Time Series Plot Studio"
+        >
+          <TrendingUp size={16} />
+          <span>PLOT</span>
+        </button>
+        {data && <>
         <button className="button forecast-ribbon-button" onClick={() => setCalculatorOpen(true)}><Calculator size={16}/> Forecast calculator</button>
         <button type="button" className="button button-soft theme-toggle-button" onClick={() => setTheme(current => current === 'dark' ? 'bright' : 'dark')} title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}>
           {theme === 'dark' ? <><Sun size={16}/> Bright mode</> : <><Moon size={16}/> Dark mode</>}
@@ -1125,7 +1175,7 @@ function App() {
           <span className="foot-caps">Annual trends <b className="foot-dot">·</b> Quarterly movements <b className="foot-dot">·</b> Advanced ratios <b className="foot-dot">·</b> Peer Medians</span>
         </div>
       </section> : <>
-        <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1></div></div><div className="company-actions"><button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
+        <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1></div></div><div className="company-actions"><button type="button" className="button plot-ribbon-button" onClick={() => setPlotModalOpen(true)} title={`Open Interactive Stock Plot for ${activeCode || data.companyName}`}><TrendingUp size={15}/> PLOT</button><button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
         <nav className="section-nav" aria-label="Analysis sections">{sections.map(({key,label,icon:Icon})=><button key={key} className={section===key?'active':''} onClick={()=>setSection(key)}><Icon size={16}/>{label}{section===key&&<span className="nav-active-mark"/>}</button>)}</nav>
         {section === 'about' && (
           <AboutSection
@@ -1288,6 +1338,13 @@ function App() {
         onCacheCleared={() => {
           aboutCacheRef.current.clear()
         }}
+      />
+    )}
+    {plotModalOpen && (
+      <PlotModal
+        symbol={activeCode || (mode === 'bank' ? 'SBIN' : 'INFY')}
+        companyName={data?.companyName || (activeCode === 'SBIN' ? 'State Bank of India' : (activeCode || 'Stock Plot'))}
+        onClose={() => setPlotModalOpen(false)}
       />
     )}
   </div>
