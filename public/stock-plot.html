@@ -49,6 +49,7 @@
       --c-bv: #ef4444;
       --c-opm: #fbbf24;
       --c-gpm: #a3e635;
+      --c-deliv-pct: #2dd4bf;
 
       /* Statistical SD Lines - High Contrast & Vivid in Dark Mode */
       --sd-ma: #3b82f6;
@@ -97,6 +98,7 @@
       --c-bv: #b91c1c;
       --c-opm: #b45309;
       --c-gpm: #4d7c0f;
+      --c-deliv-pct: #0d9488;
 
       /* Statistical SD Lines - High Contrast & Vivid in Bright Mode */
       --sd-ma: #1d4ed8;
@@ -506,6 +508,7 @@
     .border-deliv-vol-overlay { border-color: var(--c-deliv-vol-overlay); }
     .border-deliv-vol { border-color: var(--c-deliv-vol); }
     .border-vol { border-color: var(--c-vol); }
+    .border-deliv-pct { border-color: var(--c-deliv-pct); }
     .border-pe { border-color: var(--c-pe); }
     .border-pb { border-color: var(--c-pb); }
     .border-ps { border-color: var(--c-ps); }
@@ -652,11 +655,23 @@
       background: var(--sub-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 7px 12px;
-      transition: border-color 0.15s;
+      padding: 8px 12px;
+      transition: all 0.15s;
+      cursor: grab;
+      user-select: none;
     }
     .param-row:hover {
       border-color: #3b82f6;
+    }
+    .param-row.dragging {
+      opacity: 0.35;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px dashed #3b82f6;
+    }
+    .param-row.drag-over {
+      border: 2px solid #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
     }
     .param-label-group {
       display: flex;
@@ -673,30 +688,24 @@
       border-radius: 50%;
       display: inline-block;
     }
-    .order-btns {
-      display: flex;
-      gap: 4px;
-    }
-    .btn-order {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 26px;
-      height: 26px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
+    .drag-handle {
       display: flex;
       align-items: center;
       justify-content: center;
+      color: var(--muted);
+      cursor: grab;
+      font-size: 18px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: all 0.15s;
     }
-    .btn-order:hover {
-      background: #2563eb;
-      color: #fff;
+    .drag-handle:hover {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
     }
-    .btn-order:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
+    .drag-handle:active {
+      cursor: grabbing;
     }
     .modal-foot {
       display: flex;
@@ -944,7 +953,7 @@
       <div class="modal-head">
         <div>
           <div class="modal-title">Sub-Windows Arrangement</div>
-          <div class="modal-subtitle">Select up to 8 sub-windows • Use ▲ ▼ to arrange display order</div>
+          <div class="modal-subtitle">Select up to 8 sub-windows • Drag items up &amp; down to arrange display order</div>
         </div>
         <button class="btn-action" onclick="closeSubwindowModal()" style="padding: 4px 8px;">✕</button>
       </div>
@@ -1136,29 +1145,27 @@
 
   <script>
     // =========================================================
-    // PARAMETERS SPECIFICATION: COLUMNS vs LINES
+    // PARAMETERS SPECIFICATION: SUB-WINDOW SEQUENCE
     // =========================================================
-    // Columns: TTM EPS, Quarter Sales, EBITDA, Book Value, Sales, (Delivery Volume + Volume), Delivery Volume, Volume
-    // Lines: Market Cap / Sales, EV / EBITDA, Price to BV, OPM %, GPM %, PE
+    // 1. Delivery + Volume, 2. PE, 3. PB, 4. PS, 5. EV/EBITDA, 6. TTM EPS,
+    // 7. Sales (TTM), 8. Book Value, 9. OPM, 10. GPM, 11. EBITDA,
+    // 12. Sales (Qtr), 13. Volume, 14. Delivery Volume, 15. Delivery %
     const ALL_PARAMETERS = [
-      { id: 'deliv_vol_overlay', name: 'Delivery Volume + Volume', colorClass: 'border-deliv-vol-overlay', colorVar: '--c-deliv-vol-overlay', type: 'overlay_bar' },
-      { id: 'deliv_vol', name: 'Delivery Volume', colorClass: 'border-deliv-vol', colorVar: '--c-deliv-vol', type: 'bar' },
-      { id: 'vol', name: 'Volume', colorClass: 'border-vol', colorVar: '--c-vol', type: 'bar' },
-      
-      // Fundamentals (Plotted as Columns / Bars)
+      { id: 'deliv_vol_overlay', name: 'Delivery + Volume', colorClass: 'border-deliv-vol-overlay', colorVar: '--c-deliv-vol-overlay', type: 'overlay_bar' },
+      { id: 'pe', name: 'PE', colorClass: 'border-pe', colorVar: '--c-pe', type: 'line', suffix: 'x' },
+      { id: 'price_to_bv', name: 'PB', desc: 'Price to BV', colorClass: 'border-pb', colorVar: '--c-pb', type: 'line', suffix: 'x' },
+      { id: 'mc_sales', name: 'PS', desc: 'Market Cap / Sales', colorClass: 'border-ps', colorVar: '--c-ps', type: 'line', suffix: 'x' },
+      { id: 'ev_ebitda', name: 'EV/EBITDA', colorClass: 'border-ev-ebitda', colorVar: '--c-ev-ebitda', type: 'line', suffix: 'x' },
       { id: 'ttm_eps', name: 'TTM EPS', colorClass: 'border-eps', colorVar: '--c-eps', type: 'bar', suffix: ' ₹' },
-      { id: 'quarter_sales', name: 'Quarter Sales', colorClass: 'border-qsales', colorVar: '--c-qsales', type: 'bar', formatUnit: true },
       { id: 'sales', name: 'Sales (TTM)', colorClass: 'border-sales', colorVar: '--c-sales', type: 'bar', formatUnit: true },
-      { id: 'ebitda', name: 'EBITDA', colorClass: 'border-ebitda', colorVar: '--c-ebitda', type: 'bar', formatUnit: true },
       { id: 'book_value', name: 'Book Value', colorClass: 'border-bv', colorVar: '--c-bv', type: 'bar', suffix: ' ₹' },
-      
-      // Valuation Ratios & Margins (Plotted as Lines with MA & +/- 1, 2 SD)
-      { id: 'pe', name: 'PE ratio', colorClass: 'border-pe', colorVar: '--c-pe', type: 'line', suffix: 'x' },
-      { id: 'price_to_bv', name: 'Price to BV', colorClass: 'border-pb', colorVar: '--c-pb', type: 'line', suffix: 'x' },
-      { id: 'mc_sales', name: 'Market Cap / Sales', colorClass: 'border-ps', colorVar: '--c-ps', type: 'line', suffix: 'x' },
-      { id: 'ev_ebitda', name: 'EV / EBITDA', colorClass: 'border-ev-ebitda', colorVar: '--c-ev-ebitda', type: 'line', suffix: 'x' },
-      { id: 'opm', name: 'OPM %', colorClass: 'border-opm', colorVar: '--c-opm', type: 'line', suffix: '%' },
-      { id: 'gpm', name: 'GPM %', colorClass: 'border-gpm', colorVar: '--c-gpm', type: 'line', suffix: '%' }
+      { id: 'opm', name: 'OPM', colorClass: 'border-opm', colorVar: '--c-opm', type: 'line', suffix: '%' },
+      { id: 'gpm', name: 'GPM', colorClass: 'border-gpm', colorVar: '--c-gpm', type: 'line', suffix: '%' },
+      { id: 'ebitda', name: 'EBITDA', colorClass: 'border-ebitda', colorVar: '--c-ebitda', type: 'bar', formatUnit: true },
+      { id: 'quarter_sales', name: 'Sales (Qtr)', colorClass: 'border-qsales', colorVar: '--c-qsales', type: 'bar', formatUnit: true },
+      { id: 'vol', name: 'Volume', colorClass: 'border-vol', colorVar: '--c-vol', type: 'bar' },
+      { id: 'deliv_vol', name: 'Delivery Volume', colorClass: 'border-deliv-vol', colorVar: '--c-deliv-vol', type: 'bar' },
+      { id: 'deliv_pct', name: 'Delivery %', colorClass: 'border-deliv-pct', colorVar: '--c-deliv-pct', type: 'line', suffix: '%' }
     ];
 
 
@@ -1181,19 +1188,20 @@
         lineWidth: 1.5,
         showAreaFill: false
       },
-      deliv_vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      ttm_eps: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      quarter_sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      ebitda: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      book_value: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       pe: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       price_to_bv: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       mc_sales: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       ev_ebitda: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      ttm_eps: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      book_value: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       opm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       gpm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      ebitda: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      quarter_sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      deliv_vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      deliv_pct: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
     };
 
     const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v3';
@@ -1594,7 +1602,7 @@
       updateSlimRibbon();
     }
 
-    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v3';
+    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v4';
 
     const urlParams = new URLSearchParams(window.location.search);
     let symbol = (urlParams.get('symbol') || 'SBIN').trim().toUpperCase();
@@ -1848,6 +1856,7 @@
           volume: vInfo.v,
           delivPct: vInfo.delivPct,
           delivVol: vInfo.delivVol,
+          deliv_pct: vInfo.delivPct,
           pe: peMap.get(d),
           price_to_bv: pbMap.get(d),
           mc_sales: psMap.get(d),
@@ -1912,6 +1921,7 @@
           volume: vol,
           delivPct: delivPct,
           delivVol: delivVol,
+          deliv_pct: delivPct,
           pe: parseFloat(basePE.toFixed(1)),
           price_to_bv: parseFloat(basePB.toFixed(2)),
           mc_sales: parseFloat(basePS.toFixed(2)),
@@ -2341,6 +2351,8 @@
       document.getElementById('subwindow-modal').classList.remove('active');
     }
 
+    let draggedModalIndex = -1;
+
     function renderModalList() {
       const listEl = document.getElementById('modal-params-list');
       if (!listEl) return;
@@ -2356,20 +2368,64 @@
 
         const row = document.createElement('div');
         row.className = 'param-row';
+        row.draggable = true;
+        row.dataset.index = index;
+
         const isChecked = item.enabled;
         const disableCheck = !isChecked && activeCount >= 8;
 
         row.innerHTML = `
-          <label class="param-label-group">
+          <label class="param-label-group" style="flex: 1; margin: 0;">
             <input type="checkbox" ${isChecked ? 'checked' : ''} ${disableCheck ? 'disabled' : ''} onchange="toggleModalParam('${item.id}', this.checked)">
             <span class="param-badge" style="background: var(${param.colorVar});"></span>
-            <span>${param.name}</span>
+            <span style="display: flex; align-items: baseline; gap: 6px;">
+              <span>${param.name}</span>
+              ${param.desc ? `<small style="font-size: 10px; color: var(--muted); font-weight: normal;">(${param.desc})</small>` : ''}
+            </span>
           </label>
-          <div class="order-btns">
-            <button class="btn-order" onclick="moveModalParam(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Move Up">▲</button>
-            <button class="btn-order" onclick="moveModalParam(${index}, 1)" ${index === subwindowConfig.length - 1 ? 'disabled' : ''} title="Move Down">▼</button>
-          </div>
+          <div class="drag-handle" title="Drag up or down to reorder" onmousedown="event.stopPropagation()">⠿</div>
         `;
+
+        // HTML5 Drag & Drop event handlers for mouse reordering
+        row.addEventListener('dragstart', (e) => {
+          draggedModalIndex = index;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', index.toString());
+          setTimeout(() => row.classList.add('dragging'), 0);
+        });
+
+        row.addEventListener('dragend', () => {
+          row.classList.remove('dragging');
+          listEl.querySelectorAll('.param-row').forEach(r => {
+            r.classList.remove('drag-over');
+          });
+          draggedModalIndex = -1;
+        });
+
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          if (draggedModalIndex === -1 || draggedModalIndex === index) return;
+          row.classList.add('drag-over');
+        });
+
+        row.addEventListener('dragleave', () => {
+          row.classList.remove('drag-over');
+        });
+
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          const dataText = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+          const fromIdx = (dataText !== '' && !isNaN(parseInt(dataText))) ? parseInt(dataText) : draggedModalIndex;
+          if (fromIdx < 0 || fromIdx >= subwindowConfig.length || fromIdx === index) return;
+
+          const [movedItem] = subwindowConfig.splice(fromIdx, 1);
+          subwindowConfig.splice(index, 0, movedItem);
+
+          renderModalList();
+        });
+
         listEl.appendChild(row);
       });
     }
@@ -2380,16 +2436,6 @@
         item.enabled = checked;
         renderModalList();
       }
-    }
-
-    function moveModalParam(index, direction) {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= subwindowConfig.length) return;
-
-      const temp = subwindowConfig[index];
-      subwindowConfig[index] = subwindowConfig[targetIndex];
-      subwindowConfig[targetIndex] = temp;
-      renderModalList();
     }
 
     function applyModalChanges() {
@@ -2823,13 +2869,13 @@
       // -------------------------------------------------------------
       // CASE 2: ALL OTHER PARAMETERS (LINE, STEP-LINE, COLUMN, HISTOGRAM)
       // -------------------------------------------------------------
-      const key = paramId === 'deliv_vol' ? 'delivVol' : (paramId === 'vol' || paramId === 'deliv_vol_overlay' ? 'volume' : paramId);
+      const key = paramId === 'deliv_vol' ? 'delivVol' : (paramId === 'deliv_pct' ? 'delivPct' : (paramId === 'vol' || paramId === 'deliv_vol_overlay' ? 'volume' : paramId));
       const validVals = data.map(d => d[key]).filter(v => v !== null && v !== undefined && !isNaN(v));
       let minVal = validVals.length ? Math.min(...validVals) : 0;
       let maxVal = validVals.length ? Math.max(...validVals) : 10;
 
       const isLineOrStep = (style.chartType === 'line' || style.chartType === 'step-line');
-      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm'].includes(paramId);
+      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'deliv_pct'].includes(paramId);
 
       // Statistical bands (MA, +/- 1SD, 2SD) for line/step-line or ratios
       let ma = 0, sd = 0, p1sd = 0, m1sd = 0, p2sd = 0, m2sd = 0;
@@ -3449,6 +3495,8 @@
           valStr = `${formatNumber(pt.delivVol)} (${pt.delivPct !== null ? pt.delivPct + '%' : '--'})`;
         } else if (param.id === 'vol') {
           valStr = formatNumber(pt.volume);
+        } else if (param.id === 'deliv_pct') {
+          valStr = (pt.delivPct !== null && pt.delivPct !== undefined) ? `${pt.delivPct}%` : '--';
         } else if (param.formatUnit) {
           valStr = formatNumber(pt[param.id]);
         } else {
