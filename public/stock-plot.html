@@ -1,0 +1,4073 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stock Time Series Analysis - Quantum Stock Platform</title>
+  <style>
+    /* =========================================================
+       CSS VARIABLES: DARK & BRIGHT HIGH-CONTRAST THEMES
+       ========================================================= */
+    :root[data-theme="dark"] {
+      --bg-base: #06090f;
+      --card-bg: #0b101b;
+      --sub-bg: #080d16;
+      --slim-bg: #030509;
+      --main-ribbon-bg: #0c1322;
+      --border: #1e293b;
+      --axis-text: #f8fafc;
+      --axis-tick: #475569;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --crosshair: rgba(255, 255, 255, 0.22);
+
+      /* Price Window */
+      --color-price: #00f0ff;
+      --color-price-fill-start: rgba(0, 240, 255, 0.35);
+      --color-price-fill-end: rgba(0, 240, 255, 0.0);
+      --color-dma50: #ffab00;
+      --color-dma200: #d500f9;
+
+      /* High-Contrast Colors for (Delivery Volume + Volume) in Dark Mode */
+      --vol-bar-bg: #1e3a8a;           /* Deep High-Contrast Blue */
+      --vol-bar-border: #60a5fa;       /* Bright Crisp Blue Border */
+      --deliv-bar-fill: #00ff66;       /* High-Voltage Radiant Neon Lime */
+      --deliv-bar-border: #ffffff;
+
+      /* Parameter Accent Colors */
+      --c-deliv-vol-overlay: #3b82f6;
+      --c-deliv-vol: #00ff66;
+      --c-vol: #818cf8;
+      --c-pe: #f59e0b;
+      --c-pb: #ec4899;
+      --c-ps: #06b6d4;
+      --c-ev-ebitda: #f97316;
+      --c-eps: #a855f7;
+      --c-qsales: #10b981;
+      --c-sales: #14b8a6;
+      --c-ebitda: #38bdf8;
+      --c-bv: #ef4444;
+      --c-opm: #fbbf24;
+      --c-gpm: #a3e635;
+      --c-deliv-pct: #2dd4bf;
+
+      /* Statistical SD Lines - High Contrast & Vivid in Dark Mode */
+      --sd-ma: #3b82f6;
+      --sd-plus: #ff4444;
+      --sd-minus: #22c55e;
+    }
+
+    :root[data-theme="bright"] {
+      --bg-base: #f1f5f9;
+      --card-bg: #ffffff;
+      --sub-bg: #f8fafc;
+      --slim-bg: #e2e8f0;
+      --main-ribbon-bg: #ffffff;
+      --border: #94a3b8;
+      --axis-text: #090d16;
+      --axis-tick: #475569;
+      --text: #090d16;
+      --muted: #334155;
+      --crosshair: rgba(15, 23, 42, 0.22);
+
+      /* Price Window */
+      --color-price: #0284c7;
+      --color-price-fill-start: rgba(2, 132, 199, 0.28);
+      --color-price-fill-end: rgba(2, 132, 199, 0.0);
+      --color-dma50: #b45309;
+      --color-dma200: #7e22ce;
+
+      /* High-Contrast Colors for (Delivery Volume + Volume) in Bright Mode */
+      --vol-bar-bg: #bfdbfe;           /* Soft Ice Blue */
+      --vol-bar-border: #1d4ed8;       /* Deep Navy Border */
+      --deliv-bar-fill: #15803d;       /* High-Contrast Deep Emerald Green */
+      --deliv-bar-border: #14532d;
+
+      /* Parameter Accent Colors (Deep & saturated for Bright Mode) */
+      --c-deliv-vol-overlay: #1d4ed8;
+      --c-deliv-vol: #15803d;
+      --c-vol: #6d28d9;
+      --c-pe: #b45309;
+      --c-pb: #be185d;
+      --c-ps: #0e7490;
+      --c-ev-ebitda: #c2410c;
+      --c-eps: #6b21a8;
+      --c-qsales: #047857;
+      --c-sales: #0f766e;
+      --c-ebitda: #0369a1;
+      --c-bv: #b91c1c;
+      --c-opm: #b45309;
+      --c-gpm: #4d7c0f;
+      --c-deliv-pct: #0d9488;
+
+      /* Statistical SD Lines - High Contrast & Vivid in Bright Mode */
+      --sd-ma: #1d4ed8;
+      --sd-plus: #dc2626;
+      --sd-minus: #15803d;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background-color 0.15s, color 0.15s;
+    }
+
+    /* 1. DESKTOP POPUP WINDOW CONTAINER (EXPANDABLE HORIZONTALLY & VERTICALLY) */
+    .desktop-window {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      width: calc(100vw - 20px);
+      height: calc(100vh - 20px);
+      min-width: 380px;
+      min-height: 320px;
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 10;
+      transition: box-shadow 0.2s;
+    }
+
+    .desktop-window.maximized {
+      left: 0 !important;
+      top: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      border-radius: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .win-ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 6px;
+      padding-left: 8px;
+      border-left: 1px solid var(--border);
+    }
+
+    .btn-win-ctrl {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-win-ctrl:hover {
+      background: var(--sub-bg);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    /* 2D Window Resizers */
+    .win-resizer {
+      position: absolute;
+      z-index: 50;
+    }
+    .resizer-e {
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 100%;
+      cursor: ew-resize;
+    }
+    .resizer-s {
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 8px;
+      cursor: ns-resize;
+    }
+    .resizer-br {
+      bottom: 0;
+      right: 0;
+      width: 14px;
+      height: 14px;
+      cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, var(--border) 50%);
+      border-bottom-right-radius: 8px;
+    }
+    .desktop-window.maximized .win-resizer {
+      display: none !important;
+    }
+
+    .desktop-window-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      width: 100%;
+    }
+
+    /* 1. TOP SLIM RIBBON */
+    .top-slim-ribbon {
+      height: 28px;
+      background: var(--slim-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      gap: 14px;
+      color: var(--muted);
+    }
+    .top-slim-ribbon::-webkit-scrollbar { display: none; }
+    .slim-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .slim-val {
+      font-weight: 800;
+      color: var(--text);
+    }
+    .slim-badge-current {
+      background: rgba(37, 99, 235, 0.18);
+      border: 1px solid rgba(37, 99, 235, 0.45);
+      color: #38bdf8;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-right: 4px;
+    }
+    .btn-toggle-active {
+      background: rgba(16, 185, 129, 0.15) !important;
+      border-color: #10b981 !important;
+      color: #10b981 !important;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+    }
+    .btn-toggle-inactive {
+      opacity: 0.65;
+      border-style: dashed !important;
+    }
+
+    /* 2. IMPORTANT MAIN RIBBON */
+    .main-ribbon {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 14px;
+      background: var(--main-ribbon-bg);
+      border-bottom: 2px solid var(--border);
+    }
+    .script-title-box {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .script-name {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .script-mode-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 1px 9px;
+      border-radius: 6px;
+      vertical-align: middle;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .script-mode-badge:hover {
+      filter: brightness(1.18);
+      transform: scale(1.04);
+    }
+    .mode-consolidated {
+      background: rgba(56, 189, 248, 0.16);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+    }
+    .mode-standalone {
+      background: rgba(245, 158, 11, 0.16);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+    [data-theme="bright"] .mode-consolidated {
+      background: #e0f2fe;
+      color: #0284c7;
+      border-color: #38bdf8;
+    }
+    [data-theme="bright"] .mode-standalone {
+      background: #fef3c7;
+      color: #d97706;
+      border-color: #f59e0b;
+    }
+    .script-sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .main-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn-action:hover {
+      border-color: var(--color-price);
+      color: var(--color-price);
+    }
+
+    .select-timespan {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+    }
+    .select-timespan:focus {
+      border-color: var(--color-price);
+    }
+
+    .btn-subwindow {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+      transition: background 0.15s;
+    }
+    .btn-subwindow:hover {
+      background: #1d4ed8;
+    }
+
+    /* 3. CHARTS STACK CONTAINER (FULL SCREEN UTILIZATION) */
+    .chart-stack {
+      width: 100%;
+      flex: 1 1 0;
+      min-height: 0;
+      background: var(--bg-base);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .window-card {
+      position: relative;
+      background: var(--sub-bg);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+
+    #subwindows-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    #subwindows-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    #subwindows-container::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    /* Horizontal Splitters (TradingView style draggable pane dividers) */
+    .pane-splitter {
+      height: 6px;
+      width: 100%;
+      cursor: row-resize;
+      position: relative;
+      z-index: 35;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      background: transparent;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .pane-splitter:hover, .pane-splitter.active {
+      background: rgba(59, 130, 246, 0.35);
+    }
+    .splitter-pill {
+      width: 32px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      pointer-events: none;
+      transition: all 0.15s;
+    }
+    .pane-splitter:hover .splitter-pill, .pane-splitter.active .splitter-pill {
+      background: #3b82f6;
+      width: 48px;
+      height: 3px;
+    }
+
+    .btn-win-tool {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+      margin-left: 4px;
+    }
+    .btn-win-tool:hover {
+      background: var(--slim-bg);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    /* Distinctive Borders per Parameter */
+    .border-price { border-color: var(--color-price); }
+    .border-deliv-vol-overlay { border-color: var(--c-deliv-vol-overlay); }
+    .border-deliv-vol { border-color: var(--c-deliv-vol); }
+    .border-vol { border-color: var(--c-vol); }
+    .border-deliv-pct { border-color: var(--c-deliv-pct); }
+    .border-pe { border-color: var(--c-pe); }
+    .border-pb { border-color: var(--c-pb); }
+    .border-ps { border-color: var(--c-ps); }
+    .border-ev-ebitda { border-color: var(--c-ev-ebitda); }
+    .border-eps { border-color: var(--c-eps); }
+    .border-qsales { border-color: var(--c-qsales); }
+    .border-sales { border-color: var(--c-sales); }
+    .border-ebitda { border-color: var(--c-ebitda); }
+    .border-bv { border-color: var(--c-bv); }
+    .border-opm { border-color: var(--c-opm); }
+    .border-gpm { border-color: var(--c-gpm); }
+
+    .window-header {
+      position: absolute;
+      top: 6px;
+      left: 12px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      user-select: none;
+    }
+    #mw-price-card .window-header {
+      top: 28px;
+    }
+    .window-header .param-clickable-title {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .btn-close-sub {
+      position: absolute;
+      top: 6px;
+      right: 12px;
+      z-index: 20;
+      width: 22px;
+      height: 22px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-close-sub:hover {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    .canvas-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .dma-toggles {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+      margin-left: 6px;
+      font-size: 10px;
+    }
+    .dma-chk {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+
+    /* 4. MODAL POPUP */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 14px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .modal-subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .modal-body {
+      padding: 12px 16px;
+      max-height: 60vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .param-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--sub-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      transition: all 0.15s;
+      cursor: grab;
+      user-select: none;
+    }
+    .param-row:hover {
+      border-color: #3b82f6;
+    }
+    .param-row.dragging {
+      opacity: 0.35;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px dashed #3b82f6;
+    }
+    .param-row.drag-over {
+      border: 2px solid #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+    }
+    .param-label-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .param-badge {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      cursor: grab;
+      font-size: 18px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: all 0.15s;
+    }
+    .drag-handle:hover {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+    .modal-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--sub-bg);
+    }
+
+  
+    /* Parameter Clickable Header Title */
+    .param-clickable-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      pointer-events: auto;
+      padding: 2px 7px;
+      border-radius: 5px;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      user-select: none;
+      z-index: 30;
+    }
+    .param-clickable-title:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    :root[data-theme="bright"] .param-clickable-title:hover {
+      background: rgba(0, 0, 0, 0.07);
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+    .settings-gear-icon {
+      font-size: 11px;
+      opacity: 0.65;
+      display: inline-block;
+      transition: transform 0.25s ease, opacity 0.2s ease;
+    }
+    .param-clickable-title:hover .settings-gear-icon {
+      opacity: 1;
+      transform: rotate(60deg) scale(1.15);
+    }
+
+    /* Parameter Settings Popup Styles */
+    .chart-type-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .type-card {
+      background: var(--sub-bg);
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .type-card:hover {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.08);
+    }
+    .type-card.active {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.2);
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+    .type-card .type-icon {
+      font-size: 18px;
+    }
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .settings-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
+    .color-presets-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .color-swatch:hover {
+      transform: scale(1.2);
+    }
+    .color-swatch.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 0 2px #3b82f6;
+      transform: scale(1.15);
+    }
+    .width-preview-box {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--sub-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0 14px;
+      margin-top: 4px;
+    }
+    .width-preview-line {
+      width: 100%;
+      border-radius: 2px;
+      background-color: var(--color-price);
+      transition: height 0.1s ease, background-color 0.1s ease;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 4px; }
+      .main-ribbon { padding: 8px 10px; gap: 8px; }
+      .script-name { font-size: 15px; }
+      .script-sub { display: none; }
+      .top-slim-ribbon { font-size: 10px; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- DESKTOP POPUP WINDOW CONTAINER (EXPANDABLE HORIZONTALLY & VERTICALLY) -->
+  <div class="desktop-window" id="desktop-window">
+    <!-- Desktop Window Body -->
+    <div class="desktop-window-body" id="desktop-window-body">
+
+      <!-- 1. TOP SLIM RIBBON -->
+      <div class="top-slim-ribbon" id="top-slim-ribbon">
+        <span class="slim-badge-current">● CURRENT</span>
+        <span class="slim-item" style="color: var(--color-price);">
+          📅 <span class="slim-val" id="sr-date">--</span>
+        </span>
+        <span class="slim-item">
+          Price: <span class="slim-val" id="sr-price" style="color: var(--color-price);">--</span>
+        </span>
+        <span id="sr-dynamic-metrics" style="display: inline-flex; gap: 14px;"></span>
+      </div>
+
+      <!-- 2. IMPORTANT MAIN RIBBON -->
+      <div class="main-ribbon">
+        <!-- Script Name & Search -->
+        <div class="script-title-box">
+          <span class="script-name" id="main-script-title">Reliance Industries (RELIANCE) <span class="script-mode-badge mode-consolidated" id="main-script-mode" onclick="toggleConsolidatedStandalone()" title="Click to toggle between Consolidated and Standalone data">(Consolidated)</span></span>
+          <span class="script-sub" id="main-script-sub">NSE Equities</span>
+        </div>
+
+        <!-- Quick Script Search Box -->
+        <form class="script-search-form" id="script-search-form" onsubmit="event.preventDefault(); onSearchScript();" style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-right: auto; margin-left: 10px;">
+          <input type="text" id="script-search-input" placeholder="Search Script (e.g. RELIANCE, TCS, INFY)" autocomplete="off" spellcheck="false" style="background: transparent; border: none; outline: none; color: var(--text); font-size: 12px; font-weight: 600; width: 175px; padding: 2px 4px; font-family: monospace;" />
+          <button type="submit" class="btn-search-go" title="Load script" style="background: #0284c7; color: #fff; border: none; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s ease;">
+            <span>Go</span>
+          </button>
+        </form>
+
+        <!-- Controls in Required Order -->
+        <div class="main-actions">
+          <!-- 1. Mode Toggle -->
+          <button class="btn-action" id="btn-theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Mode">
+            ☀️ Bright Mode
+          </button>
+
+          <!-- 2. Timespan Dropdown -->
+          <select class="select-timespan" id="select-timespan" onchange="onTimespanChange(this.value)">
+            <option value="3M">3 Months</option>
+            <option value="6M">6 Months</option>
+            <option value="1Y" selected>1 Year</option>
+            <option value="3Y">3 Years</option>
+            <option value="5Y">5 Years</option>
+            <option value="7Y">7 Years</option>
+            <option value="10Y">10 Years</option>
+          </select>
+
+          <!-- 3. Sub-window Selection Button -->
+          <button class="btn-subwindow" onclick="openSubwindowModal()" title="Add/Remove & Arrange Sub-windows">
+            ⚙ Sub-Windows (<span id="active-sub-count">1</span>/8)
+          </button>
+
+          <!-- 4. Tooltips Toggle -->
+          <button class="btn-action btn-toggle-active" id="btn-tooltips-toggle" onclick="toggleTooltips()" title="Toggle cursor tooltips on/off">
+            💬 Tooltips: ON
+          </button>
+
+          <!-- 5. Reset Zoom -->
+          <button class="btn-action" onclick="resetZoom()" title="Reset Time Window &amp; Scales">
+            ⟲ Reset Zoom
+          </button>
+
+          <!-- 6. Auto Y-axis -->
+          <button class="btn-action" onclick="autoYScale()" title="Auto-scale Y-Axis &amp; Heights">
+            ↕ Auto Y-axis
+          </button>
+
+          <!-- Window Controls (Minimize / Maximize) -->
+          <div class="win-ctrl-group">
+            <button class="btn-win-ctrl" id="btn-win-minimize" onclick="toggleWindowMinimize()" title="Minimize Window">🗕</button>
+            <button class="btn-win-ctrl" id="btn-win-maximize" onclick="toggleWindowMaximize()" title="Maximize / Restore Window">🗖</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. CHARTS STACK -->
+      <div class="chart-stack" id="chart-stack">
+        
+        <!-- TOP-MOST: MAIN WINDOW (PRICE) - FIXED -->
+        <div class="window-card border-price" id="mw-price-card">
+          <div class="window-header" onmousedown="event.stopPropagation()">
+            <span class="param-clickable-title" onclick="openParamSettingsModal('price')" title="Click to customize Price chart style (Type, Color, Width)">
+              <span class="title-text" id="mw-price-title" style="color: var(--color-price); font-weight: 800;">PRICE (₹)</span>
+              <span class="settings-gear-icon">⚙</span>
+            </span>
+            <button class="btn-win-tool" id="btn-max-mw_price" onclick="toggleMaximizePane('mw_price')" title="Maximize / Restore Price Window">⛶</button>
+          </div>
+          <div class="canvas-container">
+            <canvas id="cv-price"></canvas>
+          </div>
+        </div>
+
+        <!-- DYNAMIC SUB-WINDOWS CONTAINER -->
+        <div id="subwindows-container"></div>
+
+      </div>
+
+    </div>
+
+    <!-- 2D Draggable Window Resizers -->
+    <div class="win-resizer resizer-e" id="win-resizer-e" title="Drag to resize horizontally"></div>
+    <div class="win-resizer resizer-s" id="win-resizer-s" title="Drag to resize vertically"></div>
+    <div class="win-resizer resizer-br" id="win-resizer-br" title="Drag to resize horizontally and vertically"></div>
+  </div>
+
+  <!-- 4. SUB-WINDOW SELECTION POPUP MODAL -->
+  <div class="modal-overlay" id="subwindow-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Sub-Windows Arrangement</div>
+          <div class="modal-subtitle">Select up to 8 sub-windows • Drag items up &amp; down to arrange display order</div>
+        </div>
+        <button class="btn-action" onclick="closeSubwindowModal()" style="padding: 4px 8px;">✕</button>
+      </div>
+      <div class="modal-body" id="modal-params-list"></div>
+      <div class="modal-foot">
+        <span style="font-size: 11px; color: var(--muted);" id="modal-selection-counter">1 of 8 chosen</span>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn-action" onclick="resetToDefaultSubwindows()">Restore Default</button>
+          <button class="btn-subwindow" onclick="applyModalChanges()">Apply &amp; Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. PARAMETER CHART SETTINGS POPUP MODAL -->
+  <div class="modal-overlay" id="param-settings-modal" onclick="onParamSettingsOverlayClick(event)">
+    <div class="modal-card" id="param-modal-card" style="max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="param-settings-title">Chart Settings</div>
+          <div class="modal-subtitle" id="param-settings-subtitle">Customize type, color, and line thickness</div>
+        </div>
+        <button class="btn-action" onclick="closeParamSettingsModal()" style="padding: 4px 8px;">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 18px; gap: 14px; overflow-y: auto;">
+        <!-- A. SINGLE PARAMETER SETTINGS -->
+        <div id="group-single-settings" style="display: flex; flex-direction: column; gap: 14px;">
+          <!-- Chart Type -->
+          <div class="settings-group">
+            <label class="settings-label">Chart Type</label>
+            <div class="chart-type-grid" id="modal-type-grid">
+              <div class="type-card" data-type="line" onclick="setModalChartType('line')">
+                <span class="type-icon">📈</span>
+                <span>Line</span>
+              </div>
+              <div class="type-card" data-type="step-line" onclick="setModalChartType('step-line')">
+                <span class="type-icon">🪜</span>
+                <span>Step-Line</span>
+              </div>
+              <div class="type-card" data-type="column" onclick="setModalChartType('column')">
+                <span class="type-icon">📊</span>
+                <span>Column</span>
+              </div>
+              <div class="type-card" data-type="histogram" onclick="setModalChartType('histogram')">
+                <span class="type-icon">▦</span>
+                <span>Histogram</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Color -->
+          <div class="settings-group" id="group-single-color">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="settings-label">Accent Color</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="color" id="modal-color-picker" style="width: 28px; height: 28px; border: none; cursor: pointer; background: transparent; padding: 0;" oninput="onModalColorChange(this.value)">
+                <span id="modal-color-hex" style="font-family: monospace; font-size: 12px; font-weight: 700;">#00f0ff</span>
+              </div>
+            </div>
+            <div class="color-presets-row" id="modal-color-swatches"></div>
+          </div>
+
+          <!-- Width -->
+          <div class="settings-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="settings-label">Line / Outline Width</label>
+              <span id="modal-width-val" style="font-family: monospace; font-size: 12px; font-weight: 700; color: #3b82f6;">1.5 px</span>
+            </div>
+            <input type="range" id="modal-width-slider" min="1.0" max="4.0" step="0.5" value="1.5"
+                   oninput="onModalWidthChange(this.value)" style="width: 100%; accent-color: #3b82f6; cursor: pointer;">
+            <div class="width-preview-box">
+              <div class="width-preview-line" id="modal-preview-line" style="height: 1.5px;"></div>
+            </div>
+          </div>
+
+          <!-- Fill -->
+          <div class="settings-group" id="group-area-fill">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text);">
+              <input type="checkbox" id="modal-fill-checkbox" checked onchange="onModalFillChange(this.checked)" style="accent-color: #3b82f6; width: 15px; height: 15px;">
+              Show Area Gradient Fill
+            </label>
+          </div>
+        </div>
+
+        <!-- B. DUAL PARAMETER SETTINGS (For Delivery Volume + Volume) -->
+        <div id="group-dual-settings" style="display: none; flex-direction: column; gap: 16px;">
+          <!-- Card 1: TOTAL VOLUME -->
+          <div class="dual-param-card" style="background: var(--sub-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 12px; font-weight: 900; color: var(--text); display: flex; align-items: center; gap: 6px;">
+              <span>📊 TOTAL VOLUME</span>
+            </div>
+            <!-- Vol Chart Type -->
+            <div class="settings-group">
+              <label class="settings-label">Chart Type</label>
+              <div class="chart-type-grid" id="modal-vol-type-grid">
+                <div class="type-card" data-type="column" onclick="setDualVolType('column')"><span>📊 Column</span></div>
+                <div class="type-card" data-type="histogram" onclick="setDualVolType('histogram')"><span>▦ Histogram</span></div>
+                <div class="type-card" data-type="line" onclick="setDualVolType('line')"><span>📈 Line</span></div>
+                <div class="type-card" data-type="step-line" onclick="setDualVolType('step-line')"><span>🪜 Step-Line</span></div>
+              </div>
+            </div>
+            <!-- Vol Color -->
+            <div class="settings-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="settings-label">Bar / Line Color</label>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <input type="color" id="modal-vol-picker" style="width: 26px; height: 26px; border: none; cursor: pointer; background: transparent; padding: 0;" oninput="onModalVolColorChange(this.value)">
+                  <span id="modal-vol-hex" style="font-family: monospace; font-size: 11px; font-weight: 700;">#1e3a8a</span>
+                </div>
+              </div>
+              <div class="color-presets-row" id="modal-vol-swatches"></div>
+            </div>
+            <!-- Vol Width -->
+            <div class="settings-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="settings-label">Line / Outline Width</label>
+                <span id="modal-vol-width-val" style="font-family: monospace; font-size: 11px; font-weight: 700; color: #3b82f6;">1.5 px</span>
+              </div>
+              <input type="range" id="modal-vol-width-slider" min="1.0" max="4.0" step="0.5" value="1.5"
+                     oninput="onModalVolWidthChange(this.value)" style="width: 100%; accent-color: #3b82f6; cursor: pointer;">
+            </div>
+            <!-- Vol Fill -->
+            <div class="settings-group" id="group-vol-fill" style="display: none;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text);">
+                <input type="checkbox" id="modal-vol-fill-checkbox" checked onchange="onModalVolFillChange(this.checked)" style="accent-color: #3b82f6; width: 14px; height: 14px;">
+                Show Gradient Area Fill
+              </label>
+            </div>
+          </div>
+
+          <!-- Card 2: DELIVERY VOLUME -->
+          <div class="dual-param-card" style="background: var(--sub-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 12px; font-weight: 900; color: var(--text); display: flex; align-items: center; gap: 6px;">
+              <span>🚚 DELIVERY VOLUME</span>
+            </div>
+            <!-- Deliv Chart Type -->
+            <div class="settings-group">
+              <label class="settings-label">Chart Type</label>
+              <div class="chart-type-grid" id="modal-deliv-type-grid">
+                <div class="type-card" data-type="column" onclick="setDualDelivType('column')"><span>📊 Column</span></div>
+                <div class="type-card" data-type="histogram" onclick="setDualDelivType('histogram')"><span>▦ Histogram</span></div>
+                <div class="type-card" data-type="line" onclick="setDualDelivType('line')"><span>📈 Line</span></div>
+                <div class="type-card" data-type="step-line" onclick="setDualDelivType('step-line')"><span>🪜 Step-Line</span></div>
+              </div>
+            </div>
+            <!-- Deliv Color -->
+            <div class="settings-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="settings-label">Bar / Line Color</label>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <input type="color" id="modal-deliv-picker" style="width: 26px; height: 26px; border: none; cursor: pointer; background: transparent; padding: 0;" oninput="onModalDelivColorChange(this.value)">
+                  <span id="modal-deliv-hex" style="font-family: monospace; font-size: 11px; font-weight: 700;">#00ff66</span>
+                </div>
+              </div>
+              <div class="color-presets-row" id="modal-deliv-swatches"></div>
+            </div>
+            <!-- Deliv Width -->
+            <div class="settings-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="settings-label">Line / Outline Width</label>
+                <span id="modal-deliv-width-val" style="font-family: monospace; font-size: 11px; font-weight: 700; color: #3b82f6;">1.5 px</span>
+              </div>
+              <input type="range" id="modal-deliv-width-slider" min="1.0" max="4.0" step="0.5" value="1.5"
+                     oninput="onModalDelivWidthChange(this.value)" style="width: 100%; accent-color: #3b82f6; cursor: pointer;">
+            </div>
+            <!-- Deliv Fill -->
+            <div class="settings-group" id="group-deliv-fill" style="display: none;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text);">
+                <input type="checkbox" id="modal-deliv-fill-checkbox" checked onchange="onModalDelivFillChange(this.checked)" style="accent-color: #3b82f6; width: 14px; height: 14px;">
+                Show Gradient Area Fill
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn-action" onclick="resetModalParamDefaults()" title="Reset to standard defaults">
+          ⟲ Reset Defaults
+        </button>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn-action" onclick="closeParamSettingsModal()">Cancel</button>
+          <button class="btn-subwindow" onclick="applyParamSettingsModal()">✓ Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================
+    // PARAMETERS SPECIFICATION: SUB-WINDOW SEQUENCE
+    // =========================================================
+    // 1. Delivery + Volume, 2. PE, 3. PB, 4. PS, 5. EV/EBITDA, 6. TTM EPS,
+    // 7. Sales (TTM), 8. Book Value, 9. OPM, 10. GPM, 11. EBITDA,
+    // 12. Sales (Qtr), 13. Volume, 14. Delivery Volume, 15. Delivery %
+    const ALL_PARAMETERS = [
+      { id: 'deliv_vol_overlay', name: 'Delivery + Volume', colorClass: 'border-deliv-vol-overlay', colorVar: '--c-deliv-vol-overlay', type: 'overlay_bar' },
+      { id: 'pe', name: 'PE', colorClass: 'border-pe', colorVar: '--c-pe', type: 'line', suffix: 'x' },
+      { id: 'price_to_bv', name: 'PB', desc: 'Price to BV', colorClass: 'border-pb', colorVar: '--c-pb', type: 'line', suffix: 'x' },
+      { id: 'mc_sales', name: 'PS', desc: 'Market Cap / Sales', colorClass: 'border-ps', colorVar: '--c-ps', type: 'line', suffix: 'x' },
+      { id: 'ev_ebitda', name: 'EV/EBITDA', colorClass: 'border-ev-ebitda', colorVar: '--c-ev-ebitda', type: 'line', suffix: 'x' },
+      { id: 'ttm_eps', name: 'TTM EPS', colorClass: 'border-eps', colorVar: '--c-eps', type: 'bar', suffix: ' ₹' },
+      { id: 'sales', name: 'Sales (TTM)', colorClass: 'border-sales', colorVar: '--c-sales', type: 'bar', formatUnit: true },
+      { id: 'book_value', name: 'Book Value', colorClass: 'border-bv', colorVar: '--c-bv', type: 'bar', suffix: ' ₹' },
+      { id: 'opm', name: 'OPM', colorClass: 'border-opm', colorVar: '--c-opm', type: 'line', suffix: '%' },
+      { id: 'gpm', name: 'GPM', colorClass: 'border-gpm', colorVar: '--c-gpm', type: 'line', suffix: '%' },
+      { id: 'ebitda', name: 'EBITDA', colorClass: 'border-ebitda', colorVar: '--c-ebitda', type: 'bar', formatUnit: true },
+      { id: 'quarter_sales', name: 'Sales (Qtr)', colorClass: 'border-qsales', colorVar: '--c-qsales', type: 'bar', formatUnit: true },
+      { id: 'vol', name: 'Volume', colorClass: 'border-vol', colorVar: '--c-vol', type: 'bar' },
+      { id: 'deliv_vol', name: 'Delivery Volume', colorClass: 'border-deliv-vol', colorVar: '--c-deliv-vol', type: 'bar' },
+      { id: 'deliv_pct', name: 'Delivery %', colorClass: 'border-deliv-pct', colorVar: '--c-deliv-pct', type: 'line', suffix: '%' }
+    ];
+
+
+    // =========================================================
+    // PARAMETER CUSTOM STYLING (Type, Color, Width, Area Fill)
+    // =========================================================
+    const DEFAULT_PARAM_STYLES = {
+      price: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      deliv_vol_overlay: {
+        chartType: 'overlay_bar',
+        color: null,
+        volType: 'column',
+        volColor: null,
+        volWidth: 1.5,
+        volFill: false,
+        delivType: 'column',
+        delivColor: null,
+        delivWidth: 1.5,
+        delivFill: false,
+        lineWidth: 1.5,
+        showAreaFill: false
+      },
+      pe: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      price_to_bv: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      mc_sales: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      ev_ebitda: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      ttm_eps: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      book_value: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      opm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      gpm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      ebitda: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      quarter_sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      deliv_vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
+      deliv_pct: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+    };
+
+    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v3';
+    let paramStyles = {};
+
+    function initParamStyles() {
+      try {
+        const saved = sessionStorage.getItem(STYLES_SESSION_KEY);
+        if (saved) {
+          paramStyles = JSON.parse(saved);
+        }
+      } catch (e) {}
+      if (!paramStyles || typeof paramStyles !== 'object') {
+        paramStyles = {};
+      }
+      Object.keys(DEFAULT_PARAM_STYLES).forEach(k => {
+        if (!paramStyles[k]) {
+          paramStyles[k] = { ...DEFAULT_PARAM_STYLES[k] };
+        }
+      });
+    }
+
+    function saveParamStyles() {
+      try {
+        sessionStorage.setItem(STYLES_SESSION_KEY, JSON.stringify(paramStyles));
+      } catch (e) {}
+    }
+
+    function getParamStyle(paramId) {
+      const def = DEFAULT_PARAM_STYLES[paramId] || { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true };
+      const cur = paramStyles[paramId] || def;
+      return {
+        chartType: cur.chartType || def.chartType,
+        color: cur.color || null,
+        volType: cur.volType || def.volType || 'column',
+        volColor: cur.volColor || null,
+        volWidth: cur.volWidth !== undefined ? Number(cur.volWidth) : 1.5,
+        volFill: cur.volFill !== undefined ? Boolean(cur.volFill) : false,
+        delivType: cur.delivType || def.delivType || 'column',
+        delivColor: cur.delivColor || null,
+        delivWidth: cur.delivWidth !== undefined ? Number(cur.delivWidth) : 1.5,
+        delivFill: cur.delivFill !== undefined ? Boolean(cur.delivFill) : false,
+        lineWidth: cur.lineWidth !== undefined ? Number(cur.lineWidth) : 1.5,
+        showAreaFill: cur.showAreaFill !== undefined ? Boolean(cur.showAreaFill) : def.showAreaFill
+      };
+    }
+
+    function hexToRgba(hex, alpha) {
+      if (!hex || !hex.startsWith('#')) return `rgba(0, 240, 255, ${alpha})`;
+      let c = hex.substring(1);
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const r = parseInt(c.substring(0, 2), 16) || 0;
+      const g = parseInt(c.substring(2, 4), 16) || 0;
+      const b = parseInt(c.substring(4, 6), 16) || 0;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function hexToRgb(hex) {
+      if (!hex || !hex.startsWith('#')) return hex;
+      let c = hex.substring(1);
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const r = parseInt(c.substring(0, 2), 16) || 0;
+      const g = parseInt(c.substring(2, 4), 16) || 0;
+      const b = parseInt(c.substring(4, 6), 16) || 0;
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    const PRESET_COLORS = [
+      '#00f0ff', '#00ff66', '#3b82f6', '#818cf8', '#a855f7',
+      '#ec4899', '#f59e0b', '#f97316', '#ef4444', '#10b981'
+    ];
+
+    const PRESET_VOL_COLORS = [
+      '#1e3a8a', '#1e40af', '#2563eb', '#3b82f6', '#312e81',
+      '#4338ca', '#0f172a', '#334155', '#164e63', '#065f46'
+    ];
+
+    const PRESET_DELIV_COLORS = [
+      '#00ff66', '#10b981', '#22c55e', '#00f0ff', '#06b6d4',
+      '#f59e0b', '#f97316', '#ec4899', '#a855f7', '#ffffff'
+    ];
+
+    let modalActiveParamId = null;
+    let modalDraft = null;
+
+    function openParamSettingsModal(paramId) {
+      modalActiveParamId = paramId;
+      const paramDef = paramId === 'price'
+        ? { id: 'price', name: 'Price (₹)', colorVar: '--color-price' }
+        : ALL_PARAMETERS.find(p => p.id === paramId);
+
+      if (!paramDef) return;
+
+      const style = getParamStyle(paramId);
+      const css = getComputedStyle(document.documentElement);
+      const isDual = (paramId === 'deliv_vol_overlay');
+
+      document.getElementById('param-settings-title').innerText = isDual
+        ? 'Settings: Delivery Volume + Volume'
+        : `Chart Settings: ${paramDef.name}`;
+      document.getElementById('param-settings-subtitle').innerText = isDual
+        ? 'Dual-parameter controls: configure Total Volume and Delivery Volume independently'
+        : `Customize display appearance for ${paramDef.name}`;
+
+      document.getElementById('group-single-settings').style.display = isDual ? 'none' : 'flex';
+      document.getElementById('group-dual-settings').style.display = isDual ? 'flex' : 'none';
+
+      if (isDual) {
+        const defaultVol = css.getPropertyValue('--vol-bar-bg').trim() || '#1e3a8a';
+        const defaultDeliv = css.getPropertyValue('--deliv-bar-fill').trim() || '#00ff66';
+        const activeVol = style.volColor || defaultVol;
+        const activeDeliv = style.delivColor || style.color || defaultDeliv;
+
+        modalDraft = {
+          volType: style.volType || 'column',
+          volColor: activeVol,
+          volWidth: style.volWidth || 1.5,
+          volFill: style.volFill !== undefined ? style.volFill : false,
+          delivType: style.delivType || 'column',
+          delivColor: activeDeliv,
+          delivWidth: style.delivWidth || 1.5,
+          delivFill: style.delivFill !== undefined ? style.delivFill : false
+        };
+
+        setDualVolType(modalDraft.volType);
+        onModalVolColorChange(modalDraft.volColor);
+        onModalVolWidthChange(modalDraft.volWidth);
+        const chkVolFill = document.getElementById('modal-vol-fill-checkbox');
+        if (chkVolFill) chkVolFill.checked = modalDraft.volFill;
+
+        const volSwatches = document.getElementById('modal-vol-swatches');
+        volSwatches.innerHTML = '';
+        PRESET_VOL_COLORS.forEach(c => {
+          const sw = document.createElement('div');
+          sw.className = `color-swatch ${c.toLowerCase() === activeVol.toLowerCase() ? 'active' : ''}`;
+          sw.style.backgroundColor = c;
+          sw.onclick = () => onModalVolColorChange(c);
+          volSwatches.appendChild(sw);
+        });
+
+        setDualDelivType(modalDraft.delivType);
+        onModalDelivColorChange(modalDraft.delivColor);
+        onModalDelivWidthChange(modalDraft.delivWidth);
+        const chkDelivFill = document.getElementById('modal-deliv-fill-checkbox');
+        if (chkDelivFill) chkDelivFill.checked = modalDraft.delivFill;
+
+        const delivSwatches = document.getElementById('modal-deliv-swatches');
+        delivSwatches.innerHTML = '';
+        PRESET_DELIV_COLORS.forEach(c => {
+          const sw = document.createElement('div');
+          sw.className = `color-swatch ${c.toLowerCase() === activeDeliv.toLowerCase() ? 'active' : ''}`;
+          sw.style.backgroundColor = c;
+          sw.onclick = () => onModalDelivColorChange(c);
+          delivSwatches.appendChild(sw);
+        });
+
+      } else {
+        const defaultColor = (paramId === 'price' ? css.getPropertyValue('--color-price') : (paramDef.colorVar ? css.getPropertyValue(paramDef.colorVar) : '#3b82f6')).trim() || '#3b82f6';
+        let activeColor = style.color || defaultColor;
+        if (!activeColor || typeof activeColor !== 'string') activeColor = '#3b82f6';
+
+        modalDraft = {
+          chartType: style.chartType,
+          color: activeColor,
+          lineWidth: style.lineWidth,
+          showAreaFill: style.showAreaFill
+        };
+
+        setModalChartType(modalDraft.chartType);
+        onModalColorChange(activeColor);
+        onModalWidthChange(modalDraft.lineWidth);
+
+        const chkFill = document.getElementById('modal-fill-checkbox');
+        if (chkFill) chkFill.checked = modalDraft.showAreaFill;
+
+        const swatchesContainer = document.getElementById('modal-color-swatches');
+        swatchesContainer.innerHTML = '';
+        PRESET_COLORS.forEach(c => {
+          const sw = document.createElement('div');
+          sw.className = `color-swatch ${c.toLowerCase() === activeColor.toLowerCase() ? 'active' : ''}`;
+          sw.style.backgroundColor = c;
+          sw.onclick = () => onModalColorChange(c);
+          swatchesContainer.appendChild(sw);
+        });
+      }
+
+      document.getElementById('param-settings-modal').classList.add('active');
+    }
+
+    function closeParamSettingsModal() {
+      const modal = document.getElementById('param-settings-modal');
+      if (modal) modal.classList.remove('active');
+      modalActiveParamId = null;
+      modalDraft = null;
+    }
+
+    function onParamSettingsOverlayClick(e) {
+      if (e.target && e.target.id === 'param-settings-modal') {
+        closeParamSettingsModal();
+      }
+    }
+
+    // Single Parameter Handlers
+    function setModalChartType(type) {
+      if (!modalDraft) return;
+      modalDraft.chartType = type;
+      document.querySelectorAll('#modal-type-grid .type-card').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-type') === type);
+      });
+      document.getElementById('group-area-fill').style.display =
+        (type === 'line' || type === 'step-line') ? 'flex' : 'none';
+    }
+
+    function onModalColorChange(hex) {
+      if (!modalDraft) return;
+      modalDraft.color = hex;
+      const picker = document.getElementById('modal-color-picker');
+      if (picker) picker.value = hex;
+      const hexEl = document.getElementById('modal-color-hex');
+      if (hexEl) { hexEl.innerText = hex; hexEl.style.color = hex; }
+
+      document.querySelectorAll('#modal-color-swatches .color-swatch').forEach(sw => {
+        sw.classList.toggle('active', sw.style.backgroundColor === hex || sw.style.backgroundColor === hexToRgb(hex));
+      });
+      updateModalPreviewLine();
+    }
+
+    function onModalWidthChange(val) {
+      if (!modalDraft) return;
+      modalDraft.lineWidth = parseFloat(val);
+      const el = document.getElementById('modal-width-val');
+      if (el) el.innerText = `${modalDraft.lineWidth.toFixed(1)} px`;
+      updateModalPreviewLine();
+    }
+
+    function onModalFillChange(checked) {
+      if (!modalDraft) return;
+      modalDraft.showAreaFill = checked;
+    }
+
+    // Dual Parameter Handlers (Total Volume & Delivery Volume)
+    function setDualVolType(type) {
+      if (!modalDraft) return;
+      modalDraft.volType = type;
+      document.querySelectorAll('#modal-vol-type-grid .type-card').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-type') === type);
+      });
+      const fillGrp = document.getElementById('group-vol-fill');
+      if (fillGrp) fillGrp.style.display = (type === 'line' || type === 'step-line') ? 'flex' : 'none';
+    }
+
+    function onModalVolColorChange(hex) {
+      if (!modalDraft) return;
+      modalDraft.volColor = hex;
+      const picker = document.getElementById('modal-vol-picker');
+      if (picker) picker.value = hex;
+      const hexEl = document.getElementById('modal-vol-hex');
+      if (hexEl) { hexEl.innerText = hex; hexEl.style.color = hex; }
+
+      document.querySelectorAll('#modal-vol-swatches .color-swatch').forEach(sw => {
+        sw.classList.toggle('active', sw.style.backgroundColor === hex || sw.style.backgroundColor === hexToRgb(hex));
+      });
+    }
+
+    function onModalVolWidthChange(val) {
+      if (!modalDraft) return;
+      modalDraft.volWidth = parseFloat(val);
+      const el = document.getElementById('modal-vol-width-val');
+      if (el) el.innerText = `${modalDraft.volWidth.toFixed(1)} px`;
+    }
+
+    function onModalVolFillChange(checked) {
+      if (!modalDraft) return;
+      modalDraft.volFill = checked;
+    }
+
+    function setDualDelivType(type) {
+      if (!modalDraft) return;
+      modalDraft.delivType = type;
+      document.querySelectorAll('#modal-deliv-type-grid .type-card').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-type') === type);
+      });
+      const fillGrp = document.getElementById('group-deliv-fill');
+      if (fillGrp) fillGrp.style.display = (type === 'line' || type === 'step-line') ? 'flex' : 'none';
+    }
+
+    function onModalDelivColorChange(hex) {
+      if (!modalDraft) return;
+      modalDraft.delivColor = hex;
+      const picker = document.getElementById('modal-deliv-picker');
+      if (picker) picker.value = hex;
+      const hexEl = document.getElementById('modal-deliv-hex');
+      if (hexEl) { hexEl.innerText = hex; hexEl.style.color = hex; }
+
+      document.querySelectorAll('#modal-deliv-swatches .color-swatch').forEach(sw => {
+        sw.classList.toggle('active', sw.style.backgroundColor === hex || sw.style.backgroundColor === hexToRgb(hex));
+      });
+    }
+
+    function onModalDelivWidthChange(val) {
+      if (!modalDraft) return;
+      modalDraft.delivWidth = parseFloat(val);
+      const el = document.getElementById('modal-deliv-width-val');
+      if (el) el.innerText = `${modalDraft.delivWidth.toFixed(1)} px`;
+    }
+
+    function onModalDelivFillChange(checked) {
+      if (!modalDraft) return;
+      modalDraft.delivFill = checked;
+    }
+
+    function updateModalPreviewLine() {
+      const line = document.getElementById('modal-preview-line');
+      if (line && modalDraft) {
+        line.style.height = `${modalDraft.lineWidth}px`;
+        line.style.background = modalDraft.color || '#3b82f6';
+      }
+    }
+
+    function resetModalParamDefaults() {
+      if (!modalActiveParamId) return;
+      const def = DEFAULT_PARAM_STYLES[modalActiveParamId] || { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true };
+      const paramDef = modalActiveParamId === 'price'
+        ? { id: 'price', name: 'Price (₹)', colorVar: '--color-price' }
+        : ALL_PARAMETERS.find(p => p.id === modalActiveParamId);
+
+      const css = getComputedStyle(document.documentElement);
+
+      if (modalActiveParamId === 'deliv_vol_overlay') {
+        const defaultVolColor = css.getPropertyValue('--vol-bar-bg').trim() || '#1e3a8a';
+        const defaultDelivColor = css.getPropertyValue('--deliv-bar-fill').trim() || '#00ff66';
+        modalDraft = {
+          volType: 'column',
+          volColor: defaultVolColor,
+          volWidth: 1.5,
+          volFill: false,
+          delivType: 'column',
+          delivColor: defaultDelivColor,
+          delivWidth: 1.5,
+          delivFill: false
+        };
+        setDualVolType('column');
+        onModalVolColorChange(defaultVolColor);
+        onModalVolWidthChange(1.5);
+        const chkVol = document.getElementById('modal-vol-fill-checkbox');
+        if (chkVol) chkVol.checked = false;
+
+        setDualDelivType('column');
+        onModalDelivColorChange(defaultDelivColor);
+        onModalDelivWidthChange(1.5);
+        const chkDeliv = document.getElementById('modal-deliv-fill-checkbox');
+        if (chkDeliv) chkDeliv.checked = false;
+      } else {
+        const defaultColor = (modalActiveParamId === 'price' ? css.getPropertyValue('--color-price') : (paramDef.colorVar ? css.getPropertyValue(paramDef.colorVar) : '#3b82f6')).trim() || '#3b82f6';
+        modalDraft = {
+          chartType: def.chartType,
+          color: defaultColor,
+          lineWidth: def.lineWidth,
+          showAreaFill: def.showAreaFill
+        };
+        setModalChartType(modalDraft.chartType);
+        onModalColorChange(defaultColor);
+        onModalWidthChange(def.lineWidth);
+        const chk = document.getElementById('modal-fill-checkbox');
+        if (chk) chk.checked = def.showAreaFill;
+      }
+    }
+
+    function applyParamSettingsModal() {
+      if (!modalActiveParamId || !modalDraft) return;
+      if (modalActiveParamId === 'deliv_vol_overlay') {
+        paramStyles['deliv_vol_overlay'] = {
+          chartType: modalDraft.volType,
+          volType: modalDraft.volType,
+          volColor: modalDraft.volColor,
+          volWidth: modalDraft.volWidth,
+          volFill: modalDraft.volFill,
+          delivType: modalDraft.delivType,
+          delivColor: modalDraft.delivColor,
+          delivWidth: modalDraft.delivWidth,
+          delivFill: modalDraft.delivFill,
+          color: modalDraft.delivColor,
+          lineWidth: modalDraft.volWidth,
+          showAreaFill: modalDraft.volFill
+        };
+      } else {
+        paramStyles[modalActiveParamId] = {
+          chartType: modalDraft.chartType,
+          color: modalDraft.color,
+          lineWidth: modalDraft.lineWidth,
+          showAreaFill: modalDraft.showAreaFill
+        };
+      }
+      saveParamStyles();
+      closeParamSettingsModal();
+      rebuildSubwindowDOM();
+      resizeAndRender();
+      updateSlimRibbon();
+    }
+
+    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v4';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let symbol = (urlParams.get('symbol') || 'RELIANCE').trim().toUpperCase();
+    let initialCompanyName = (urlParams.get('name') || (symbol === 'RELIANCE' ? 'Reliance Industries' : '')).trim();
+    let currentViewType = (urlParams.get('view') || 'auto').trim().toLowerCase(); // 'auto', 'consolidated', 'standalone'
+
+    function onSearchScript(targetSymbol) {
+      const input = document.getElementById('script-search-input');
+      const clean = (targetSymbol || (input ? input.value : '')).trim().toUpperCase();
+      if (!clean) return;
+      symbol = clean;
+      initialCompanyName = clean;
+      currentViewType = 'auto';
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set('symbol', symbol);
+        u.searchParams.delete('name');
+        window.history.replaceState({}, '', u.toString());
+      } catch (e) {}
+      if (input) input.value = '';
+      updateScriptTitleHeader(symbol);
+      loadStockData();
+    }
+    let isConsolidatedActive = true;
+    let hasConsolidatedStatements = true;
+    let timespan = '1Y';
+    let rawData = [];
+    let subwindowConfig = [];
+
+    let startIndex = 0;
+    let endIndex = 0;
+    let hoveredIndex = -1;
+    let showTooltips = sessionStorage.getItem('stock_series_tooltips') !== '0'; // default ON (true)
+
+    function toggleTooltips() {
+      showTooltips = !showTooltips;
+      sessionStorage.setItem('stock_series_tooltips', showTooltips ? '1' : '0');
+      updateTooltipsButtonUI();
+      requestRender();
+    }
+
+    function updateTooltipsButtonUI() {
+      const btn = document.getElementById('btn-tooltips-toggle');
+      if (!btn) return;
+      if (showTooltips) {
+        btn.innerHTML = '💬 Tooltips: ON';
+        btn.className = 'btn-action btn-toggle-active';
+        btn.title = 'Tooltips are ON. Click to hide all cursor hover values';
+      } else {
+        btn.innerHTML = '💬 Tooltips: OFF';
+        btn.className = 'btn-action btn-toggle-inactive';
+        btn.title = 'Tooltips are OFF. Click to show cursor hover values';
+      }
+    }
+
+    // Vertical Scaling & Translation Offsets (TradingView style baseline adjustments)
+    const yScaleMultipliers = {};
+    const yPanOffsets = {};
+    let customPaneHeights = {};
+    let maximizedPaneId = null;
+
+    const PADDING = { left: 18, right: 85, top: 24, bottom: 24 };
+
+    // Format Date: "DD.MM.YY"
+    function formatDateDDMMYY(isoStr) {
+      if (!isoStr) return '--';
+      const parts = isoStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}.${parts[1]}.${parts[0].slice(-2)}`;
+      }
+      return isoStr;
+    }
+
+    function formatNumber(num) {
+      if (num === null || num === undefined || isNaN(num)) return '--';
+      if (Math.abs(num) >= 10000000) return (num / 10000000).toFixed(2) + ' Cr';
+      if (Math.abs(num) >= 100000) return (num / 100000).toFixed(2) + ' L';
+      if (Math.abs(num) >= 1000) return (num / 1000).toFixed(1) + ' K';
+      return num.toLocaleString('en-IN');
+    }
+
+    // =========================================================
+    // SESSION PERSISTENCE & CONFIGURATION
+    // =========================================================
+    function initSubwindowSession() {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length) {
+            const existingIds = new Set(parsed.map(p => p.id));
+            ALL_PARAMETERS.forEach(p => {
+              if (!existingIds.has(p.id)) {
+                parsed.push({ id: p.id, enabled: false });
+              }
+            });
+            subwindowConfig = parsed;
+            return;
+          }
+        } catch (e) {
+          console.warn('Session parse error');
+        }
+      }
+      resetToDefaultSubwindows();
+    }
+
+    function resetToDefaultSubwindows() {
+      subwindowConfig = ALL_PARAMETERS.map(p => ({
+        id: p.id,
+        enabled: p.id === 'deliv_vol_overlay'
+      }));
+      saveSubwindowSession();
+    }
+
+    function saveSubwindowSession() {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(subwindowConfig));
+      updateActiveCount();
+    }
+
+    function updateActiveCount() {
+      const activeCount = subwindowConfig.filter(s => s.enabled).length;
+      document.getElementById('active-sub-count').innerText = activeCount;
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'bright' : 'dark';
+      html.setAttribute('data-theme', next);
+
+      const btn = document.getElementById('btn-theme-toggle');
+      btn.innerText = next === 'bright' ? '🌙 Dark Mode' : '☀️ Bright Mode';
+      requestRender();
+    }
+
+    // =========================================================
+    // DATA FETCHING & ROBUST FORWARD-FILL ALIGNMENT
+    // =========================================================
+    const TF_DAYS = { '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095, '5Y': 1825, '7Y': 2555, '10Y': 3652 };
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function updateScriptTitleHeader(name) {
+      const cName = name || initialCompanyName || symbol;
+      const titleEl = document.getElementById('main-script-title');
+      if (titleEl) {
+        const displayName = (cName && cName !== symbol) ? `${escapeHtml(cName)} (${escapeHtml(symbol)})` : escapeHtml(cName || symbol);
+        const badgeText = isConsolidatedActive ? '(Consolidated)' : '(Standalone)';
+        const badgeClass = isConsolidatedActive ? 'mode-consolidated' : 'mode-standalone';
+        const titleAttr = hasConsolidatedStatements
+          ? `Click to toggle between Consolidated and Standalone data (currently ${isConsolidatedActive ? 'Consolidated' : 'Standalone'})`
+          : `Standalone data (No consolidated reports available on Screener)`;
+        titleEl.innerHTML = `${displayName} <span class="script-mode-badge ${badgeClass}" id="main-script-mode" onclick="toggleConsolidatedStandalone()" title="${titleAttr}">${badgeText}</span>`;
+      }
+      const tagEl = document.querySelector('.titlebar-script-tag');
+      if (tagEl) {
+        const modeShort = isConsolidatedActive ? 'Consolidated' : 'Standalone';
+        tagEl.innerText = `${symbol} (${modeShort})`;
+      }
+    }
+
+    function toggleConsolidatedStandalone() {
+      if (!hasConsolidatedStatements && !isConsolidatedActive) {
+        alert('This company does not have consolidated statements on Screener (pure Standalone company).');
+        return;
+      }
+      isConsolidatedActive = !isConsolidatedActive;
+      currentViewType = isConsolidatedActive ? 'consolidated' : 'standalone';
+      loadStockData();
+    }
+
+    async function loadStockData() {
+      const days = TF_DAYS[timespan] || 365;
+      try {
+        const viewParam = (currentViewType && currentViewType !== 'auto') ? `&view=${encodeURIComponent(currentViewType)}` : '';
+        let chartApiBase = '';
+        if (window.location.protocol === 'file:' || (window.location.port === '5173' || window.location.port === '3000')) {
+          chartApiBase = 'https://ledger-financial-dashboard.vercel.app';
+        }
+        let res;
+        try {
+          res = await fetch(`${chartApiBase}/api/chart?symbol=${encodeURIComponent(symbol)}&days=${days}${viewParam}`);
+        } catch (netErr) {
+          if (!chartApiBase) {
+            res = await fetch(`https://ledger-financial-dashboard.vercel.app/api/chart?symbol=${encodeURIComponent(symbol)}&days=${days}${viewParam}`);
+          } else {
+            throw netErr;
+          }
+        }
+        if (!res.ok) throw new Error('API offline');
+        const json = await res.json();
+        parseAllDatasets(json);
+      } catch (err) {
+        console.warn('API error, falling back to rich simulation:', err);
+        generateRichSimulationData(days);
+      }
+    }
+
+    function parseAllDatasets(json) {
+      isConsolidatedActive = json.isConsolidated !== undefined ? !!json.isConsolidated : true;
+      hasConsolidatedStatements = json.hasConsolidated !== undefined ? !!json.hasConsolidated : isConsolidatedActive;
+      const cName = json.companyName || initialCompanyName || symbol;
+      updateScriptTitleHeader(cName);
+
+      const datasets = json.chartData?.datasets || [];
+      const priceDs = datasets.find(d => d.metric === 'Price');
+      if (!priceDs || !priceDs.values || !priceDs.values.length) {
+        generateRichSimulationData(TF_DAYS[timespan]);
+        return;
+      }
+
+      const priceDates = priceDs.values.map(x => x[0]);
+
+      // Robust Step Forward-Fill function for all metrics
+      function buildAlignedMap(metricName) {
+        const ds = datasets.find(d => d.metric === metricName);
+        if (!ds || !ds.values || !ds.values.length) return new Map();
+
+        const sorted = ds.values
+          .filter(x => x[1] !== null && x[1] !== undefined && !isNaN(parseFloat(x[1])))
+          .map(x => [x[0], parseFloat(x[1])])
+          .sort((a, b) => a[0].localeCompare(b[0]));
+
+        if (!sorted.length) return new Map();
+
+        const aligned = new Map();
+        let sIdx = 0;
+        let lastVal = sorted[0][1];
+
+        for (const pd of priceDates) {
+          while (sIdx < sorted.length && sorted[sIdx][0] <= pd) {
+            lastVal = sorted[sIdx][1];
+            sIdx++;
+          }
+          aligned.set(pd, lastVal);
+        }
+        return aligned;
+      }
+
+      const dma50Map = buildAlignedMap('DMA50');
+      const dma200Map = buildAlignedMap('DMA200');
+      const peMap = buildAlignedMap('Price to Earning');
+      const pbMap = buildAlignedMap('Price to book value');
+      const psMap = buildAlignedMap('Market Cap to Sales');
+      const evMap = buildAlignedMap('EV Multiple');
+      const epsMap = buildAlignedMap('EPS');
+      const qSalesMap = buildAlignedMap('Quarter Sales');
+      const salesMap = buildAlignedMap('Sales');
+      const ebitdaMap = buildAlignedMap('EBITDA');
+      const bvMap = buildAlignedMap('Book value');
+      const opmMap = buildAlignedMap('OPM');
+      const gpmMap = buildAlignedMap('GPM');
+
+      // Volume & Delivery
+      const volDs = datasets.find(d => d.metric === 'Volume');
+      const volMap = new Map();
+      (volDs?.values || []).forEach(item => {
+        const d = item[0];
+        const v = item[1] !== null ? parseInt(item[1], 10) : 0;
+        let delivPct = (item.length > 2 && item[2] && item[2].delivery !== undefined) ? item[2].delivery : null;
+        let delivVol = delivPct !== null ? Math.round(v * (delivPct / 100)) : null;
+        volMap.set(d, { v, delivPct, delivVol });
+      });
+
+      rawData = priceDs.values.map(item => {
+        const d = item[0];
+        const price = parseFloat(item[1]);
+        const vInfo = volMap.get(d) || { v: 0, delivPct: null, delivVol: null };
+        return {
+          date: d,
+          price,
+          dma50: dma50Map.get(d) || null,
+          dma200: dma200Map.get(d) || null,
+          volume: vInfo.v,
+          delivPct: vInfo.delivPct,
+          delivVol: vInfo.delivVol,
+          deliv_pct: vInfo.delivPct,
+          pe: peMap.get(d),
+          price_to_bv: pbMap.get(d),
+          mc_sales: psMap.get(d),
+          ev_ebitda: evMap.get(d),
+          ttm_eps: epsMap.get(d),
+          quarter_sales: qSalesMap.get(d),
+          sales: salesMap.get(d),
+          ebitda: ebitdaMap.get(d),
+          book_value: bvMap.get(d),
+          opm: opmMap.get(d),
+          gpm: gpmMap.get(d)
+        };
+      });
+
+      updateScriptTitleHeader(json.companyName || symbol);
+      initViewRange();
+      rebuildSubwindowDOM();
+      resizeAndRender();
+    }
+
+    function generateRichSimulationData(days) {
+      const isDaily = days <= 365;
+      const count = isDaily ? Math.round(days * 0.68) : Math.round(days / 7);
+      rawData = [];
+      let basePrice = 1150;
+      let basePE = 13.5;
+      let basePB = 1.8;
+      let basePS = 2.1;
+      let baseEV = 18.0;
+      let baseEPS = 85.8;
+      let baseQSales = 132000;
+      let baseSales = 505000;
+      let baseEbitda = 424000;
+      let baseBV = 649.5;
+      let baseOPM = 71.0;
+      let baseGPM = 100.0;
+      const now = new Date();
+
+      for (let i = count - 1; i >= 0; i--) {
+        const dt = new Date(now.getTime() - i * (isDaily ? 86400000 : 7 * 86400000));
+        basePrice = Math.max(100, basePrice + (Math.random() - 0.485) * (basePrice * 0.022));
+        const vol = Math.floor(Math.random() * 75000000) + 12000000;
+        const delivPct = Math.floor(Math.random() * 32) + 38;
+        const delivVol = Math.round(vol * (delivPct / 100));
+
+        basePE = Math.max(8, basePE + (Math.random() - 0.49) * 0.25);
+        basePB = Math.max(0.8, basePB + (Math.random() - 0.49) * 0.035);
+        basePS = Math.max(1.0, basePS + (Math.random() - 0.49) * 0.025);
+        baseEV = Math.max(12, baseEV + (Math.random() - 0.49) * 0.3);
+        baseEPS = Math.max(40, baseEPS + (Math.random() - 0.47) * 0.4);
+        baseQSales = Math.max(80000, baseQSales + (Math.random() - 0.47) * 800);
+        baseSales = baseQSales * 3.8;
+        baseEbitda = baseSales * 0.82;
+        baseBV = Math.max(300, baseBV + (Math.random() - 0.47) * 1.5);
+        baseOPM = Math.max(40, Math.min(95, baseOPM + (Math.random() - 0.49) * 0.5));
+
+        rawData.push({
+          date: dt.toISOString().split('T')[0],
+          price: parseFloat(basePrice.toFixed(2)),
+          dma50: parseFloat((basePrice * 0.985).toFixed(2)),
+          dma200: parseFloat((basePrice * 0.95).toFixed(2)),
+          volume: vol,
+          delivPct: delivPct,
+          delivVol: delivVol,
+          deliv_pct: delivPct,
+          pe: parseFloat(basePE.toFixed(1)),
+          price_to_bv: parseFloat(basePB.toFixed(2)),
+          mc_sales: parseFloat(basePS.toFixed(2)),
+          ev_ebitda: parseFloat(baseEV.toFixed(1)),
+          ttm_eps: parseFloat(baseEPS.toFixed(2)),
+          quarter_sales: Math.round(baseQSales),
+          sales: Math.round(baseSales),
+          ebitda: Math.round(baseEbitda),
+          book_value: parseFloat(baseBV.toFixed(1)),
+          opm: parseFloat(baseOPM.toFixed(1)),
+          gpm: baseGPM
+        });
+      }
+
+      updateScriptTitleHeader(initialCompanyName || symbol);
+      initViewRange();
+      rebuildSubwindowDOM();
+      resizeAndRender();
+    }
+
+    function initViewRange() {
+      startIndex = 0;
+      endIndex = rawData.length - 1;
+      hoveredIndex = rawData.length - 1;
+      yScaleMultipliers['mw_price'] = 1.0;
+      yPanOffsets['mw_price'] = 0;
+      ALL_PARAMETERS.forEach(p => {
+        yScaleMultipliers[p.id] = 1.0;
+        yPanOffsets[p.id] = 0;
+      });
+    }
+
+    // ==========================================
+    // TRADINGVIEW MAXIMIZE & EXPANDABLE PANES
+    // ==========================================
+    function toggleMaximizePane(paneId) {
+      if (maximizedPaneId === paneId) {
+        maximizedPaneId = null;
+      } else {
+        maximizedPaneId = paneId;
+      }
+      updateMaximizeButtonIcons();
+      updateChartPaneHeights();
+      resizeAndRender();
+    }
+
+    function updateMaximizeButtonIcons() {
+      const mwBtn = document.getElementById('btn-max-mw_price');
+      if (mwBtn) {
+        mwBtn.innerText = (maximizedPaneId === 'mw_price') ? '🗗' : '⛶';
+        mwBtn.title = (maximizedPaneId === 'mw_price') ? 'Restore Window Size' : 'Maximize Window';
+      }
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+      activeConfigs.forEach(sConfig => {
+        const btn = document.getElementById(`btn-max-${sConfig.id}`);
+        if (btn) {
+          btn.innerText = (maximizedPaneId === sConfig.id) ? '🗗' : '⛶';
+          btn.title = (maximizedPaneId === sConfig.id) ? 'Restore Window Size' : 'Maximize Window';
+        }
+      });
+    }
+
+    // ==========================================
+    // DYNAMIC SCREEN PROPORTIONS & UTILIZATION
+    // ==========================================
+    function updateChartPaneHeights() {
+      const chartStack = document.getElementById('chart-stack');
+      if (!chartStack) return;
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+      const S = activeConfigs.length;
+      const mwCard = document.getElementById('mw-price-card');
+      const subContainer = document.getElementById('subwindows-container');
+      const mainSplitter = document.getElementById('price-sub-splitter');
+
+      if (maximizedPaneId) {
+        if (mwCard) {
+          mwCard.style.display = (maximizedPaneId === 'mw_price') ? 'flex' : 'none';
+          if (maximizedPaneId === 'mw_price') mwCard.style.height = '100%';
+        }
+        if (mainSplitter) mainSplitter.style.display = 'none';
+        if (subContainer) {
+          subContainer.style.display = (maximizedPaneId !== 'mw_price') ? 'flex' : 'none';
+          subContainer.style.height = (maximizedPaneId !== 'mw_price') ? '100%' : '0px';
+        }
+        activeConfigs.forEach(sConfig => {
+          const card = document.getElementById(`card-${sConfig.id}`);
+          if (card) {
+            card.style.display = (maximizedPaneId === sConfig.id) ? 'flex' : 'none';
+            if (maximizedPaneId === sConfig.id) card.style.height = '100%';
+          }
+        });
+        document.querySelectorAll('#subwindows-container .pane-splitter').forEach(sp => sp.style.display = 'none');
+        return;
+      }
+
+      // Restore display of all cards & splitters
+      if (mwCard) mwCard.style.display = 'flex';
+      if (mainSplitter && S > 0) mainSplitter.style.display = 'flex';
+      if (subContainer) subContainer.style.display = S > 0 ? 'flex' : 'none';
+      activeConfigs.forEach(sConfig => {
+        const card = document.getElementById(`card-${sConfig.id}`);
+        if (card) card.style.display = 'flex';
+      });
+      document.querySelectorAll('#subwindows-container .pane-splitter').forEach(sp => sp.style.display = 'flex');
+
+      const stackH = chartStack.clientHeight || 600;
+
+      // Responsive Mobile Layout
+      if (window.innerWidth <= 768) {
+        if (mwCard) mwCard.style.height = `${Math.max(200, Math.round(stackH * 0.42))}px`;
+        if (subContainer) {
+          subContainer.style.overflowY = 'auto';
+          subContainer.style.flex = '1 1 0';
+        }
+        activeConfigs.forEach(sConfig => {
+          const card = document.getElementById(`card-${sConfig.id}`);
+          if (card) card.style.height = '140px';
+        });
+        return;
+      }
+
+      // Desktop Dynamic Proportional Allocation:
+      // Deduct splitter space (6px each)
+      const totalSplitterH = S > 0 ? (S * 6) : 0;
+      const netH = Math.max(120, stackH - totalSplitterH);
+
+      if (S === 0) {
+        if (mwCard) mwCard.style.height = '100%';
+        if (subContainer) subContainer.style.height = '0px';
+      } else if (S === 1) {
+        if (subContainer) { subContainer.style.overflowY = 'hidden'; subContainer.style.flex = '1 1 0'; }
+        const mainH = customPaneHeights['mw_price'] || Math.round(netH * 0.60);
+        const subH = customPaneHeights[activeConfigs[0].id] || (netH - mainH);
+        if (mwCard) mwCard.style.height = `${mainH}px`;
+        const card = document.getElementById(`card-${activeConfigs[0].id}`);
+        if (card) card.style.height = `${subH}px`;
+      } else if (S === 2) {
+        if (subContainer) { subContainer.style.overflowY = 'hidden'; subContainer.style.flex = '1 1 0'; }
+        const mainH = customPaneHeights['mw_price'] || Math.round(netH * 0.50);
+        const eachSub = Math.round((netH - mainH) / 2);
+        if (mwCard) mwCard.style.height = `${mainH}px`;
+        activeConfigs.forEach((sc, i) => {
+          const card = document.getElementById(`card-${sc.id}`);
+          if (card) {
+            const h = customPaneHeights[sc.id] || (i === 1 ? (netH - mainH - eachSub) : eachSub);
+            card.style.height = `${h}px`;
+          }
+        });
+      } else if (S === 3) {
+        if (subContainer) { subContainer.style.overflowY = 'hidden'; subContainer.style.flex = '1 1 0'; }
+        const mainH = customPaneHeights['mw_price'] || Math.round(netH * 0.40);
+        const rem = netH - mainH;
+        const eachSub = Math.round(rem / 3);
+        if (mwCard) mwCard.style.height = `${mainH}px`;
+        activeConfigs.forEach((sc, i) => {
+          const card = document.getElementById(`card-${sc.id}`);
+          if (card) {
+            const h = customPaneHeights[sc.id] || (i === 2 ? (rem - 2 * eachSub) : eachSub);
+            card.style.height = `${h}px`;
+          }
+        });
+      } else if (S === 4) {
+        if (subContainer) { subContainer.style.overflowY = 'hidden'; subContainer.style.flex = '1 1 0'; }
+        const mainH = customPaneHeights['mw_price'] || Math.round(netH * 0.28);
+        const rem = netH - mainH;
+        const eachSub = Math.round(rem / 4);
+        if (mwCard) mwCard.style.height = `${mainH}px`;
+        activeConfigs.forEach((sc, i) => {
+          const card = document.getElementById(`card-${sc.id}`);
+          if (card) {
+            const h = customPaneHeights[sc.id] || (i === 3 ? (rem - 3 * eachSub) : eachSub);
+            card.style.height = `${h}px`;
+          }
+        });
+      } else {
+        // S > 4: Main window fixed at ~25%, remaining sub-windows scroll vertically!
+        const mainH = customPaneHeights['mw_price'] || Math.max(160, Math.round(stackH * 0.25));
+        if (mwCard) mwCard.style.height = `${mainH}px`;
+        if (subContainer) {
+          subContainer.style.overflowY = 'auto';
+          subContainer.style.flex = '1 1 0';
+        }
+        const eachSub = Math.max(130, Math.round(stackH * 0.18));
+        activeConfigs.forEach(sc => {
+          const card = document.getElementById(`card-${sc.id}`);
+          if (card) {
+            const h = customPaneHeights[sc.id] || eachSub;
+            card.style.height = `${h}px`;
+            card.style.minHeight = `${eachSub}px`;
+          }
+        });
+      }
+    }
+
+    // ==========================================
+    // DRAGGABLE HORIZONTAL SPLITTERS
+    // ==========================================
+    let isSplitterDragging = false;
+    let activeSplitIdx = -1;
+    let splitterStartY = 0;
+    let abovePaneInitialH = 0;
+    let belowPaneInitialH = 0;
+    let abovePaneEl = null;
+    let belowPaneEl = null;
+    let abovePaneKey = null;
+    let belowPaneKey = null;
+
+    function startSplitterDrag(e, splitIdx) {
+      e.preventDefault();
+      e.stopPropagation();
+      isSplitterDragging = true;
+      activeSplitIdx = splitIdx;
+      splitterStartY = e.clientY;
+
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+      if (splitIdx === 0) {
+        abovePaneKey = 'mw_price';
+        abovePaneEl = document.getElementById('mw-price-card');
+        belowPaneKey = activeConfigs[0] ? activeConfigs[0].id : null;
+        belowPaneEl = belowPaneKey ? document.getElementById(`card-${belowPaneKey}`) : null;
+      } else {
+        abovePaneKey = activeConfigs[splitIdx - 1] ? activeConfigs[splitIdx - 1].id : null;
+        abovePaneEl = abovePaneKey ? document.getElementById(`card-${abovePaneKey}`) : null;
+        belowPaneKey = activeConfigs[splitIdx] ? activeConfigs[splitIdx].id : null;
+        belowPaneEl = belowPaneKey ? document.getElementById(`card-${belowPaneKey}`) : null;
+      }
+
+      if (abovePaneEl) abovePaneInitialH = abovePaneEl.clientHeight;
+      if (belowPaneEl) belowPaneInitialH = belowPaneEl.clientHeight;
+      document.body.style.cursor = 'row-resize';
+    }
+
+    // ==========================================
+    // DESKTOP POPUP WINDOW RESIZING & CONTROLS
+    // ==========================================
+    let isWinDragging = false;
+    let winDragStartX = 0;
+    let winDragStartY = 0;
+    let winInitialLeft = 0;
+    let winInitialTop = 0;
+
+    let isWinResizing = false;
+    let winResizeDir = '';
+    let winResizeStartX = 0;
+    let winResizeStartY = 0;
+    let winInitialW = 0;
+    let winInitialH = 0;
+    let isWindowMaximized = false;
+    let isWindowMinimized = false;
+    let prevWinRect = null;
+    let preMinHeight = null;
+
+    function initDesktopWindowControls() {
+      const dragBar = document.querySelector('.main-ribbon') || document.getElementById('desktop-window');
+      const win = document.getElementById('desktop-window');
+      if (!dragBar || !win) return;
+
+      dragBar.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button, select, input, .script-mode-badge, .modal-card, .btn-win-ctrl') || isWindowMaximized) return;
+        isWinDragging = true;
+        winDragStartX = e.clientX;
+        winDragStartY = e.clientY;
+        winInitialLeft = win.offsetLeft;
+        winInitialTop = win.offsetTop;
+      });
+
+      const resizerE = document.getElementById('win-resizer-e');
+      const resizerS = document.getElementById('win-resizer-s');
+      const resizerBR = document.getElementById('win-resizer-br');
+
+      const onResizerDown = (e, dir) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isWindowMaximized) return;
+        isWinResizing = true;
+        winResizeDir = dir;
+        winResizeStartX = e.clientX;
+        winResizeStartY = e.clientY;
+        winInitialW = win.clientWidth;
+        winInitialH = win.clientHeight;
+      };
+
+      if (resizerE) resizerE.addEventListener('mousedown', (e) => onResizerDown(e, 'e'));
+      if (resizerS) resizerS.addEventListener('mousedown', (e) => onResizerDown(e, 's'));
+      if (resizerBR) resizerBR.addEventListener('mousedown', (e) => onResizerDown(e, 'br'));
+    }
+
+    function toggleWindowMaximize() {
+      const win = document.getElementById('desktop-window');
+      const btn = document.getElementById('btn-win-maximize');
+      if (!win) return;
+      if (isWindowMinimized) {
+        toggleWindowMinimize();
+      }
+      if (!isWindowMaximized) {
+        prevWinRect = {
+          left: win.style.left || `${win.offsetLeft}px`,
+          top: win.style.top || `${win.offsetTop}px`,
+          width: win.style.width || `${win.offsetWidth}px`,
+          height: win.style.height || `${win.offsetHeight}px`
+        };
+        win.classList.add('maximized');
+        if (btn) { btn.innerText = '🗗'; btn.title = 'Restore Window'; }
+        isWindowMaximized = true;
+      } else {
+        win.classList.remove('maximized');
+        if (prevWinRect) {
+          win.style.left = prevWinRect.left;
+          win.style.top = prevWinRect.top;
+          win.style.width = prevWinRect.width;
+          win.style.height = prevWinRect.height;
+        }
+        if (btn) { btn.innerText = '🗖'; btn.title = 'Maximize Window'; }
+        isWindowMaximized = false;
+      }
+      updateChartPaneHeights();
+      resizeAndRender();
+    }
+
+    function toggleWindowMinimize() {
+      const chartStack = document.getElementById('chart-stack');
+      const win = document.getElementById('desktop-window');
+      const btnMin = document.getElementById('btn-win-minimize');
+      if (!chartStack || !win) return;
+      if (!isWindowMinimized) {
+        preMinHeight = win.style.height || (isWindowMaximized ? '100vh' : 'calc(100vh - 20px)');
+        chartStack.style.display = 'none';
+        win.style.height = 'auto';
+        isWindowMinimized = true;
+        if (btnMin) { btnMin.innerText = '🗖'; btnMin.title = 'Restore Window'; }
+      } else {
+        chartStack.style.display = 'flex';
+        win.style.height = isWindowMaximized ? '100vh' : (preMinHeight || 'calc(100vh - 20px)');
+        isWindowMinimized = false;
+        if (btnMin) { btnMin.innerText = '🗕'; btnMin.title = 'Minimize Window'; }
+        updateChartPaneHeights();
+        resizeAndRender();
+      }
+    }
+
+    // ==========================================
+    // DYNAMIC SUB-WINDOWS DOM BUILDER
+    // ==========================================
+    function rebuildSubwindowDOM() {
+      const container = document.getElementById('subwindows-container');
+      container.innerHTML = '';
+
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+      updateActiveCount();
+
+      activeConfigs.forEach((sConfig, idx) => {
+        const paramDef = ALL_PARAMETERS.find(p => p.id === sConfig.id);
+        if (!paramDef) return;
+
+        // Splitter between subwindows
+        if (idx > 0) {
+          const splitter = document.createElement('div');
+          splitter.className = 'pane-splitter';
+          splitter.dataset.splitIdx = idx;
+          splitter.innerHTML = '<div class="splitter-pill"></div>';
+          splitter.onmousedown = (e) => startSplitterDrag(e, idx);
+          container.appendChild(splitter);
+        }
+
+        const style = getParamStyle(paramDef.id);
+        const css = getComputedStyle(document.documentElement);
+        const activeColor = style.color || css.getPropertyValue(paramDef.colorVar).trim();
+
+        const card = document.createElement('div');
+        card.className = `window-card ${paramDef.colorClass}`;
+        card.id = `card-${paramDef.id}`;
+
+        card.innerHTML = `
+          <div class="window-header" onmousedown="event.stopPropagation()">
+            <span class="param-clickable-title" onclick="openParamSettingsModal('${paramDef.id}')" title="Click to customize ${paramDef.name} (Type, Color, Width)">
+              <span class="title-text" id="title-txt-${paramDef.id}" style="color: ${activeColor}; font-weight: 800;">${paramDef.name.toUpperCase()}</span>
+              <span class="settings-gear-icon">⚙</span>
+            </span>
+            <button class="btn-win-tool" id="btn-max-${paramDef.id}" onclick="toggleMaximizePane('${paramDef.id}')" title="Maximize / Restore ${paramDef.name}">⛶</button>
+          </div>
+          <button class="btn-close-sub" onmousedown="event.stopPropagation()" onclick="closeSubwindow('${paramDef.id}')" title="Close sub-window">✕</button>
+          <div class="canvas-container">
+            <canvas id="cv-${paramDef.id}"></canvas>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Splitter 0 between Price window and Subwindows container
+      let mainSplitter = document.getElementById('price-sub-splitter');
+      const chartStack = document.getElementById('chart-stack');
+      if (activeConfigs.length > 0) {
+        if (!mainSplitter && chartStack) {
+          mainSplitter = document.createElement('div');
+          mainSplitter.className = 'pane-splitter';
+          mainSplitter.id = 'price-sub-splitter';
+          mainSplitter.dataset.splitIdx = 0;
+          mainSplitter.innerHTML = '<div class="splitter-pill"></div>';
+          mainSplitter.onmousedown = (e) => startSplitterDrag(e, 0);
+          chartStack.insertBefore(mainSplitter, container);
+        }
+        if (mainSplitter) mainSplitter.style.display = 'flex';
+      } else if (mainSplitter) {
+        mainSplitter.style.display = 'none';
+      }
+
+      updateMaximizeButtonIcons();
+      updateChartPaneHeights();
+      resizeAndRender();
+    }
+
+    function closeSubwindow(paramId) {
+      const item = subwindowConfig.find(s => s.id === paramId);
+      if (item) {
+        item.enabled = false;
+        saveSubwindowSession();
+        rebuildSubwindowDOM();
+      }
+    }
+
+    function openSubwindowModal() {
+      renderModalList();
+      document.getElementById('subwindow-modal').classList.add('active');
+    }
+
+    function closeSubwindowModal() {
+      document.getElementById('subwindow-modal').classList.remove('active');
+    }
+
+    let draggedModalIndex = -1;
+
+    function renderModalList() {
+      const listEl = document.getElementById('modal-params-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      const activeCount = subwindowConfig.filter(s => s.enabled).length;
+      const counterEl = document.getElementById('modal-selection-counter');
+      if (counterEl) counterEl.innerText = `${activeCount} of 8 chosen (Max 8)`;
+
+      subwindowConfig.forEach((item, index) => {
+        const param = ALL_PARAMETERS.find(p => p.id === item.id);
+        if (!param) return;
+
+        const row = document.createElement('div');
+        row.className = 'param-row';
+        row.draggable = true;
+        row.dataset.index = index;
+
+        const isChecked = item.enabled;
+        const disableCheck = !isChecked && activeCount >= 8;
+
+        row.innerHTML = `
+          <label class="param-label-group" style="flex: 1; margin: 0;">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} ${disableCheck ? 'disabled' : ''} onchange="toggleModalParam('${item.id}', this.checked)">
+            <span class="param-badge" style="background: var(${param.colorVar});"></span>
+            <span style="display: flex; align-items: baseline; gap: 6px;">
+              <span>${param.name}</span>
+              ${param.desc ? `<small style="font-size: 10px; color: var(--muted); font-weight: normal;">(${param.desc})</small>` : ''}
+            </span>
+          </label>
+          <div class="drag-handle" title="Drag up or down to reorder" onmousedown="event.stopPropagation()">⠿</div>
+        `;
+
+        // HTML5 Drag & Drop event handlers for mouse reordering
+        row.addEventListener('dragstart', (e) => {
+          draggedModalIndex = index;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', index.toString());
+          setTimeout(() => row.classList.add('dragging'), 0);
+        });
+
+        row.addEventListener('dragend', () => {
+          row.classList.remove('dragging');
+          listEl.querySelectorAll('.param-row').forEach(r => {
+            r.classList.remove('drag-over');
+          });
+          draggedModalIndex = -1;
+        });
+
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          if (draggedModalIndex === -1 || draggedModalIndex === index) return;
+          row.classList.add('drag-over');
+        });
+
+        row.addEventListener('dragleave', () => {
+          row.classList.remove('drag-over');
+        });
+
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          const dataText = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+          const fromIdx = (dataText !== '' && !isNaN(parseInt(dataText))) ? parseInt(dataText) : draggedModalIndex;
+          if (fromIdx < 0 || fromIdx >= subwindowConfig.length || fromIdx === index) return;
+
+          const [movedItem] = subwindowConfig.splice(fromIdx, 1);
+          subwindowConfig.splice(index, 0, movedItem);
+
+          renderModalList();
+        });
+
+        listEl.appendChild(row);
+      });
+    }
+
+    function toggleModalParam(paramId, checked) {
+      const item = subwindowConfig.find(s => s.id === paramId);
+      if (item) {
+        item.enabled = checked;
+        renderModalList();
+      }
+    }
+
+    function applyModalChanges() {
+      saveSubwindowSession();
+      closeSubwindowModal();
+      rebuildSubwindowDOM();
+    }
+
+    function resizeAndRender() {
+      const dpr = window.devicePixelRatio || 1;
+      const canvases = document.querySelectorAll('.canvas-container canvas');
+      canvases.forEach(cv => {
+        const p = cv.parentElement;
+        if (!p) return;
+        const w = p.clientWidth;
+        const h = p.clientHeight;
+        if (w > 0 && h > 0) {
+          cv.width = Math.round(w * dpr);
+          cv.height = Math.round(h * dpr);
+          const ctx = cv.getContext('2d');
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+      });
+      requestRender();
+    }
+
+    function requestRender() {
+      window.requestAnimationFrame(renderAll);
+    }
+
+    function renderAll() {
+      if (!rawData.length) return;
+      const visibleData = rawData.slice(startIndex, endIndex + 1);
+      if (!visibleData.length) return;
+
+      renderPriceWindow(visibleData);
+
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+      activeConfigs.forEach((sConfig, index) => {
+        const isBottom = (index === activeConfigs.length - 1);
+        renderSubwindow(sConfig.id, visibleData, isBottom);
+      });
+
+      updateSlimRibbon();
+    }
+
+    // --- MAIN PRICE WINDOW (No Horizontal Grid, Customizable Style) ---
+    function renderPriceWindow(data) {
+      const cv = document.getElementById('cv-price');
+      if (!cv) return;
+      const ctx = cv.getContext('2d');
+      const w = cv.parentElement.clientWidth;
+      const h = cv.parentElement.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const chartW = w - PADDING.left - PADDING.right;
+      const chartH = h - PADDING.top - PADDING.bottom;
+      const n = data.length;
+      if (n === 0) return;
+
+      const style = getParamStyle('price');
+      const cssStyles = getComputedStyle(document.documentElement);
+      const defaultColor = cssStyles.getPropertyValue('--color-price').trim();
+      const lineColor = style.color || defaultColor;
+      const lineWidth = style.lineWidth || 1.5;
+
+      let minP = Infinity, maxP = -Infinity;
+      data.forEach(d => {
+        minP = Math.min(minP, d.price);
+        maxP = Math.max(maxP, d.price);
+        if (d.dma50) { minP = Math.min(minP, d.dma50); maxP = Math.max(maxP, d.dma50); }
+        if (d.dma200) { minP = Math.min(minP, d.dma200); maxP = Math.max(maxP, d.dma200); }
+      });
+
+      const mult = yScaleMultipliers['mw_price'] || 1.0;
+      const pan = yPanOffsets['mw_price'] || 0;
+      const span = (maxP - minP) / mult;
+      const mid = (maxP + minP) / 2 + pan;
+      minP = mid - span / 2;
+      maxP = mid + span / 2;
+      if (minP >= maxP) maxP = minP + 1;
+
+      const getX = (i) => PADDING.left + (i / Math.max(1, n - 1)) * chartW;
+      const getY = (val) => h - PADDING.bottom - ((val - minP) / (maxP - minP)) * chartH;
+
+      // Draw Y-Axis without any horizontal grid across canvas
+      drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minP, maxP, 6, (v) => `₹${v.toFixed(1)}`);
+
+      // Update Header Text Color if customized
+      const titleEl = document.getElementById('mw-price-title');
+      if (titleEl) titleEl.style.color = lineColor;
+
+      // Render based on selected chart type (Line, Step-Line, Column, Histogram)
+      if (style.chartType === 'line') {
+        if (style.showAreaFill) {
+          const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+          grad.addColorStop(0, hexToRgba(lineColor, 0.32));
+          grad.addColorStop(1, hexToRgba(lineColor, 0.0));
+          ctx.beginPath();
+          ctx.moveTo(getX(0), getY(data[0].price));
+          for (let i = 1; i < n; i++) ctx.lineTo(getX(i), getY(data[i].price));
+          ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+          ctx.lineTo(getX(0), h - PADDING.bottom);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.moveTo(getX(0), getY(data[0].price));
+        for (let i = 1; i < n; i++) ctx.lineTo(getX(i), getY(data[i].price));
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = lineWidth; // Sleek, not thick!
+        ctx.stroke();
+      } else if (style.chartType === 'step-line') {
+        if (style.showAreaFill) {
+          const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+          grad.addColorStop(0, hexToRgba(lineColor, 0.32));
+          grad.addColorStop(1, hexToRgba(lineColor, 0.0));
+          ctx.beginPath();
+          ctx.moveTo(getX(0), getY(data[0].price));
+          for (let i = 1; i < n; i++) {
+            ctx.lineTo(getX(i), getY(data[i - 1].price));
+            ctx.lineTo(getX(i), getY(data[i].price));
+          }
+          ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+          ctx.lineTo(getX(0), h - PADDING.bottom);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.moveTo(getX(0), getY(data[0].price));
+        for (let i = 1; i < n; i++) {
+          ctx.lineTo(getX(i), getY(data[i - 1].price));
+          ctx.lineTo(getX(i), getY(data[i].price));
+        }
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+      } else if (style.chartType === 'column') {
+        const barW = Math.max(2, Math.min(22, (chartW / n) * 0.72));
+        data.forEach((d, i) => {
+          const xLeft = getX(i) - barW / 2;
+          const y = getY(d.price);
+          const barH = Math.max(1, (h - PADDING.bottom) - y);
+          ctx.fillStyle = lineColor;
+          ctx.fillRect(xLeft, y, barW, barH);
+        });
+      } else if (style.chartType === 'histogram') {
+        const barW = Math.max(1, Math.ceil(chartW / n));
+        data.forEach((d, i) => {
+          const xLeft = getX(i) - barW / 2;
+          const y = getY(d.price);
+          const barH = Math.max(1, (h - PADDING.bottom) - y);
+          ctx.fillStyle = lineColor;
+          ctx.fillRect(xLeft, y, barW, barH);
+        });
+      }
+
+      // DMA 50 (Sleek line - always on)
+      ctx.beginPath();
+      let started50 = false;
+      data.forEach((d, i) => {
+        if (d.dma50) {
+          let x = getX(i), y = getY(d.dma50);
+          if (!started50) { ctx.moveTo(x, y); started50 = true; } else ctx.lineTo(x, y);
+        }
+      });
+      ctx.strokeStyle = cssStyles.getPropertyValue('--color-dma50').trim();
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // DMA 200 (Sleek line - always on)
+      ctx.beginPath();
+      let started200 = false;
+      data.forEach((d, i) => {
+        if (d.dma200) {
+          let x = getX(i), y = getY(d.dma200);
+          if (!started200) { ctx.moveTo(x, y); started200 = true; } else ctx.lineTo(x, y);
+        }
+      });
+      ctx.strokeStyle = cssStyles.getPropertyValue('--color-dma200').trim();
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Requirement 1: Display date (X-axis mark) on both top of the main window and bottom (as it is now)
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+      const isPriceBottom = activeConfigs.length === 0 || maximizedPaneId === 'mw_price';
+
+      drawXAxisDates(ctx, w, h, chartW, data, 'top');
+      if (isPriceBottom) {
+        drawXAxisDates(ctx, w, h, chartW, data, 'bottom');
+      }
+
+      // Crosshair & Scale Data Readouts & Tooltips
+      if (hoveredIndex >= startIndex && hoveredIndex <= endIndex) {
+        const localIdx = hoveredIndex - startIndex;
+        const hx = getX(localIdx);
+        const hy = getY(data[localIdx].price);
+        drawCrosshair(ctx, hx, w, h, hy);
+
+        // ALWAYS display crosshair data on the scale (X & Y axis), independent of Tool-Tips toggle
+        drawYAxisPill(ctx, w, hy, `₹${data[localIdx].price.toFixed(1)}`, lineColor, '#000');
+        drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(data[localIdx].date), 'top');
+        if (isPriceBottom) {
+          drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(data[localIdx].date), 'bottom');
+        }
+
+        if (showTooltips) {
+          const d = data[localIdx];
+          const prevD = localIdx > 0 ? data[localIdx - 1] : null;
+          const tooltipItems = [
+            { label: 'Price', val: `₹${d.price.toFixed(2)}`, color: lineColor, bold: true },
+          ];
+          if (prevD) {
+            const chg = d.price - prevD.price;
+            const pct = (chg / prevD.price) * 100;
+            const sgn = chg >= 0 ? '+' : '';
+            tooltipItems.push({
+              label: 'Change',
+              val: `${sgn}₹${chg.toFixed(2)} (${sgn}${pct.toFixed(2)}%)`,
+              color: chg >= 0 ? '#10b981' : '#ef4444'
+            });
+          }
+          if (d.dma50) tooltipItems.push({ label: '50 DMA', val: `₹${d.dma50.toFixed(2)}`, color: '#38bdf8' });
+          if (d.dma200) tooltipItems.push({ label: '200 DMA', val: `₹${d.dma200.toFixed(2)}`, color: '#f59e0b' });
+
+          drawWindowFloatingTooltip(ctx, hx, hy, w, h, tooltipItems, lineColor);
+        }
+      }
+
+      drawShiftZoomOverlay(ctx, w, h);
+    }
+
+    // --- DYNAMIC SUBWINDOW RENDERER (Customizable Type, Color, Width) ---
+    function renderSubwindow(paramId, data, isBottom) {
+      const cv = document.getElementById(`cv-${paramId}`);
+      if (!cv) return;
+      const ctx = cv.getContext('2d');
+      const w = cv.parentElement.clientWidth;
+      const h = cv.parentElement.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const chartW = w - PADDING.left - PADDING.right;
+      const chartH = h - PADDING.top - PADDING.bottom;
+      const n = data.length;
+      if (n === 0) return;
+
+      const paramDef = ALL_PARAMETERS.find(p => p.id === paramId);
+      if (!paramDef) return;
+
+      const style = getParamStyle(paramId);
+      const mult = yScaleMultipliers[paramId] || 1.0;
+      const getX = (i) => PADDING.left + (i / Math.max(1, n - 1)) * chartW;
+      const css = getComputedStyle(document.documentElement);
+      const defaultColor = css.getPropertyValue(paramDef.colorVar).trim();
+      const activeColor = style.color || defaultColor;
+      const lineWidth = style.lineWidth || 1.5;
+
+      // Update Header Text Color in DOM if customized
+      const headerTitle = document.getElementById(`title-txt-${paramDef.id}`);
+      if (headerTitle) headerTitle.style.color = activeColor;
+
+      // -------------------------------------------------------------
+      // CASE 1: DUAL-PARAMETER (DELIVERY VOLUME + VOLUME)
+      // -------------------------------------------------------------
+      if (paramId === 'deliv_vol_overlay') {
+        let maxV = Math.max(...data.map(d => Math.max(d.volume || 0, d.delivVol || 0)));
+        const pan = yPanOffsets['deliv_vol_overlay'] || 0;
+        const mult = yScaleMultipliers['deliv_vol_overlay'] || 1.0;
+        let effectiveMax = Math.max(1, ((maxV / mult) * 1.15) + pan);
+        let effectiveMin = pan > 0 ? -pan * 0.2 : 0;
+        const getY = (val) => h - PADDING.bottom - (((val || 0) - effectiveMin) / (effectiveMax - effectiveMin)) * chartH;
+
+        drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, effectiveMin, effectiveMax, 4, formatNumber);
+
+        const volColor = style.volColor || css.getPropertyValue('--vol-bar-bg').trim() || '#1e3a8a';
+        const delivColor = style.delivColor || style.color || css.getPropertyValue('--deliv-bar-fill').trim() || '#00ff66';
+        const volBorder = css.getPropertyValue('--vol-bar-border').trim() || '#60a5fa';
+        const delivBorder = css.getPropertyValue('--deliv-bar-border').trim() || '#ffffff';
+        const volWidth = style.volWidth || 1.5;
+        const delivWidth = style.delivWidth || 1.5;
+        const volType = style.volType || 'column';
+        const delivType = style.delivType || 'column';
+
+        // 1. Render Total Volume Parameter
+        if (volType === 'column') {
+          const barW = Math.max(2, Math.min(22, (chartW / n) * 0.72));
+          data.forEach((d, i) => {
+            const xLeft = getX(i) - barW / 2;
+            const vy = getY(d.volume);
+            const vh = Math.max(1, (h - PADDING.bottom) - vy);
+            ctx.fillStyle = volColor;
+            ctx.fillRect(xLeft, vy, barW, vh);
+          });
+        } else if (volType === 'histogram') {
+          const barW = Math.max(1, Math.ceil(chartW / n));
+          data.forEach((d, i) => {
+            const xLeft = getX(i) - barW / 2;
+            const vy = getY(d.volume);
+            const vh = Math.max(1, (h - PADDING.bottom) - vy);
+            ctx.fillStyle = volColor;
+            ctx.fillRect(xLeft, vy, barW, vh);
+          });
+        } else if (volType === 'line') {
+          if (style.volFill) {
+            const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+            grad.addColorStop(0, hexToRgba(volColor, 0.35));
+            grad.addColorStop(1, hexToRgba(volColor, 0.0));
+            ctx.beginPath();
+            ctx.moveTo(getX(0), h - PADDING.bottom);
+            data.forEach((d, i) => ctx.lineTo(getX(i), getY(d.volume || 0)));
+            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+          }
+          ctx.beginPath();
+          data.forEach((d, i) => {
+            const x = getX(i), y = getY(d.volume || 0);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          });
+          ctx.strokeStyle = volColor;
+          ctx.lineWidth = volWidth;
+          ctx.stroke();
+        } else if (volType === 'step-line') {
+          ctx.beginPath();
+          data.forEach((d, i) => {
+            const x = getX(i), y = getY(d.volume || 0);
+            if (i === 0) ctx.moveTo(x, y);
+            else {
+              ctx.lineTo(x, getY(data[i - 1].volume || 0));
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.strokeStyle = volColor;
+          ctx.lineWidth = volWidth;
+          ctx.stroke();
+        }
+
+        // 2. Render Delivery Volume Parameter (Overlaid cleanly on top)
+        if (delivType === 'column') {
+          const barW = Math.max(2, Math.min(22, (chartW / n) * 0.72));
+          data.forEach((d, i) => {
+            if (d.delivVol) {
+              const xLeft = getX(i) - barW / 2;
+              const dy = getY(d.delivVol);
+              const dh = Math.max(1, (h - PADDING.bottom) - dy);
+              ctx.fillStyle = delivColor;
+              ctx.fillRect(xLeft, dy, barW, dh);
+            }
+          });
+        } else if (delivType === 'histogram') {
+          const barW = Math.max(1, Math.ceil(chartW / n));
+          data.forEach((d, i) => {
+            if (d.delivVol) {
+              const xLeft = getX(i) - barW / 2;
+              const dy = getY(d.delivVol);
+              const dh = Math.max(1, (h - PADDING.bottom) - dy);
+              ctx.fillStyle = delivColor;
+              ctx.fillRect(xLeft, dy, barW, dh);
+            }
+          });
+        } else if (delivType === 'line') {
+          if (style.delivFill) {
+            const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+            grad.addColorStop(0, hexToRgba(delivColor, 0.35));
+            grad.addColorStop(1, hexToRgba(delivColor, 0.0));
+            ctx.beginPath();
+            ctx.moveTo(getX(0), h - PADDING.bottom);
+            data.forEach((d, i) => ctx.lineTo(getX(i), getY(d.delivVol || 0)));
+            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+          }
+          ctx.beginPath();
+          data.forEach((d, i) => {
+            const x = getX(i), y = getY(d.delivVol || 0);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          });
+          ctx.strokeStyle = delivColor;
+          ctx.lineWidth = Math.max(1.5, delivWidth);
+          ctx.stroke();
+        } else if (delivType === 'step-line') {
+          ctx.beginPath();
+          data.forEach((d, i) => {
+            const x = getX(i), y = getY(d.delivVol || 0);
+            if (i === 0) ctx.moveTo(x, y);
+            else {
+              ctx.lineTo(x, getY(data[i - 1].delivVol || 0));
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.strokeStyle = delivColor;
+          ctx.lineWidth = Math.max(1.5, delivWidth);
+          ctx.stroke();
+        }
+
+        if (isBottom || maximizedPaneId === 'deliv_vol_overlay') {
+          drawXAxisDates(ctx, w, h, chartW, data, 'bottom');
+        }
+
+        // Live Crosshair Readout & Tooltips
+        if (hoveredIndex >= startIndex && hoveredIndex <= endIndex) {
+          const localIdx = hoveredIndex - startIndex;
+          const pt = data[localIdx];
+          const hx = getX(localIdx);
+          const hy = getY(pt.volume || 0);
+          drawCrosshair(ctx, hx, w, h, hy);
+
+          // ALWAYS display crosshair data on the scale (X & Y axis), independent of Tool-Tips toggle
+          const pillTxt = `Deliv: ${formatNumber(pt.delivVol)} / Vol: ${formatNumber(pt.volume)}`;
+          drawYAxisPill(ctx, w, hy, pillTxt, delivColor, '#fff');
+          if (isBottom || maximizedPaneId === 'deliv_vol_overlay') {
+            drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(pt.date), 'bottom');
+          }
+
+          if (showTooltips) {
+            drawWindowFloatingTooltip(ctx, hx, hy, w, h, [
+              { label: 'Total Volume', val: formatNumber(pt.volume), color: volColor, bold: true },
+              { label: 'Delivery Volume', val: formatNumber(pt.delivVol), color: delivColor, bold: true },
+              { label: 'Delivery %', val: pt.delivPct !== null ? `${pt.delivPct}%` : '--', color: '#10b981' }
+            ], delivColor);
+          }
+        }
+        drawShiftZoomOverlay(ctx, w, h);
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // CASE 2: ALL OTHER PARAMETERS (LINE, STEP-LINE, COLUMN, HISTOGRAM)
+      // -------------------------------------------------------------
+      const key = paramId === 'deliv_vol' ? 'delivVol' : (paramId === 'deliv_pct' ? 'delivPct' : (paramId === 'vol' || paramId === 'deliv_vol_overlay' ? 'volume' : paramId));
+      const validVals = data.map(d => d[key]).filter(v => v !== null && v !== undefined && !isNaN(v));
+      let minVal = validVals.length ? Math.min(...validVals) : 0;
+      let maxVal = validVals.length ? Math.max(...validVals) : 10;
+
+      const isLineOrStep = (style.chartType === 'line' || style.chartType === 'step-line');
+      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'deliv_pct'].includes(paramId);
+
+      // Statistical bands (MA, +/- 1SD, 2SD) for line/step-line or ratios
+      let ma = 0, sd = 0, p1sd = 0, m1sd = 0, p2sd = 0, m2sd = 0;
+      const hasSDBands = (isLineOrStep || isRatioOrMargin) && validVals.length >= 2;
+      if (hasSDBands) {
+        ma = validVals.reduce((a, b) => a + b, 0) / validVals.length;
+        const variance = validVals.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / validVals.length;
+        sd = Math.sqrt(variance);
+        p1sd = ma + sd;
+        m1sd = ma - sd;
+        p2sd = ma + 2 * sd;
+        m2sd = ma - 2 * sd;
+
+        if (isLineOrStep) {
+          minVal = Math.min(minVal, m2sd);
+          maxVal = Math.max(maxVal, p2sd);
+        }
+      }
+
+      if (!isLineOrStep) {
+        minVal = Math.min(0, minVal);
+      }
+
+      if (minVal === maxVal) {
+        minVal -= Math.abs(minVal) * 0.15 || 1;
+        maxVal += Math.abs(maxVal) * 0.15 || 1;
+      }
+
+      const pan = yPanOffsets[paramId] || 0;
+      const span = (maxVal - minVal) / mult;
+      const mid = (maxVal + minVal) / 2 + pan;
+      minVal = mid - span / 2;
+      maxVal = mid + span / 2;
+      if (minVal >= maxVal) maxVal = minVal + 1;
+
+      const getY = (val) => h - PADDING.bottom - ((val - minVal) / (maxVal - minVal)) * chartH;
+      const zeroY = getY(0);
+      const suffix = paramDef.suffix || '';
+      const formatter = (v) => paramDef.formatUnit ? formatNumber(v) : `${v.toFixed(1)}${suffix}`;
+
+      // Draw Right Axis (No horizontal grid)
+      drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, 4, formatter);
+
+      // Draw Statistical Dotted Lines for Line / Step-Line
+      if (isLineOrStep && hasSDBands) {
+        ctx.save();
+        ctx.setLineDash([2, 2.5]); // Small-dotted lines keeping exact dot size
+        ctx.lineWidth = 1.25;      // Bright, crisp and distinct
+
+        const colorMA = css.getPropertyValue('--sd-ma').trim();
+        const colorPlus = css.getPropertyValue('--sd-plus').trim();
+        const colorMinus = css.getPropertyValue('--sd-minus').trim();
+
+        const drawSDLine = (val, color, label) => {
+          const y = getY(val);
+          if (y >= PADDING.top && y <= h - PADDING.bottom) {
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(PADDING.left, y);
+            ctx.lineTo(w - PADDING.right, y);
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            ctx.font = 'bold 9.5px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(label, w - PADDING.right - 4, y - 3);
+          }
+        };
+
+        drawSDLine(p2sd, colorPlus, '2𝞼+');
+        drawSDLine(p1sd, colorPlus, '1𝞼+');
+        drawSDLine(ma, colorMA, 'AVG');
+        drawSDLine(m1sd, colorMinus, '1𝞼-');
+        drawSDLine(m2sd, colorMinus, '2𝞼-');
+        ctx.restore();
+      }
+
+      // Draw Data according to chartType:
+      if (style.chartType === 'line') {
+        if (style.showAreaFill) {
+          const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+          grad.addColorStop(0, hexToRgba(activeColor, 0.28));
+          grad.addColorStop(1, hexToRgba(activeColor, 0.0));
+          ctx.beginPath();
+          let started = false;
+          data.forEach((d, i) => {
+            const val = d[key];
+            if (val !== null && val !== undefined && !isNaN(val)) {
+              const x = getX(i), y = getY(val);
+              if (!started) { ctx.moveTo(x, h - PADDING.bottom); ctx.lineTo(x, y); started = true; }
+              else ctx.lineTo(x, y);
+            }
+          });
+          if (started) {
+            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+          }
+        }
+
+        ctx.beginPath();
+        let started = false;
+        data.forEach((d, i) => {
+          const val = d[key];
+          if (val !== null && val !== undefined && !isNaN(val)) {
+            const x = getX(i), y = getY(val);
+            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+          }
+        });
+        ctx.strokeStyle = activeColor;
+        ctx.lineWidth = lineWidth; // Sleek, not thick!
+        ctx.stroke();
+
+      } else if (style.chartType === 'step-line') {
+        if (style.showAreaFill) {
+          const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+          grad.addColorStop(0, hexToRgba(activeColor, 0.28));
+          grad.addColorStop(1, hexToRgba(activeColor, 0.0));
+          ctx.beginPath();
+          let started = false;
+          let prevVal = null;
+          data.forEach((d, i) => {
+            const val = d[key];
+            if (val !== null && val !== undefined && !isNaN(val)) {
+              const x = getX(i), y = getY(val);
+              if (!started) {
+                ctx.moveTo(x, h - PADDING.bottom);
+                ctx.lineTo(x, y);
+                started = true;
+              } else {
+                ctx.lineTo(x, getY(prevVal));
+                ctx.lineTo(x, y);
+              }
+              prevVal = val;
+            }
+          });
+          if (started) {
+            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+          }
+        }
+
+        ctx.beginPath();
+        let started = false;
+        let prevVal = null;
+        data.forEach((d, i) => {
+          const val = d[key];
+          if (val !== null && val !== undefined && !isNaN(val)) {
+            const x = getX(i), y = getY(val);
+            if (!started) {
+              ctx.moveTo(x, y);
+              started = true;
+            } else {
+              ctx.lineTo(x, getY(prevVal));
+              ctx.lineTo(x, y);
+            }
+            prevVal = val;
+          }
+        });
+        ctx.strokeStyle = activeColor;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+
+      } else if (style.chartType === 'column') {
+        const barW = Math.max(2, Math.min(22, (chartW / n) * 0.72));
+        data.forEach((d, i) => {
+          const val = d[key];
+          if (val === null || val === undefined || isNaN(val)) return;
+          const xLeft = getX(i) - barW / 2;
+          const y = getY(val);
+          if (val >= 0) {
+            ctx.fillStyle = activeColor;
+            ctx.fillRect(xLeft, y, barW, Math.max(1, zeroY - y));
+          } else {
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(xLeft, zeroY, barW, Math.max(1, y - zeroY));
+          }
+        });
+
+      } else if (style.chartType === 'histogram') {
+        const barW = Math.max(1, Math.ceil(chartW / n));
+        data.forEach((d, i) => {
+          const val = d[key];
+          if (val === null || val === undefined || isNaN(val)) return;
+          const xLeft = getX(i) - barW / 2;
+          const y = getY(val);
+          if (val >= 0) {
+            ctx.fillStyle = activeColor;
+            ctx.fillRect(xLeft, y, barW, Math.max(1, zeroY - y));
+          } else {
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(xLeft, zeroY, barW, Math.max(1, y - zeroY));
+          }
+        });
+      }
+
+      if (isBottom || maximizedPaneId === paramId) {
+        drawXAxisDates(ctx, w, h, chartW, data, 'bottom');
+      }
+
+      // Crosshair & Live Hover Pill & Tooltips
+      if (hoveredIndex >= startIndex && hoveredIndex <= endIndex) {
+        const localIdx = hoveredIndex - startIndex;
+        const val = data[localIdx][key];
+        if (val !== null && val !== undefined) {
+          const hx = getX(localIdx);
+          const hy = getY(val);
+          drawCrosshair(ctx, hx, w, h, hy);
+
+          // ALWAYS display crosshair data on the scale (X & Y axis), independent of Tool-Tips toggle
+          const pillTxt = paramDef.formatUnit ? formatNumber(val) : `${val.toFixed(2)}${suffix}`;
+          drawYAxisPill(ctx, w, hy, pillTxt, activeColor, '#fff');
+          if (isBottom || maximizedPaneId === paramId) {
+            drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(data[localIdx].date), 'bottom');
+          }
+
+          if (showTooltips) {
+            const tooltipItems = [
+              { label: paramDef.name, val: pillTxt, color: activeColor, bold: true }
+            ];
+
+            if (paramId === 'deliv_vol' && data[localIdx].delivPct !== null) {
+              tooltipItems.push({ label: 'Delivery %', val: `${data[localIdx].delivPct}%`, color: '#10b981' });
+            }
+
+            if (isLineOrStep && hasSDBands) {
+              const colorMA = css.getPropertyValue('--sd-ma').trim() || '#3b82f6';
+              const colorPlus = css.getPropertyValue('--sd-plus').trim() || '#ff4444';
+              const colorMinus = css.getPropertyValue('--sd-minus').trim() || '#22c55e';
+              tooltipItems.push({ label: 'AVG', val: `${ma.toFixed(2)}${suffix}`, color: colorMA });
+              tooltipItems.push({ label: '1𝞼+', val: `${p1sd.toFixed(2)}${suffix}`, color: colorPlus });
+              tooltipItems.push({ label: '1𝞼-', val: `${m1sd.toFixed(2)}${suffix}`, color: colorMinus });
+              tooltipItems.push({ label: '2𝞼+', val: `${p2sd.toFixed(2)}${suffix}`, color: colorPlus });
+              tooltipItems.push({ label: '2𝞼-', val: `${m2sd.toFixed(2)}${suffix}`, color: colorMinus });
+              const diffFromAvg = val - ma;
+              const sgn = diffFromAvg >= 0 ? '+' : '';
+              tooltipItems.push({
+                label: 'Diff (AVG)',
+                val: `${sgn}${diffFromAvg.toFixed(2)}${suffix}`,
+                color: diffFromAvg >= 0 ? colorPlus : colorMinus
+              });
+            }
+
+            drawWindowFloatingTooltip(ctx, hx, hy, w, h, tooltipItems, activeColor);
+          }
+        }
+      }
+
+      drawShiftZoomOverlay(ctx, w, h);
+    }
+
+    // ==========================================
+    // AXIS MARKINGS (NO HORIZONTAL GRID ACROSS CANVAS)
+    // ==========================================
+    function drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, ticks, formatter) {
+      const css = getComputedStyle(document.documentElement);
+      const textColor = css.getPropertyValue('--axis-text').trim();
+      const tickColor = css.getPropertyValue('--axis-tick').trim();
+
+      ctx.fillStyle = textColor;
+      ctx.font = 'bold 11px -apple-system, monospace';
+      ctx.textAlign = 'left';
+
+      // Draw Y-Axis labels & right-side tick marks only (NO horizontal grid across chart!)
+      for (let t = 0; t <= ticks; t++) {
+        const val = minVal + (t / ticks) * (maxVal - minVal);
+        const y = h - PADDING.bottom - (t / ticks) * chartH;
+
+        // Tick mark extending right from the axis boundary
+        ctx.strokeStyle = tickColor;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(w - PADDING.right, y);
+        ctx.lineTo(w - PADDING.right + 5, y);
+        ctx.stroke();
+
+        // High-contrast label
+        ctx.fillText(formatter(val), w - PADDING.right + 8, y + 4);
+      }
+
+      // Vertical right boundary line
+      ctx.strokeStyle = tickColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(w - PADDING.right, PADDING.top);
+      ctx.lineTo(w - PADDING.right, h - PADDING.bottom);
+      ctx.stroke();
+    }
+
+    function drawXAxisDates(ctx, w, h, chartW, data, position = 'bottom') {
+      const n = data.length;
+      if (!n) return;
+      const css = getComputedStyle(document.documentElement);
+      const isTop = position === 'top';
+      const isDark = !document.documentElement.classList.contains('bright-theme');
+
+      // Bottom scale uses standard axis text and 11px font; Top scale uses one size smaller (10px) and less bright (subtle/muted)
+      let textColor = css.getPropertyValue('--axis-text').trim();
+      let tickColor = css.getPropertyValue('--axis-tick').trim();
+      if (isTop) {
+        textColor = isDark ? 'rgba(148, 163, 184, 0.52)' : 'rgba(100, 116, 139, 0.58)';
+        tickColor = isDark ? 'rgba(51, 65, 85, 0.55)' : 'rgba(203, 213, 225, 0.60)';
+      }
+
+      ctx.save();
+      ctx.fillStyle = textColor;
+      ctx.font = isTop ? '500 10px monospace' : 'bold 11px monospace';
+      ctx.textAlign = 'center';
+
+      const totalTicks = Math.min(10, Math.max(5, Math.floor(chartW / 85)));
+      const step = Math.max(1, Math.floor((n - 1) / totalTicks));
+
+      for (let i = 0; i < n; i += step) {
+        const x = PADDING.left + (i / Math.max(1, n - 1)) * chartW;
+
+        ctx.strokeStyle = tickColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (isTop) {
+          ctx.moveTo(x, PADDING.top);
+          ctx.lineTo(x, PADDING.top - 4);
+        } else {
+          ctx.moveTo(x, h - PADDING.bottom);
+          ctx.lineTo(x, h - PADDING.bottom + 5);
+        }
+        ctx.stroke();
+
+        const textY = isTop ? PADDING.top - 7 : h - 6;
+        ctx.fillText(formatDateDDMMYY(data[i].date), x, textY);
+      }
+      ctx.restore();
+    }
+
+    function drawShiftZoomOverlay(ctx, w, h) {
+      if (!isShiftZoomDragging) return;
+      const leftX = Math.min(shiftZoomStartX, shiftZoomCurrentX);
+      const rightX = Math.max(shiftZoomStartX, shiftZoomCurrentX);
+      const clampedL = Math.max(PADDING.left, Math.min(w - PADDING.right, leftX));
+      const clampedR = Math.max(PADDING.left, Math.min(w - PADDING.right, rightX));
+      const selW = clampedR - clampedL;
+      if (selW <= 0) return;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+      ctx.fillRect(clampedL, PADDING.top, selW, h - PADDING.top - PADDING.bottom);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(clampedL, PADDING.top, selW, h - PADDING.top - PADDING.bottom);
+      ctx.restore();
+    }
+
+    function drawCrosshair(ctx, x, w, h, y) {
+      ctx.save();
+      const crossColor = getComputedStyle(document.documentElement).getPropertyValue('--crosshair').trim();
+      ctx.strokeStyle = crossColor;
+      ctx.setLineDash([2, 3]);
+      ctx.lineWidth = 1.0;
+
+      ctx.beginPath();
+      ctx.moveTo(x, PADDING.top);
+      ctx.lineTo(x, h - PADDING.bottom);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(PADDING.left, y);
+      ctx.lineTo(w - PADDING.right, y);
+      ctx.stroke();
+
+      ctx.fillStyle = crossColor;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawYAxisPill(ctx, w, y, text, bg, fg) {
+      ctx.save();
+      ctx.font = 'bold 11px monospace';
+      const textW = ctx.measureText(text).width;
+      const pillW = textW + 12;
+      const pillH = 18;
+      const pillX = w - PADDING.right + 3;
+      const pillY = Math.max(PADDING.top, Math.min(y - pillH / 2, ctx.canvas.height - PADDING.bottom - pillH));
+
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 3);
+      ctx.fill();
+
+      ctx.fillStyle = fg;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, pillX + pillW / 2, pillY + pillH / 2);
+      ctx.restore();
+    }
+
+    function drawXAxisPill(ctx, w, h, x, text, position = 'bottom') {
+      ctx.save();
+      const isDark = !document.documentElement.classList.contains('bright-theme');
+      const isTop = position === 'top';
+      ctx.font = isTop ? 'bold 10px monospace' : 'bold 11px monospace';
+      const textW = ctx.measureText(text).width;
+      const pillW = textW + (isTop ? 12 : 14);
+      const pillH = isTop ? 16 : 18;
+      const pillX = Math.max(PADDING.left, Math.min(x - pillW / 2, w - PADDING.right - pillW));
+
+      const pillY = isTop ? 4 : h - PADDING.bottom + 3;
+
+      ctx.fillStyle = isDark ? '#1e293b' : '#0f172a';
+      ctx.strokeStyle = isDark ? '#38bdf8' : '#0284c7';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 3);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, pillX + pillW / 2, pillY + pillH / 2);
+      ctx.restore();
+    }
+
+    function drawWindowFloatingTooltip(ctx, x, y, w, h, items, borderColor) {
+      if (!items || !items.length) return;
+      ctx.save();
+      const isDark = !document.documentElement.classList.contains('bright-theme');
+      const bg = isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)';
+      const textMuted = isDark ? '#94a3b8' : '#64748b';
+
+      const availableH = h - PADDING.top - PADDING.bottom;
+      const rowH = 17;
+      const singleColH = items.length * rowH + 16;
+      // Requirement 1: Double column layout for small size sub-windows so all data fits
+      const useDoubleColumn = items.length >= 4 && (singleColH > availableH || availableH < 170);
+
+      let boxW = 0;
+      let boxH = 0;
+      let col1W = 0;
+      let col2W = 0;
+      let colGap = 16;
+      let numRows = items.length;
+      let col1Items = items;
+      let col2Items = [];
+
+      if (useDoubleColumn) {
+        numRows = Math.ceil(items.length / 2);
+        col1Items = items.slice(0, numRows);
+        col2Items = items.slice(numRows);
+
+        let col1MaxL = 0, col1MaxV = 0;
+        col1Items.forEach(it => {
+          ctx.font = '600 10px -apple-system, sans-serif';
+          col1MaxL = Math.max(col1MaxL, ctx.measureText(it.label + ':').width);
+          ctx.font = (it.bold ? 'bold 10.5px' : '600 10.5px') + ' monospace';
+          col1MaxV = Math.max(col1MaxV, ctx.measureText(it.val).width);
+        });
+        col1W = col1MaxL + col1MaxV + 18;
+
+        let col2MaxL = 0, col2MaxV = 0;
+        col2Items.forEach(it => {
+          ctx.font = '600 10px -apple-system, sans-serif';
+          col2MaxL = Math.max(col2MaxL, ctx.measureText(it.label + ':').width);
+          ctx.font = (it.bold ? 'bold 10.5px' : '600 10.5px') + ' monospace';
+          col2MaxV = Math.max(col2MaxV, ctx.measureText(it.val).width);
+        });
+        col2W = col2MaxL + col2MaxV + 18;
+
+        boxW = Math.max(220, col1W + col2W + colGap + 16);
+        boxH = numRows * rowH + 14;
+      } else {
+        let maxLabelW = 0;
+        let maxValW = 0;
+        items.forEach(it => {
+          ctx.font = '600 10.5px -apple-system, sans-serif';
+          maxLabelW = Math.max(maxLabelW, ctx.measureText(it.label + ':').width);
+          ctx.font = (it.bold ? 'bold 11px' : '600 11px') + ' monospace';
+          maxValW = Math.max(maxValW, ctx.measureText(it.val).width);
+        });
+        boxW = Math.max(130, maxLabelW + maxValW + 28);
+        boxH = items.length * rowH + 14;
+      }
+
+      // Position box near cursor
+      let boxX = x + 14;
+      if (boxX + boxW > w - PADDING.right) {
+        boxX = x - boxW - 14;
+      }
+      if (boxX < PADDING.left) {
+        boxX = PADDING.left + 6;
+      }
+
+      let boxY = y - boxH / 2;
+      if (boxY < PADDING.top + 2) boxY = PADDING.top + 2;
+      if (boxY + boxH > h - PADDING.bottom - 2) boxY = Math.max(PADDING.top + 2, h - PADDING.bottom - boxH - 2);
+
+      // Box shadow / backdrop
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 3;
+
+      // Box background
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+      ctx.fill();
+
+      // Border in accent color
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = borderColor || '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      if (useDoubleColumn) {
+        // Render Column 1
+        col1Items.forEach((it, idx) => {
+          const itemY = boxY + 14 + idx * rowH;
+          ctx.fillStyle = it.labelColor || textMuted;
+          ctx.font = '600 10px -apple-system, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(it.label + ':', boxX + 8, itemY);
+
+          ctx.fillStyle = it.color || (isDark ? '#f8fafc' : '#0f172a');
+          ctx.font = (it.bold ? 'bold 10.5px' : '600 10.5px') + ' monospace';
+          ctx.textAlign = 'right';
+          ctx.fillText(it.val, boxX + 8 + col1W - 8, itemY);
+        });
+
+        // Column Divider Line
+        const dividerX = boxX + 8 + col1W + (colGap / 2) - 4;
+        ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(dividerX, boxY + 6);
+        ctx.lineTo(dividerX, boxY + boxH - 6);
+        ctx.stroke();
+
+        // Render Column 2
+        const col2StartX = dividerX + (colGap / 2) + 4;
+        col2Items.forEach((it, idx) => {
+          const itemY = boxY + 14 + idx * rowH;
+          ctx.fillStyle = it.labelColor || textMuted;
+          ctx.font = '600 10px -apple-system, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(it.label + ':', col2StartX, itemY);
+
+          ctx.fillStyle = it.color || (isDark ? '#f8fafc' : '#0f172a');
+          ctx.font = (it.bold ? 'bold 10.5px' : '600 10.5px') + ' monospace';
+          ctx.textAlign = 'right';
+          ctx.fillText(it.val, boxX + boxW - 8, itemY);
+        });
+      } else {
+        // Render Single Column
+        items.forEach((it, idx) => {
+          const itemY = boxY + 14 + idx * rowH;
+          // Label
+          ctx.fillStyle = it.labelColor || textMuted;
+          ctx.font = '600 10.5px -apple-system, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(it.label + ':', boxX + 10, itemY);
+
+          // Value
+          ctx.fillStyle = it.color || (isDark ? '#f8fafc' : '#0f172a');
+          ctx.font = (it.bold ? 'bold 11px' : '600 11px') + ' monospace';
+          ctx.textAlign = 'right';
+          ctx.fillText(it.val, boxX + boxW - 10, itemY);
+        });
+      }
+
+      ctx.restore();
+    }
+
+    // ==========================================
+    // TOP SLIM RIBBON CURRENT VALUES READOUT
+    // ==========================================
+    function updateSlimRibbon() {
+      if (!rawData.length) return;
+      // Requirement 1: At the top most ribbon show current values of displayed data
+      const currentIdx = Math.max(0, Math.min(rawData.length - 1, endIndex || (rawData.length - 1)));
+      const pt = rawData[currentIdx];
+      if (!pt) return;
+
+      const prevPt = (currentIdx > 0) ? rawData[currentIdx - 1] : null;
+      let priceHtml = `₹${pt.price.toFixed(2)}`;
+      if (prevPt) {
+        const diff = pt.price - prevPt.price;
+        const pct = (diff / prevPt.price) * 100;
+        const sgn = diff >= 0 ? '+' : '';
+        const chgColor = diff >= 0 ? '#10b981' : '#ef4444';
+        priceHtml += ` <span style="color: ${chgColor}; font-size: 11px; font-weight: 700;">(${sgn}₹${diff.toFixed(2)}, ${sgn}${pct.toFixed(2)}%)</span>`;
+      }
+
+      const dateEl = document.getElementById('sr-date');
+      const priceEl = document.getElementById('sr-price');
+      if (dateEl) dateEl.innerText = formatDateDDMMYY(pt.date);
+      if (priceEl) priceEl.innerHTML = priceHtml;
+
+      const container = document.getElementById('sr-dynamic-metrics');
+      if (!container) return;
+      const activeConfigs = subwindowConfig.filter(s => s.enabled);
+
+      let html = '';
+      activeConfigs.forEach(s => {
+        const param = ALL_PARAMETERS.find(p => p.id === s.id);
+        if (!param) return;
+        const color = getParamStyle(param.id).color || getComputedStyle(document.documentElement).getPropertyValue(param.colorVar).trim();
+
+        let valStr = '--';
+        if (param.id === 'deliv_vol_overlay') {
+          valStr = `${formatNumber(pt.delivVol)} / ${formatNumber(pt.volume)} (${pt.delivPct !== null ? pt.delivPct + '%' : '--'})`;
+        } else if (param.id === 'deliv_vol') {
+          valStr = `${formatNumber(pt.delivVol)} (${pt.delivPct !== null ? pt.delivPct + '%' : '--'})`;
+        } else if (param.id === 'vol') {
+          valStr = formatNumber(pt.volume);
+        } else if (param.id === 'deliv_pct') {
+          valStr = (pt.delivPct !== null && pt.delivPct !== undefined) ? `${pt.delivPct}%` : '--';
+        } else if (param.formatUnit) {
+          valStr = formatNumber(pt[param.id]);
+        } else {
+          const val = pt[param.id];
+          valStr = (val !== null && val !== undefined) ? `${val.toFixed(2)}${param.suffix || ''}` : '--';
+        }
+
+        html += `
+          <span class="slim-item">
+            <span style="color: ${color}; font-weight: 800;">${param.name}:</span>
+            <span class="slim-val">${valStr}</span>
+          </span>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // ==========================================
+    // INTERACTION: MOUSE & TOUCH CONTROLS
+    // ==========================================
+    const chartStack = document.getElementById('chart-stack');
+
+    chartStack.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!rawData.length) return;
+
+      const rect = chartStack.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const chartW = rect.width - PADDING.left - PADDING.right;
+      const xRel = Math.max(0, Math.min(chartW, mouseX - PADDING.left));
+      const cursorRatio = xRel / chartW;
+
+      const currentRange = endIndex - startIndex;
+      const zoomFactor = e.deltaY < 0 ? 0.8 : 1.25;
+      let newRange = Math.round(currentRange * zoomFactor);
+      newRange = Math.max(10, Math.min(rawData.length - 1, newRange));
+
+      const centerIdx = startIndex + cursorRatio * currentRange;
+      let newStart = Math.round(centerIdx - cursorRatio * newRange);
+      let newEnd = newStart + newRange;
+
+      if (newStart < 0) { newStart = 0; newEnd = Math.min(rawData.length - 1, newRange); }
+      if (newEnd >= rawData.length) { newEnd = rawData.length - 1; newStart = Math.max(0, newEnd - newRange); }
+
+      startIndex = newStart;
+      endIndex = newEnd;
+      requestRender();
+    }, { passive: false });
+
+    function getPaneDataSpan(paneKey) {
+      if (!rawData || !rawData.length) return 10;
+      const visible = rawData.slice(startIndex, endIndex + 1);
+      if (!visible.length) return 10;
+
+      if (paneKey === 'mw_price') {
+        let minP = Infinity, maxP = -Infinity;
+        visible.forEach(d => {
+          minP = Math.min(minP, d.price);
+          maxP = Math.max(maxP, d.price);
+          if (d.dma50) { minP = Math.min(minP, d.dma50); maxP = Math.max(maxP, d.dma50); }
+          if (d.dma200) { minP = Math.min(minP, d.dma200); maxP = Math.max(maxP, d.dma200); }
+        });
+        return (maxP - minP) || 10;
+      }
+
+      if (paneKey === 'deliv_vol_overlay' || paneKey === 'vol' || paneKey === 'deliv_vol') {
+        let maxV = Math.max(...visible.map(d => Math.max(d.volume || 0, d.delivVol || 0)));
+        return maxV || 100000;
+      }
+
+      const key = paneKey === 'deliv_vol' ? 'delivVol' : (paneKey === 'vol' ? 'volume' : paneKey);
+      let minV = Infinity, maxV = -Infinity;
+      visible.forEach(d => {
+        const v = d[key];
+        if (v !== null && v !== undefined && !isNaN(v)) {
+          minV = Math.min(minV, v);
+          maxV = Math.max(maxV, v);
+        }
+      });
+      if (minV === Infinity || maxV === -Infinity) return 10;
+      return (maxV - minV) || 10;
+    }
+
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartStartIndex = 0;
+    let dragStartEndIndex = 0;
+    let dragActivePaneKey = null;
+    let dragStartPan = 0;
+    let dragMode = null; // 'horizontal' | 'vertical' | null
+
+    let isXDragging = false;
+    let xDragStartX = 0;
+    let xDragStartRange = 0;
+    let xDragAnchorIndex = 0;
+    let xDragStartRatio = 0.5;
+
+    let isYDragging = false;
+    let yDragPaneKey = null;
+    let yDragStartY = 0;
+    let yDragStartMultiplier = 1.0;
+    let yDragStartPan = 0;
+
+    let isShiftZoomDragging = false;
+    let shiftZoomStartX = 0;
+    let shiftZoomCurrentX = 0;
+
+    chartStack.addEventListener('mousedown', (e) => {
+      // Ignore clicks on headers, close buttons, splitters, or tools
+      if (e.target.closest('.window-header') || e.target.closest('.btn-close-sub') || e.target.closest('.pane-splitter')) {
+        return;
+      }
+
+      const card = e.target.closest('.window-card');
+      const paneKey = identifyPaneFromTarget(e.target);
+      const cardRect = card ? card.getBoundingClientRect() : chartStack.getBoundingClientRect();
+      const mouseX = e.clientX - cardRect.left;
+      const mouseY = e.clientY - cardRect.top;
+      const chartW = cardRect.width - PADDING.left - PADDING.right;
+
+      // 1. Dragging right-side Y-axis: zooms and scales Y-axis (TradingView style)
+      if (mouseX >= cardRect.width - PADDING.right) {
+        isYDragging = true;
+        yDragPaneKey = paneKey;
+        yDragStartY = e.clientY;
+        yDragStartMultiplier = yScaleMultipliers[paneKey] || 1.0;
+        yDragStartPan = yPanOffsets[paneKey] || 0;
+        document.body.style.cursor = 'ns-resize';
+        return;
+      }
+
+      // 2. Dragging bottom time/date axis (X-axis): horizontal zoom-in and zoom-out (TradingView style)
+      if (mouseY >= cardRect.height - PADDING.bottom && mouseX >= PADDING.left && mouseX < cardRect.width - PADDING.right) {
+        isXDragging = true;
+        xDragStartX = e.clientX;
+        xDragStartRange = endIndex - startIndex;
+        const xRel = Math.max(0, Math.min(chartW, mouseX - PADDING.left));
+        xDragStartRatio = chartW > 0 ? (xRel / chartW) : 0.5;
+        xDragAnchorIndex = Math.round(startIndex + xDragStartRatio * xDragStartRange);
+        document.body.style.cursor = 'ew-resize';
+        return;
+      }
+
+      // 3. Shift + Drag on plot canvas: direct range zoom marquee
+      if (e.shiftKey) {
+        isShiftZoomDragging = true;
+        shiftZoomStartX = mouseX;
+        shiftZoomCurrentX = mouseX;
+        document.body.style.cursor = 'col-resize';
+        return;
+      }
+
+      // 4. Chart Plot Drag: directional lock between horizontal time pan and vertical baseline adjustment
+      isDragging = true;
+      dragActivePaneKey = paneKey;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragStartStartIndex = startIndex;
+      dragStartEndIndex = endIndex;
+      dragStartPan = yPanOffsets[paneKey] || 0;
+      dragMode = null; // Unlocked until movement intent detected
+      document.body.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      // 1. Desktop Window Dragging (by titlebar)
+      if (isWinDragging) {
+        const dx = e.clientX - winDragStartX;
+        const dy = e.clientY - winDragStartY;
+        const win = document.getElementById('desktop-window');
+        if (win) {
+          win.style.left = `${Math.max(0, Math.min(window.innerWidth - 100, winInitialLeft + dx))}px`;
+          win.style.top = `${Math.max(0, Math.min(window.innerHeight - 50, winInitialTop + dy))}px`;
+        }
+        return;
+      }
+
+      // 2. Desktop Window 2D Resizing (by handles)
+      if (isWinResizing) {
+        const win = document.getElementById('desktop-window');
+        if (win) {
+          const dx = e.clientX - winResizeStartX;
+          const dy = e.clientY - winResizeStartY;
+          if (winResizeDir === 'e' || winResizeDir === 'br') {
+            const newW = Math.max(380, Math.min(window.innerWidth - win.offsetLeft, winInitialW + dx));
+            win.style.width = `${newW}px`;
+          }
+          if (winResizeDir === 's' || winResizeDir === 'br') {
+            const newH = Math.max(300, Math.min(window.innerHeight - win.offsetTop, winInitialH + dy));
+            win.style.height = `${newH}px`;
+          }
+          updateChartPaneHeights();
+          resizeAndRender();
+        }
+        return;
+      }
+
+      // 3. Horizontal Splitter Dragging (TradingView pane height divider)
+      if (isSplitterDragging && abovePaneEl && belowPaneEl) {
+        const dy = e.clientY - splitterStartY;
+        const newAboveH = Math.max(60, abovePaneInitialH + dy);
+        const newBelowH = Math.max(60, belowPaneInitialH - dy);
+        abovePaneEl.style.height = `${newAboveH}px`;
+        belowPaneEl.style.height = `${newBelowH}px`;
+        if (abovePaneKey) customPaneHeights[abovePaneKey] = newAboveH;
+        if (belowPaneKey) customPaneHeights[belowPaneKey] = newBelowH;
+        resizeAndRender();
+        return;
+      }
+
+      const rect = chartStack.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+
+      // 4. Y-Axis Vertical Drag (scale + baseline pan)
+      if (isYDragging && yDragPaneKey) {
+        const dy = yDragStartY - e.clientY;
+        const scaleChange = 1 + (dy / 140);
+        yScaleMultipliers[yDragPaneKey] = Math.max(0.15, Math.min(8.0, yDragStartMultiplier * scaleChange));
+        const spanVal = getPaneDataSpan(yDragPaneKey);
+        yPanOffsets[yDragPaneKey] = yDragStartPan + (dy / 220) * spanVal;
+        requestRender();
+        return;
+      }
+
+      // 5. X-Axis Time Scale Drag (Horizontal Zoom In / Out like TradingView)
+      if (isXDragging) {
+        const deltaX = e.clientX - xDragStartX;
+        // In TradingView: dragging right zooms IN (deltaX > 0 -> scale expands, range shrinks)
+        // dragging left zooms OUT (deltaX < 0 -> scale contracts, range expands)
+        const zoomFactor = Math.pow(0.992, deltaX);
+        const currentTotal = rawData.length;
+        let newRange = Math.max(8, Math.min(currentTotal, Math.round(xDragStartRange * zoomFactor)));
+        let newStart = Math.round(xDragAnchorIndex - xDragStartRatio * newRange);
+        let newEnd = newStart + newRange;
+        if (newStart < 0) {
+          newStart = 0;
+          newEnd = Math.min(currentTotal - 1, newRange);
+        }
+        if (newEnd >= currentTotal) {
+          newEnd = currentTotal - 1;
+          newStart = Math.max(0, newEnd - newRange);
+        }
+        startIndex = newStart;
+        endIndex = newEnd;
+        requestRender();
+        return;
+      }
+
+      // 6. Shift + Drag Range Zoom Marquee
+      if (isShiftZoomDragging) {
+        const card = e.target.closest('.window-card') || chartStack;
+        const cardRect = card.getBoundingClientRect();
+        shiftZoomCurrentX = e.clientX - cardRect.left;
+        requestRender();
+        return;
+      }
+
+      // 7. 2D Chart Drag with Intent Detection / Directional Locking
+      if (isDragging) {
+        const chartW = rect.width - PADDING.left - PADDING.right;
+        const totalDx = e.clientX - dragStartX;
+        const totalDy = e.clientY - dragStartY;
+
+        // Intent detection: lock to horizontal time pan or vertical baseline adjust
+        if (!dragMode) {
+          if (Math.hypot(totalDx, totalDy) > 4) {
+            if (Math.abs(totalDx) >= Math.abs(totalDy) * 1.05) {
+              dragMode = 'horizontal';
+              document.body.style.cursor = 'grabbing';
+            } else {
+              dragMode = 'vertical';
+              document.body.style.cursor = 'ns-resize';
+            }
+          }
+        }
+
+        if (dragMode === 'horizontal') {
+          // Clean horizontal time pan without vertical jitter
+          const deltaBars = Math.round((totalDx / chartW) * (dragStartEndIndex - dragStartStartIndex));
+          let newStart = dragStartStartIndex - deltaBars;
+          let newEnd = dragStartEndIndex - deltaBars;
+          const range = dragStartEndIndex - dragStartStartIndex;
+          if (newStart < 0) { newStart = 0; newEnd = range; }
+          if (newEnd >= rawData.length) { newEnd = rawData.length - 1; newStart = Math.max(0, newEnd - range); }
+          startIndex = newStart;
+          endIndex = newEnd;
+          requestRender();
+          return;
+        }
+
+        if (dragMode === 'vertical' && dragActivePaneKey) {
+          // Vertical baseline translation: draw whole plot upward/downward (Req 6)
+          const activeCard = document.getElementById(dragActivePaneKey === 'mw_price' ? 'mw-price-card' : `card-${dragActivePaneKey}`);
+          const cardH = (activeCard ? activeCard.clientHeight : 200) - PADDING.top - PADDING.bottom;
+          const spanVal = getPaneDataSpan(dragActivePaneKey);
+          const deltaVal = (totalDy / Math.max(1, cardH)) * spanVal;
+          yPanOffsets[dragActivePaneKey] = dragStartPan + deltaVal;
+          requestRender();
+          return;
+        }
+      }
+
+      // Hover Crosshair & Axis Cursor
+      const hoveredCard = e.target ? e.target.closest('.window-card') : null;
+      if (hoveredCard) {
+        const cardRect = hoveredCard.getBoundingClientRect();
+        const cardX = e.clientX - cardRect.left;
+        const cardY = e.clientY - cardRect.top;
+        if (cardX >= cardRect.width - PADDING.right) {
+          document.body.style.cursor = 'ns-resize';
+        } else if (cardY >= cardRect.height - PADDING.bottom && cardX >= PADDING.left) {
+          document.body.style.cursor = 'ew-resize';
+        } else if (e.shiftKey) {
+          document.body.style.cursor = 'col-resize';
+        } else {
+          document.body.style.cursor = 'crosshair';
+        }
+      } else {
+        document.body.style.cursor = 'default';
+      }
+
+      const chartW = rect.width - PADDING.left - PADDING.right;
+      const xRel = mouseX - PADDING.left;
+      if (xRel >= 0 && xRel <= chartW && rawData.length) {
+        const range = endIndex - startIndex;
+        const localIdx = Math.round((xRel / chartW) * range);
+        hoveredIndex = Math.max(0, Math.min(rawData.length - 1, startIndex + localIdx));
+      } else {
+        hoveredIndex = -1;
+      }
+      requestRender();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isShiftZoomDragging) {
+        const rect = chartStack.getBoundingClientRect();
+        const chartW = rect.width - PADDING.left - PADDING.right;
+        const leftX = Math.min(shiftZoomStartX, shiftZoomCurrentX);
+        const rightX = Math.max(shiftZoomStartX, shiftZoomCurrentX);
+        const selPx = rightX - leftX;
+        if (selPx > 15 && chartW > 0) {
+          const currentRange = endIndex - startIndex;
+          const selStartRel = Math.max(0, Math.min(chartW, leftX - PADDING.left));
+          const selEndRel = Math.max(0, Math.min(chartW, rightX - PADDING.left));
+          const newStart = Math.max(0, Math.min(rawData.length - 1, startIndex + Math.round((selStartRel / chartW) * currentRange)));
+          const newEnd = Math.max(newStart + 5, Math.min(rawData.length - 1, startIndex + Math.round((selEndRel / chartW) * currentRange)));
+          startIndex = newStart;
+          endIndex = newEnd;
+        }
+        isShiftZoomDragging = false;
+      }
+
+      isDragging = false;
+      dragMode = null;
+      isXDragging = false;
+      isYDragging = false;
+      yDragPaneKey = null;
+      dragActivePaneKey = null;
+      isWinDragging = false;
+      isWinResizing = false;
+      isSplitterDragging = false;
+      abovePaneEl = null;
+      belowPaneEl = null;
+      document.body.style.cursor = 'default';
+      requestRender();
+    });
+
+    chartStack.addEventListener('dblclick', (e) => {
+      const card = e.target.closest('.window-card');
+      const paneKey = identifyPaneFromTarget(e.target);
+      const cardRect = card ? card.getBoundingClientRect() : chartStack.getBoundingClientRect();
+      const mouseX = e.clientX - cardRect.left;
+      const mouseY = e.clientY - cardRect.top;
+
+      if (mouseX >= cardRect.width - PADDING.right) {
+        // Double clicked right price/value axis -> auto-scale that pane
+        yScaleMultipliers[paneKey] = 1.0;
+        yPanOffsets[paneKey] = 0;
+        requestRender();
+      } else if (mouseY >= cardRect.height - PADDING.bottom) {
+        // Double clicked bottom time axis -> reset horizontal time range
+        initViewRange();
+        requestRender();
+      }
+    });
+
+    function identifyPaneFromTarget(target) {
+      const card = target.closest('.window-card');
+      if (!card) return 'mw_price';
+      if (card.id === 'mw-price-card') return 'mw_price';
+      return card.id.replace('card-', '');
+    }
+
+    function resetZoom() {
+      initViewRange();
+      customPaneHeights = {};
+      updateChartPaneHeights();
+      requestRender();
+    }
+
+    function autoYScale() {
+      yScaleMultipliers['mw_price'] = 1.0;
+      yPanOffsets['mw_price'] = 0;
+      ALL_PARAMETERS.forEach(p => {
+        yScaleMultipliers[p.id] = 1.0;
+        yPanOffsets[p.id] = 0;
+      });
+      customPaneHeights = {};
+      updateChartPaneHeights();
+      requestRender();
+    }
+
+    function onTimespanChange(val) {
+      timespan = val;
+      loadStockData();
+    }
+
+    // Touch Support for Mobile (Single-finger pan + Two-finger pinch-to-zoom)
+    let touchStartX = 0;
+    let touchStartDist = 0;
+    let touchStartRange = 0;
+
+    chartStack.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        touchStartX = e.touches[0].clientX;
+        dragStartStartIndex = startIndex;
+        dragStartEndIndex = endIndex;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        touchStartDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        touchStartRange = endIndex - startIndex;
+      }
+    }, { passive: true });
+
+    chartStack.addEventListener('touchmove', (e) => {
+      if (isDragging && e.touches.length === 1) {
+        const rect = chartStack.getBoundingClientRect();
+        const chartW = rect.width - PADDING.left - PADDING.right;
+        const deltaX = e.touches[0].clientX - touchStartX;
+        const deltaBars = Math.round((deltaX / chartW) * (dragStartEndIndex - dragStartStartIndex));
+
+        let newStart = dragStartStartIndex - deltaBars;
+        let newEnd = dragStartEndIndex - deltaBars;
+        const range = dragStartEndIndex - dragStartStartIndex;
+
+        if (newStart < 0) { newStart = 0; newEnd = range; }
+        if (newEnd >= rawData.length) { newEnd = rawData.length - 1; newStart = Math.max(0, newEnd - range); }
+
+        startIndex = newStart;
+        endIndex = newEnd;
+        requestRender();
+      } else if (e.touches.length === 2 && touchStartDist > 0) {
+        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        const scale = touchStartDist / Math.max(1, dist);
+        const newRange = Math.max(10, Math.min(rawData.length, Math.round(touchStartRange * scale)));
+        const mid = (startIndex + endIndex) / 2;
+        let newStart = Math.round(mid - newRange / 2);
+        let newEnd = newStart + newRange;
+        if (newStart < 0) { newStart = 0; newEnd = Math.min(rawData.length - 1, newRange); }
+        if (newEnd >= rawData.length) { newEnd = rawData.length - 1; newStart = Math.max(0, newEnd - newRange); }
+        startIndex = newStart;
+        endIndex = newEnd;
+        requestRender();
+      }
+    }, { passive: true });
+
+    chartStack.addEventListener('touchend', () => {
+      isDragging = false;
+      touchStartDist = 0;
+    });
+
+    window.addEventListener('resize', () => {
+      resizeAndRender();
+    });
+
+    // Expose modal and actions to global window for inline onclick handlers
+    window.openParamSettingsModal = openParamSettingsModal;
+    window.closeParamSettingsModal = closeParamSettingsModal;
+    window.setModalChartType = setModalChartType;
+    window.onModalColorChange = onModalColorChange;
+    window.onModalWidthChange = onModalWidthChange;
+    window.onModalFillChange = onModalFillChange;
+    window.setDualVolType = setDualVolType;
+    window.onModalVolColorChange = onModalVolColorChange;
+    window.onModalVolWidthChange = onModalVolWidthChange;
+    window.onModalVolFillChange = onModalVolFillChange;
+    window.setDualDelivType = setDualDelivType;
+    window.onModalDelivColorChange = onModalDelivColorChange;
+    window.onModalDelivWidthChange = onModalDelivWidthChange;
+    window.onModalDelivFillChange = onModalDelivFillChange;
+    window.resetModalParamDefaults = resetModalParamDefaults;
+    window.applyParamSettingsModal = applyParamSettingsModal;
+    window.openSubwindowModal = openSubwindowModal;
+    window.closeSubwindowModal = closeSubwindowModal;
+    window.closeSubwindow = closeSubwindow;
+    window.toggleTooltips = toggleTooltips;
+    window.toggleMaximizePane = toggleMaximizePane;
+    window.toggleWindowMaximize = toggleWindowMaximize;
+    window.toggleWindowMinimize = toggleWindowMinimize;
+    window.toggleTheme = toggleTheme;
+    window.resetZoom = resetZoom;
+    window.autoYScale = autoYScale;
+    window.onTimespanChange = onTimespanChange;
+    window.renderAll = renderAll;
+    window.formatDateDDMMYY = formatDateDDMMYY;
+    window.toggleConsolidatedStandalone = toggleConsolidatedStandalone;
+    window.updateScriptTitleHeader = updateScriptTitleHeader;
+    window.onSearchScript = onSearchScript;
+
+    Object.defineProperty(window, 'rawData', { get: () => rawData, set: (v) => { rawData = v; } });
+    Object.defineProperty(window, 'subwindowConfig', { get: () => subwindowConfig, set: (v) => { subwindowConfig = v; } });
+    Object.defineProperty(window, 'startIndex', { get: () => startIndex, set: (v) => { startIndex = v; } });
+    Object.defineProperty(window, 'endIndex', { get: () => endIndex, set: (v) => { endIndex = v; } });
+    Object.defineProperty(window, 'hoveredIndex', { get: () => hoveredIndex, set: (v) => { hoveredIndex = v; } });
+    Object.defineProperty(window, 'showTooltips', { get: () => showTooltips, set: (v) => { showTooltips = v; } });
+    Object.defineProperty(window, 'isConsolidatedActive', { get: () => isConsolidatedActive, set: (v) => { isConsolidatedActive = v; } });
+    Object.defineProperty(window, 'hasConsolidatedStatements', { get: () => hasConsolidatedStatements, set: (v) => { hasConsolidatedStatements = v; } });
+    Object.defineProperty(window, 'yScaleMultipliers', { get: () => yScaleMultipliers });
+    Object.defineProperty(window, 'yPanOffsets', { get: () => yPanOffsets });
+
+    window.onload = () => {
+      if (initialCompanyName || symbol) {
+        updateScriptTitleHeader(initialCompanyName || symbol);
+      }
+      initDesktopWindowControls();
+      initSubwindowSession();
+      initParamStyles();
+      updateTooltipsButtonUI();
+      loadStockData();
+    };
+  </script>
+</body>
+</html>

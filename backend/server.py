@@ -83,6 +83,18 @@ class LocalAppHandler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         if parsed.path == "/api/status":
             return self._send_json(200, {"ok": True, "mode": "local", "download": "available", "about": "available"})
+        if parsed.path == "/api/chart":
+            from urllib.parse import parse_qs
+            from screener_chart import fetch_screener_chart_data
+            query_params = parse_qs(parsed.query)
+            symbol = query_params.get("symbol", ["RELIANCE"])[0].strip().upper() or "RELIANCE"
+            days = query_params.get("days", ["365"])[0].strip()
+            view = query_params.get("view", [""])[0].strip()
+            try:
+                data = fetch_screener_chart_data(symbol, days, view)
+                return self._send_json(200, data)
+            except Exception as e:
+                return self._send_json(500, {"detail": f"Error fetching chart data: {str(e)}"})
         if parsed.path.startswith("/api/"):
             return self._send_json(404, {"detail": "API route not found."})
         if not DIST_DIR.exists():
