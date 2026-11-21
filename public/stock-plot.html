@@ -117,6 +117,7 @@
       padding: 0;
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
@@ -134,6 +135,7 @@
       top: 10px;
       width: calc(100vw - 20px);
       height: calc(100vh - 20px);
+      height: calc(100dvh - 20px);
       min-width: 380px;
       min-height: 320px;
       background: var(--card-bg);
@@ -152,6 +154,7 @@
       top: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
+      height: 100dvh !important;
       border-radius: 0 !important;
       border: none !important;
       box-shadow: none !important;
@@ -419,6 +422,7 @@
       padding: 4px;
       overflow: hidden;
       position: relative;
+      touch-action: pan-y;
     }
 
     .window-card {
@@ -432,6 +436,16 @@
       flex-direction: column;
       flex-shrink: 0;
       transition: border-color 0.2s;
+      touch-action: pan-y;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      touch-action: pan-y;
     }
 
     #subwindows-container {
@@ -440,8 +454,13 @@
       flex: 1 1 0;
       min-height: 0;
       overflow-x: hidden;
+      overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      padding-bottom: 24px;
+      touch-action: pan-y;
     }
     #subwindows-container::-webkit-scrollbar {
       width: 6px;
@@ -839,12 +858,251 @@
       transition: height 0.1s ease, background-color 0.1s ease;
     }
 
+    /* UPPER RIBBONS COLLAPSIBLE WRAPPER */
+    #upper-ribbons-wrapper {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .ribbon-compact-bar {
+      height: 34px;
+      min-height: 34px;
+      background: var(--main-ribbon-bg);
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      gap: 10px;
+      user-select: none;
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .compact-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .compact-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: 0.3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .compact-mode {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .compact-price-tag {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .compact-price {
+      font-size: 12.5px;
+      font-weight: 800;
+      font-family: monospace;
+    }
+
+    .compact-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-ribbon-toggle-btn {
+      background: rgba(37, 99, 235, 0.16) !important;
+      border: 1px solid rgba(59, 130, 246, 0.5) !important;
+      color: #38bdf8 !important;
+      font-weight: 800 !important;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-ribbon-toggle-btn:hover {
+      background: rgba(37, 99, 235, 0.3) !important;
+      color: #ffffff !important;
+      border-color: #38bdf8 !important;
+    }
+
+    .btn-ribbon-expand-btn {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      border: 1px solid #3b82f6 !important;
+      padding: 3px 10px !important;
+      font-size: 11px !important;
+      font-weight: 800 !important;
+      border-radius: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-ribbon-expand-btn:hover {
+      background: #1d4ed8 !important;
+    }
+
+    /* 100% RESPONSIVE MOBILE CSS RULES */
     @media (max-width: 768px) {
-      body { padding: 4px; }
-      .main-ribbon { padding: 8px 10px; gap: 8px; }
-      .script-name { font-size: 15px; }
-      .script-sub { display: none; }
-      .top-slim-ribbon { font-size: 10px; gap: 10px; }
+      html, body {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .desktop-window {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .win-resizer {
+        display: none !important;
+      }
+
+      .desktop-window-body {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+      }
+
+      .top-slim-ribbon {
+        height: 26px;
+        padding: 0 8px;
+        font-size: 10px;
+        gap: 8px;
+        max-width: 100vw;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .main-ribbon {
+        padding: 6px 8px;
+        gap: 6px;
+        max-width: 100vw;
+        box-sizing: border-box;
+      }
+
+      .script-title-box {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+      }
+
+      .script-name {
+        font-size: 13.5px;
+      }
+
+      .script-sub {
+        display: none;
+      }
+
+      .script-search-form {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box;
+      }
+
+      .script-search-form input {
+        width: 100% !important;
+        font-size: 11px !important;
+      }
+
+      .main-actions {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap !important;
+        gap: 6px;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .main-actions::-webkit-scrollbar {
+        display: none;
+      }
+
+      .btn-action, .btn-subwindow, .select-timespan {
+        flex-shrink: 0;
+        padding: 5px 8px;
+        font-size: 10.5px;
+      }
+
+      .win-ctrl-group {
+        display: none !important;
+      }
+
+      .chart-stack {
+        padding: 2px;
+        width: 100vw;
+        max-width: 100vw;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      .window-card {
+        border-radius: 4px;
+        border-width: 1.5px;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+        margin-bottom: 4px;
+      }
+
+      #subwindows-container {
+        padding-bottom: calc(70px + env(safe-area-inset-bottom, 24px)) !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+
+      .pane-splitter {
+        display: none !important;
+      }
     }
   </style>
 </head>
@@ -854,76 +1112,102 @@
     <!-- Desktop Window Body -->
     <div class="desktop-window-body" id="desktop-window-body">
 
-      <!-- 1. TOP SLIM RIBBON -->
-      <div class="top-slim-ribbon" id="top-slim-ribbon">
-        <span class="slim-badge-current">● CURRENT</span>
-        <span class="slim-item" style="color: var(--color-price);">
-          📅 <span class="slim-val" id="sr-date">--</span>
-        </span>
-        <span class="slim-item">
-          Price: <span class="slim-val" id="sr-price" style="color: var(--color-price);">--</span>
-        </span>
-        <span id="sr-dynamic-metrics" style="display: inline-flex; gap: 14px;"></span>
-      </div>
+      <!-- UPPER RIBBONS WRAPPER (DEFAULT: MAXIMIZED) -->
+      <div id="upper-ribbons-wrapper" class="ribbons-maximized">
 
-      <!-- 2. IMPORTANT MAIN RIBBON -->
-      <div class="main-ribbon">
-        <!-- Script Name & Search -->
-        <div class="script-title-box">
-          <span class="script-name" id="main-script-title">Reliance Industries (RELIANCE) <span class="script-mode-badge mode-consolidated" id="main-script-mode" onclick="toggleConsolidatedStandalone()" title="Click to toggle between Consolidated and Standalone data">(Consolidated)</span></span>
-          <span class="script-sub" id="main-script-sub">NSE Equities</span>
+        <!-- COMPACT HEADER (VISIBLE WHEN RIBBONS ARE MINIMIZED) -->
+        <div class="ribbon-compact-bar" id="ribbon-compact-bar" style="display: none;">
+          <div class="compact-left">
+            <span class="compact-title" id="compact-script-title">Reliance Industries (RELIANCE)</span>
+            <span class="script-mode-badge mode-consolidated compact-mode" id="compact-script-mode" onclick="toggleConsolidatedStandalone()">(Consolidated)</span>
+            <span class="compact-price-tag">Price: <span class="compact-price" id="compact-script-price" style="color: var(--color-price);">--</span></span>
+          </div>
+          <div class="compact-right">
+            <button class="btn-ribbon-expand-btn" onclick="toggleRibbonCollapse()" title="Show Full Ribbons & Controls">
+              ▼ Show Ribbons
+            </button>
+          </div>
         </div>
 
-        <!-- Quick Script Search Box -->
-        <form class="script-search-form" id="script-search-form" onsubmit="event.preventDefault(); onSearchScript();" style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-right: auto; margin-left: 10px;">
-          <input type="text" id="script-search-input" placeholder="Search Script (e.g. RELIANCE, TCS, INFY)" autocomplete="off" spellcheck="false" style="background: transparent; border: none; outline: none; color: var(--text); font-size: 12px; font-weight: 600; width: 175px; padding: 2px 4px; font-family: monospace;" />
-          <button type="submit" class="btn-search-go" title="Load script" style="background: #0284c7; color: #fff; border: none; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s ease;">
-            <span>Go</span>
-          </button>
-        </form>
+        <!-- FULL RIBBONS CONTENT (DEFAULT: VISIBLE) -->
+        <div id="ribbon-full-content">
+          <!-- 1. TOP SLIM RIBBON -->
+          <div class="top-slim-ribbon" id="top-slim-ribbon">
+            <span class="slim-badge-current">● CURRENT</span>
+            <span class="slim-item" style="color: var(--color-price);">
+              📅 <span class="slim-val" id="sr-date">--</span>
+            </span>
+            <span class="slim-item">
+              Price: <span class="slim-val" id="sr-price" style="color: var(--color-price);">--</span>
+            </span>
+            <span id="sr-dynamic-metrics" style="display: inline-flex; gap: 14px;"></span>
+          </div>
 
-        <!-- Controls in Required Order -->
-        <div class="main-actions">
-          <!-- 1. Mode Toggle -->
-          <button class="btn-action" id="btn-theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Mode">
-            ☀️ Bright Mode
-          </button>
+          <!-- 2. IMPORTANT MAIN RIBBON -->
+          <div class="main-ribbon" id="main-ribbon">
+            <!-- Script Name & Search -->
+            <div class="script-title-box">
+              <span class="script-name" id="main-script-title">Reliance Industries (RELIANCE) <span class="script-mode-badge mode-consolidated" id="main-script-mode" onclick="toggleConsolidatedStandalone()" title="Click to toggle between Consolidated and Standalone data">(Consolidated)</span></span>
+              <span class="script-sub" id="main-script-sub">NSE Equities</span>
+            </div>
 
-          <!-- 2. Timespan Dropdown -->
-          <select class="select-timespan" id="select-timespan" onchange="onTimespanChange(this.value)">
-            <option value="3M">3 Months</option>
-            <option value="6M">6 Months</option>
-            <option value="1Y" selected>1 Year</option>
-            <option value="3Y">3 Years</option>
-            <option value="5Y">5 Years</option>
-            <option value="7Y">7 Years</option>
-            <option value="10Y">10 Years</option>
-          </select>
+            <!-- Quick Script Search Box -->
+            <form class="script-search-form" id="script-search-form" onsubmit="event.preventDefault(); onSearchScript();" style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-right: auto; margin-left: 10px;">
+              <input type="text" id="script-search-input" placeholder="Search Script (e.g. RELIANCE, TCS, INFY)" autocomplete="off" spellcheck="false" style="background: transparent; border: none; outline: none; color: var(--text); font-size: 12px; font-weight: 600; width: 175px; padding: 2px 4px; font-family: monospace;" />
+              <button type="submit" class="btn-search-go" title="Load script" style="background: #0284c7; color: #fff; border: none; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s ease;">
+                <span>Go</span>
+              </button>
+            </form>
 
-          <!-- 3. Sub-window Selection Button -->
-          <button class="btn-subwindow" onclick="openSubwindowModal()" title="Add/Remove & Arrange Sub-windows">
-            ⚙ Sub-Windows (<span id="active-sub-count">1</span>/8)
-          </button>
+            <!-- Controls in Required Order -->
+            <div class="main-actions">
+              <!-- Minimize Ribbons Toggle Button -->
+              <button class="btn-action btn-ribbon-toggle-btn" id="btn-ribbon-toggle" onclick="toggleRibbonCollapse()" title="Minimize Ribbons & Controls to give maximum screen space to charts">
+                ▲ Hide Ribbons
+              </button>
 
-          <!-- 4. Tooltips Toggle -->
-          <button class="btn-action btn-toggle-active" id="btn-tooltips-toggle" onclick="toggleTooltips()" title="Toggle cursor tooltips on/off">
-            💬 Tooltips: ON
-          </button>
+              <!-- 1. Mode Toggle -->
+              <button class="btn-action" id="btn-theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Mode">
+                ☀️ Bright Mode
+              </button>
 
-          <!-- 5. Reset Zoom -->
-          <button class="btn-action" onclick="resetZoom()" title="Reset Time Window &amp; Scales">
-            ⟲ Reset Zoom
-          </button>
+              <!-- 2. Timespan Dropdown -->
+              <select class="select-timespan" id="select-timespan" onchange="onTimespanChange(this.value)">
+                <option value="3M">3 Months</option>
+                <option value="6M">6 Months</option>
+                <option value="1Y" selected>1 Year</option>
+                <option value="3Y">3 Years</option>
+                <option value="5Y">5 Years</option>
+                <option value="7Y">7 Years</option>
+                <option value="10Y">10 Years</option>
+              </select>
 
-          <!-- 6. Auto Y-axis -->
-          <button class="btn-action" onclick="autoYScale()" title="Auto-scale Y-Axis &amp; Heights">
-            ↕ Auto Y-axis
-          </button>
+              <!-- 3. Sub-window Selection Button -->
+              <button class="btn-subwindow" onclick="openSubwindowModal()" title="Add/Remove & Arrange Sub-windows">
+                ⚙ Sub-Windows (<span id="active-sub-count">1</span>/8)
+              </button>
 
-          <!-- Window Controls (Minimize / Maximize) -->
-          <div class="win-ctrl-group">
-            <button class="btn-win-ctrl" id="btn-win-minimize" onclick="toggleWindowMinimize()" title="Minimize Window">🗕</button>
-            <button class="btn-win-ctrl" id="btn-win-maximize" onclick="toggleWindowMaximize()" title="Maximize / Restore Window">🗖</button>
+              <!-- 4. Tooltips Toggle -->
+              <button class="btn-action btn-toggle-active" id="btn-tooltips-toggle" onclick="toggleTooltips()" title="Toggle cursor tooltips on/off">
+                💬 Tooltips: ON
+              </button>
+
+              <!-- 5. Reset Zoom -->
+              <button class="btn-action" onclick="resetZoom()" title="Reset Time Window &amp; Scales">
+                ⟲ Reset Zoom
+              </button>
+
+              <!-- 6. Auto Y-axis -->
+              <button class="btn-action" onclick="autoYScale()" title="Auto-scale Y-Axis &amp; Heights">
+                ↕ Auto Y-axis
+              </button>
+
+              <!-- Window Controls (Minimize / Maximize) -->
+              <div class="win-ctrl-group">
+                <button class="btn-win-ctrl" id="btn-win-minimize" onclick="toggleWindowMinimize()" title="Minimize Window">🗕</button>
+                <button class="btn-win-ctrl" id="btn-win-maximize" onclick="toggleWindowMaximize()" title="Maximize / Restore Window">🗖</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1783,6 +2067,7 @@
         const modeShort = isConsolidatedActive ? 'Consolidated' : 'Standalone';
         tagEl.innerText = `${symbol} (${modeShort})`;
       }
+      syncCompactBarInfo();
     }
 
     function toggleConsolidatedStandalone() {
@@ -2080,7 +2365,10 @@
 
       // Responsive Mobile Layout
       if (window.innerWidth <= 768) {
-        if (mwCard) mwCard.style.height = `${Math.max(200, Math.round(stackH * 0.42))}px`;
+        if (mwCard) {
+          const ratio = isRibbonMinimized ? 0.48 : 0.40;
+          mwCard.style.height = `${Math.max(170, Math.round(stackH * ratio))}px`;
+        }
         if (subContainer) {
           subContainer.style.overflowY = 'auto';
           subContainer.style.flex = '1 1 0';
@@ -3526,6 +3814,7 @@
       const priceEl = document.getElementById('sr-price');
       if (dateEl) dateEl.innerText = formatDateDDMMYY(pt.date);
       if (priceEl) priceEl.innerHTML = priceHtml;
+      syncCompactBarInfo();
 
       const container = document.getElementById('sr-dynamic-metrics');
       if (!container) return;
@@ -3964,41 +4253,120 @@
       loadStockData();
     }
 
-    // Touch Support for Mobile (Single-finger pan + Two-finger pinch-to-zoom)
+    // ==========================================
+    // UPPER RIBBONS MINIMIZE / MAXIMIZE CONTROLS
+    // ==========================================
+    let isRibbonMinimized = false; // By default maximized as requested
+
+    function toggleRibbonCollapse() {
+      const compactBar = document.getElementById('ribbon-compact-bar');
+      const fullContent = document.getElementById('ribbon-full-content');
+      const wrapper = document.getElementById('upper-ribbons-wrapper');
+      const toggleBtn = document.getElementById('btn-ribbon-toggle');
+      if (!compactBar || !fullContent) return;
+
+      isRibbonMinimized = !isRibbonMinimized;
+
+      if (isRibbonMinimized) {
+        fullContent.style.display = 'none';
+        compactBar.style.display = 'flex';
+        if (wrapper) {
+          wrapper.classList.remove('ribbons-maximized');
+          wrapper.classList.add('ribbons-minimized');
+        }
+        syncCompactBarInfo();
+      } else {
+        compactBar.style.display = 'none';
+        fullContent.style.display = 'block';
+        if (wrapper) {
+          wrapper.classList.remove('ribbons-minimized');
+          wrapper.classList.add('ribbons-maximized');
+        }
+      }
+
+      updateChartPaneHeights();
+      resizeAndRender();
+    }
+
+    function syncCompactBarInfo() {
+      const titleEl = document.getElementById('compact-script-title');
+      const modeEl = document.getElementById('compact-script-mode');
+      const priceEl = document.getElementById('compact-script-price');
+      const srPrice = document.getElementById('sr-price');
+
+      if (titleEl) {
+        const cName = initialCompanyName || symbol;
+        titleEl.textContent = (cName && cName !== symbol) ? `${cName} (${symbol})` : (cName || symbol);
+      }
+      if (modeEl) {
+        modeEl.textContent = isConsolidatedActive ? '(Consolidated)' : '(Standalone)';
+        modeEl.className = `script-mode-badge ${isConsolidatedActive ? 'mode-consolidated' : 'mode-standalone'} compact-mode`;
+      }
+      if (priceEl && srPrice) {
+        priceEl.innerHTML = srPrice.innerHTML || '--';
+      }
+    }
+
+    // Touch Support for Mobile (Directional Locking: Horizontal Pan vs Vertical Scroll + Pinch Zoom)
     let touchStartX = 0;
+    let touchStartY = 0;
     let touchStartDist = 0;
     let touchStartRange = 0;
+    let touchDecided = false;
+    let touchIsHorizontalPan = false;
 
     chartStack.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
-        isDragging = true;
         touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
         dragStartStartIndex = startIndex;
         dragStartEndIndex = endIndex;
+        touchDecided = false;
+        touchIsHorizontalPan = false;
+        isDragging = false;
       } else if (e.touches.length === 2) {
         isDragging = false;
+        touchDecided = true;
+        touchIsHorizontalPan = false;
         touchStartDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         touchStartRange = endIndex - startIndex;
       }
     }, { passive: true });
 
     chartStack.addEventListener('touchmove', (e) => {
-      if (isDragging && e.touches.length === 1) {
-        const rect = chartStack.getBoundingClientRect();
-        const chartW = rect.width - PADDING.left - PADDING.right;
-        const deltaX = e.touches[0].clientX - touchStartX;
-        const deltaBars = Math.round((deltaX / chartW) * (dragStartEndIndex - dragStartStartIndex));
+      if (e.touches.length === 1) {
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
 
-        let newStart = dragStartStartIndex - deltaBars;
-        let newEnd = dragStartEndIndex - deltaBars;
-        const range = dragStartEndIndex - dragStartStartIndex;
+        if (!touchDecided) {
+          if (Math.abs(dx) > 7 || Math.abs(dy) > 7) {
+            touchDecided = true;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              touchIsHorizontalPan = true;
+              isDragging = true;
+            } else {
+              touchIsHorizontalPan = false;
+              isDragging = false;
+            }
+          }
+        }
 
-        if (newStart < 0) { newStart = 0; newEnd = range; }
-        if (newEnd >= rawData.length) { newEnd = rawData.length - 1; newStart = Math.max(0, newEnd - range); }
+        if (touchIsHorizontalPan && isDragging) {
+          const rect = chartStack.getBoundingClientRect();
+          const chartW = rect.width - PADDING.left - PADDING.right;
+          const deltaBars = Math.round((dx / chartW) * (dragStartEndIndex - dragStartStartIndex));
 
-        startIndex = newStart;
-        endIndex = newEnd;
-        requestRender();
+          let newStart = dragStartStartIndex - deltaBars;
+          let newEnd = dragStartEndIndex - deltaBars;
+          const range = dragStartEndIndex - dragStartStartIndex;
+
+          if (newStart < 0) { newStart = 0; newEnd = range; }
+          if (newEnd >= rawData.length) { newEnd = rawData.length - 1; newStart = Math.max(0, newEnd - range); }
+
+          startIndex = newStart;
+          endIndex = newEnd;
+          requestRender();
+        }
       } else if (e.touches.length === 2 && touchStartDist > 0) {
         const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         const scale = touchStartDist / Math.max(1, dist);
@@ -4017,6 +4385,8 @@
     chartStack.addEventListener('touchend', () => {
       isDragging = false;
       touchStartDist = 0;
+      touchDecided = false;
+      touchIsHorizontalPan = false;
     });
 
     window.addEventListener('resize', () => {
@@ -4047,6 +4417,8 @@
     window.toggleMaximizePane = toggleMaximizePane;
     window.toggleWindowMaximize = toggleWindowMaximize;
     window.toggleWindowMinimize = toggleWindowMinimize;
+    window.toggleRibbonCollapse = toggleRibbonCollapse;
+    window.syncCompactBarInfo = syncCompactBarInfo;
     window.toggleTheme = toggleTheme;
     window.resetZoom = resetZoom;
     window.autoYScale = autoYScale;
