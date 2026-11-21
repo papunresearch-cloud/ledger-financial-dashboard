@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Stock Time Series Analysis - Desktop Ledger</title>
+  <title>Stock Time Series Analysis - Quantum Stock Platform</title>
   <style>
     /* =========================================================
        CSS VARIABLES: DARK & BRIGHT HIGH-CONTRAST THEMES
@@ -49,6 +49,7 @@
       --c-bv: #ef4444;
       --c-opm: #fbbf24;
       --c-gpm: #a3e635;
+      --c-npm: #f43f5e;
       --c-deliv-pct: #2dd4bf;
 
       /* Statistical SD Lines - High Contrast & Vivid in Dark Mode */
@@ -98,6 +99,7 @@
       --c-bv: #b91c1c;
       --c-opm: #b45309;
       --c-gpm: #4d7c0f;
+      --c-npm: #be123c;
       --c-deliv-pct: #0d9488;
 
       /* Statistical SD Lines - High Contrast & Vivid in Bright Mode */
@@ -520,6 +522,7 @@
     .border-bv { border-color: var(--c-bv); }
     .border-opm { border-color: var(--c-opm); }
     .border-gpm { border-color: var(--c-gpm); }
+    .border-npm { border-color: var(--c-npm); }
 
     .window-header {
       position: absolute;
@@ -865,11 +868,19 @@
 
       <!-- 2. IMPORTANT MAIN RIBBON -->
       <div class="main-ribbon">
-        <!-- Script Name -->
+        <!-- Script Name & Search -->
         <div class="script-title-box">
-          <span class="script-name" id="main-script-title">State Bank of India (SBIN) <span class="script-mode-badge mode-consolidated" id="main-script-mode" onclick="toggleConsolidatedStandalone()" title="Click to toggle between Consolidated and Standalone data">(Consolidated)</span></span>
+          <span class="script-name" id="main-script-title">Reliance Industries (RELIANCE) <span class="script-mode-badge mode-consolidated" id="main-script-mode" onclick="toggleConsolidatedStandalone()" title="Click to toggle between Consolidated and Standalone data">(Consolidated)</span></span>
           <span class="script-sub" id="main-script-sub">NSE Equities</span>
         </div>
+
+        <!-- Quick Script Search Box -->
+        <form class="script-search-form" id="script-search-form" onsubmit="event.preventDefault(); onSearchScript();" style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-right: auto; margin-left: 10px;">
+          <input type="text" id="script-search-input" placeholder="Search Script (e.g. RELIANCE, TCS, INFY)" autocomplete="off" spellcheck="false" style="background: transparent; border: none; outline: none; color: var(--text); font-size: 12px; font-weight: 600; width: 175px; padding: 2px 4px; font-family: monospace;" />
+          <button type="submit" class="btn-search-go" title="Load script" style="background: #0284c7; color: #fff; border: none; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s ease;">
+            <span>Go</span>
+          </button>
+        </form>
 
         <!-- Controls in Required Order -->
         <div class="main-actions">
@@ -1161,6 +1172,7 @@
       { id: 'book_value', name: 'Book Value', colorClass: 'border-bv', colorVar: '--c-bv', type: 'bar', suffix: ' ₹' },
       { id: 'opm', name: 'OPM', colorClass: 'border-opm', colorVar: '--c-opm', type: 'line', suffix: '%' },
       { id: 'gpm', name: 'GPM', colorClass: 'border-gpm', colorVar: '--c-gpm', type: 'line', suffix: '%' },
+      { id: 'npm', name: 'NPM', colorClass: 'border-npm', colorVar: '--c-npm', type: 'line', suffix: '%' },
       { id: 'ebitda', name: 'EBITDA', colorClass: 'border-ebitda', colorVar: '--c-ebitda', type: 'bar', formatUnit: true },
       { id: 'quarter_sales', name: 'Sales (Qtr)', colorClass: 'border-qsales', colorVar: '--c-qsales', type: 'bar', formatUnit: true },
       { id: 'vol', name: 'Volume', colorClass: 'border-vol', colorVar: '--c-vol', type: 'bar' },
@@ -1197,6 +1209,7 @@
       book_value: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       opm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       gpm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
+      npm: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
       ebitda: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       quarter_sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
@@ -1204,7 +1217,7 @@
       deliv_pct: { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true },
     };
 
-    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v3';
+    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v4';
     let paramStyles = {};
 
     function initParamStyles() {
@@ -1602,12 +1615,30 @@
       updateSlimRibbon();
     }
 
-    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v4';
+    const SESSION_KEY = 'desktop_ledger_subwindow_session_config_v5';
 
     const urlParams = new URLSearchParams(window.location.search);
-    let symbol = (urlParams.get('symbol') || 'SBIN').trim().toUpperCase();
-    let initialCompanyName = (urlParams.get('name') || '').trim();
+    let symbol = (urlParams.get('symbol') || 'RELIANCE').trim().toUpperCase();
+    let initialCompanyName = (urlParams.get('name') || (symbol === 'RELIANCE' ? 'Reliance Industries' : '')).trim();
     let currentViewType = (urlParams.get('view') || 'auto').trim().toLowerCase(); // 'auto', 'consolidated', 'standalone'
+
+    function onSearchScript(targetSymbol) {
+      const input = document.getElementById('script-search-input');
+      const clean = (targetSymbol || (input ? input.value : '')).trim().toUpperCase();
+      if (!clean) return;
+      symbol = clean;
+      initialCompanyName = clean;
+      currentViewType = 'auto';
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set('symbol', symbol);
+        u.searchParams.delete('name');
+        window.history.replaceState({}, '', u.toString());
+      } catch (e) {}
+      if (input) input.value = '';
+      updateScriptTitleHeader(symbol);
+      loadStockData();
+    }
     let isConsolidatedActive = true;
     let hasConsolidatedStatements = true;
     let timespan = '1Y';
@@ -1768,12 +1799,25 @@
       const days = TF_DAYS[timespan] || 365;
       try {
         const viewParam = (currentViewType && currentViewType !== 'auto') ? `&view=${encodeURIComponent(currentViewType)}` : '';
-        const res = await fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&days=${days}${viewParam}`);
+        let chartApiBase = '';
+        if (window.location.protocol === 'file:' || (window.location.port === '5173' || window.location.port === '3000')) {
+          chartApiBase = 'https://ledger-financial-dashboard.vercel.app';
+        }
+        let res;
+        try {
+          res = await fetch(`${chartApiBase}/api/chart?symbol=${encodeURIComponent(symbol)}&days=${days}${viewParam}`);
+        } catch (netErr) {
+          if (!chartApiBase) {
+            res = await fetch(`https://ledger-financial-dashboard.vercel.app/api/chart?symbol=${encodeURIComponent(symbol)}&days=${days}${viewParam}`);
+          } else {
+            throw netErr;
+          }
+        }
         if (!res.ok) throw new Error('API offline');
         const json = await res.json();
         parseAllDatasets(json);
       } catch (err) {
-        console.warn('Local proxy offline, falling back to rich simulation:', err);
+        console.warn('API error, falling back to rich simulation:', err);
         generateRichSimulationData(days);
       }
     }
@@ -1832,6 +1876,7 @@
       const bvMap = buildAlignedMap('Book value');
       const opmMap = buildAlignedMap('OPM');
       const gpmMap = buildAlignedMap('GPM');
+      const npmMap = buildAlignedMap('NPM');
 
       // Volume & Delivery
       const volDs = datasets.find(d => d.metric === 'Volume');
@@ -1867,7 +1912,8 @@
           ebitda: ebitdaMap.get(d),
           book_value: bvMap.get(d),
           opm: opmMap.get(d),
-          gpm: gpmMap.get(d)
+          gpm: gpmMap.get(d),
+          npm: npmMap.get(d)
         };
       });
 
@@ -1893,6 +1939,7 @@
       let baseBV = 649.5;
       let baseOPM = 71.0;
       let baseGPM = 100.0;
+      let baseNPM = 45.0;
       const now = new Date();
 
       for (let i = count - 1; i >= 0; i--) {
@@ -1912,6 +1959,7 @@
         baseEbitda = baseSales * 0.82;
         baseBV = Math.max(300, baseBV + (Math.random() - 0.47) * 1.5);
         baseOPM = Math.max(40, Math.min(95, baseOPM + (Math.random() - 0.49) * 0.5));
+        baseNPM = Math.max(10, Math.min(85, baseNPM + (Math.random() - 0.49) * 0.5));
 
         rawData.push({
           date: dt.toISOString().split('T')[0],
@@ -1932,7 +1980,8 @@
           ebitda: Math.round(baseEbitda),
           book_value: parseFloat(baseBV.toFixed(1)),
           opm: parseFloat(baseOPM.toFixed(1)),
-          gpm: baseGPM
+          gpm: baseGPM,
+          npm: parseFloat(baseNPM.toFixed(1))
         });
       }
 
@@ -2875,7 +2924,7 @@
       let maxVal = validVals.length ? Math.max(...validVals) : 10;
 
       const isLineOrStep = (style.chartType === 'line' || style.chartType === 'step-line');
-      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'deliv_pct'].includes(paramId);
+      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'npm', 'deliv_pct'].includes(paramId);
 
       // Statistical bands (MA, +/- 1SD, 2SD) for line/step-line or ratios
       let ma = 0, sd = 0, p1sd = 0, m1sd = 0, p2sd = 0, m2sd = 0;
@@ -4006,6 +4055,7 @@
     window.formatDateDDMMYY = formatDateDDMMYY;
     window.toggleConsolidatedStandalone = toggleConsolidatedStandalone;
     window.updateScriptTitleHeader = updateScriptTitleHeader;
+    window.onSearchScript = onSearchScript;
 
     Object.defineProperty(window, 'rawData', { get: () => rawData, set: (v) => { rawData = v; } });
     Object.defineProperty(window, 'subwindowConfig', { get: () => subwindowConfig, set: (v) => { subwindowConfig = v; } });
@@ -4019,7 +4069,7 @@
     Object.defineProperty(window, 'yPanOffsets', { get: () => yPanOffsets });
 
     window.onload = () => {
-      if (initialCompanyName || (symbol && symbol !== 'SBIN')) {
+      if (initialCompanyName || symbol) {
         updateScriptTitleHeader(initialCompanyName || symbol);
       }
       initDesktopWindowControls();
