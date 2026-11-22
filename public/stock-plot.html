@@ -3606,6 +3606,7 @@
       const css = getComputedStyle(document.documentElement);
       const isTop = position === 'top';
       const isDark = !document.documentElement.classList.contains('bright-theme');
+      const isMobile = window.innerWidth <= 768;
 
       // Bottom scale uses standard axis text and 11px font; Top scale uses one size smaller (10px) and less bright (subtle/muted)
       let textColor = css.getPropertyValue('--axis-text').trim();
@@ -3613,11 +3614,17 @@
       if (isTop) {
         textColor = isDark ? 'rgba(148, 163, 184, 0.52)' : 'rgba(100, 116, 139, 0.58)';
         tickColor = isDark ? 'rgba(51, 65, 85, 0.55)' : 'rgba(203, 213, 225, 0.60)';
+      } else if (isMobile) {
+        // Lower X-axis marking on small screen like mobile: small font size & light silver gray color
+        textColor = isDark ? '#cbd5e1' : '#64748b';
+        tickColor = isDark ? 'rgba(203, 213, 225, 0.45)' : 'rgba(100, 116, 139, 0.45)';
       }
 
       ctx.save();
       ctx.fillStyle = textColor;
-      ctx.font = isTop ? '500 10px monospace' : 'bold 11px monospace';
+      ctx.font = isTop
+        ? (isMobile ? '500 8.5px monospace' : '500 10px monospace')
+        : (isMobile ? 'bold 8.5px monospace' : 'bold 11px monospace');
       ctx.textAlign = 'center';
 
       const totalTicks = Math.min(10, Math.max(5, Math.floor(chartW / 85)));
