@@ -13,6 +13,7 @@ import { makeBankChartSpecs, makeChartSpecs } from './Charts'
 import { exportExcel } from './exportReports'
 import { exportStandaloneHtmlReport } from './exportVisualPdf'
 import { parseBankWorkbook, parseCompanyWorkbook } from './parseWorkbook'
+import { PlotModal } from './PlotModal'
 import companies from './companies.json'
 import type { AboutState, AnnualRow, AppTheme, CompanyData, FinancialData, ScreenerAboutData, Section } from './types'
 import './cloud-download.css'
@@ -303,6 +304,7 @@ function App() {
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [calculatorOpen, setCalculatorOpen] = useState(false)
+  const [plotModalOpen, setPlotModalOpen] = useState(false)
   const [about, setAbout] = useState<AboutState>(() => emptyAboutState())
   const aboutCacheRef = useRef<Map<string, AboutState>>(new Map())
   const aboutReqIdRef = useRef(0)
@@ -511,6 +513,15 @@ function App() {
     <header className="topbar">
       <a className="brand" href="#top" aria-label="Ledger home"><span className="brand-mark"><Activity size={18}/></span><span>ledger<span className="brand-dot">.</span></span></a>
       <div className="topbar-right"><span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>{data && <>
+        <button
+          type="button"
+          className="button plot-ribbon-button"
+          onClick={() => setPlotModalOpen(true)}
+          title="Open Interactive Stock Time Series Plot Studio"
+        >
+          <TrendingUp size={16} />
+          <span>PLOT</span>
+        </button>
         <button className="button forecast-ribbon-button" onClick={() => setCalculatorOpen(true)}><Calculator size={16}/> Forecast calculator</button>
         <button type="button" className="button button-soft theme-toggle-button" onClick={() => setTheme(current => current === 'dark' ? 'bright' : 'dark')} title={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}>
           {theme === 'dark' ? <><Sun size={16}/> Bright mode</> : <><Moon size={16}/> Dark mode</>}
@@ -839,7 +850,7 @@ function App() {
           <span className="foot-caps">Annual trends <b className="foot-dot">·</b> Quarterly movements <b className="foot-dot">·</b> Advanced ratios <b className="foot-dot">·</b> Peer Medians</span>
         </div>
       </section> : <>
-        <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1><p className="muted">Source: {data.sourceFileName}{data.faceValue !== null ? ` · Face value ₹${compact(data.faceValue)}` : ''}</p></div></div><div className="company-actions">{screenerUrl && <a href={screenerUrl} target="_blank" rel="noopener noreferrer" className="button screener-ribbon-button" title={`Open ${activeCode || data.companyName} directly in Screener.in`}><ExternalLink size={15}/> SCREENER.IN</a>}<button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
+        <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1><p className="muted">Source: {data.sourceFileName}{data.faceValue !== null ? ` · Face value ₹${compact(data.faceValue)}` : ''}</p></div></div><div className="company-actions"><button type="button" className="button plot-ribbon-button" onClick={() => setPlotModalOpen(true)} title={`Open Interactive Stock Plot for ${activeCode || data.companyName}`}><TrendingUp size={15}/> PLOT</button>{screenerUrl && <a href={screenerUrl} target="_blank" rel="noopener noreferrer" className="button screener-ribbon-button" title={`Open ${activeCode || data.companyName} directly in Screener.in`}><ExternalLink size={15}/> SCREENER.IN</a>}<button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
         <nav className="section-nav" aria-label="Analysis sections">{sections.map(({key,label,icon:Icon})=><button key={key} className={section===key?'active':''} onClick={()=>setSection(key)}><Icon size={16}/>{label}{section===key&&<span className="nav-active-mark"/>}</button>)}</nav>
         {data.mode === 'bank' ? (
           <>
@@ -1004,6 +1015,13 @@ function App() {
       </div>
     )}
     {data && calculatorOpen && <ForecastCalculator data={data} theme={theme} onClose={() => setCalculatorOpen(false)}/>}
+    {plotModalOpen && (
+      <PlotModal
+        symbol={activeCode || (mode === 'bank' ? 'SBIN' : 'INFY')}
+        companyName={data?.companyName || (activeCode === 'SBIN' ? 'State Bank of India' : (activeCode || 'Stock Plot'))}
+        onClose={() => setPlotModalOpen(false)}
+      />
+    )}
   </div>
 }
 
