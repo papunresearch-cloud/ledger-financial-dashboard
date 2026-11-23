@@ -2192,7 +2192,6 @@ export function DataChecksView({ data }: { data: FinancialData }) {
     { key: 'growth', label: 'Growth & Momentum' },
     { key: 'margins', label: 'Margins & Spreads' },
     { key: 'returns', label: 'Returns & DuPont' },
-    { key: 'liquidity', label: 'Liquidity & Solvency' },
     { key: 'workingcap', label: 'Working Capital & CCC' },
     { key: 'cashflow', label: 'Cash Flow Quality & CapEx' },
     { key: 'valuation', label: 'Valuation & Multiples' },
