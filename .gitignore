@@ -19,3 +19,5 @@ token.json
 backend/credentials.json
 backend/token.json
 scratch/
+
+*.bak

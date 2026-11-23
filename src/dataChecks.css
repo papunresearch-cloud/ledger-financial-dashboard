@@ -951,3 +951,430 @@
 .theme-bright .plot-controls-footer strong {
   color: #1e293b;
 }
+
+
+/* =========================================================
+   ENHANCED STYLES FOR FINANCIAL COMPENDIUM & CONCEPT BOXES
+   ========================================================= */
+
+/* Hero Right Side Mode Selector */
+.checks-hero-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.checks-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.checks-mode-pill {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 750;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.checks-mode-pill:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.checks-mode-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.4);
+}
+
+/* Badges line */
+.ratio-card-badges-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.ratio-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 850;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.ratio-scope-pill.scope-all {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.ratio-scope-pill.scope-nonbank {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.ratio-scope-pill.scope-bank {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.plot-card-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+/* New Category Badges */
+.badge-valuation { background: rgba(20, 184, 166, 0.18); color: #5eead4; border: 1px solid rgba(20, 184, 166, 0.4); }
+.badge-technicals { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
+.badge-governance { background: rgba(244, 63, 94, 0.18); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.4); }
+.badge-analytics { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
+
+.theme-bright .badge-valuation { background: #f0fdfa; color: #0f766e; border-color: #5eead4; }
+.theme-bright .badge-technicals { background: #eef2ff; color: #4338ca; border-color: #a5b4fc; }
+.theme-bright .badge-governance { background: #fff1f2; color: #be123c; border-color: #fda4af; }
+.theme-bright .badge-analytics { background: #f5f3ff; color: #6d28d9; border-color: #c4b5fd; }
+
+/* Conceptual Use Box */
+.ratio-concept-box {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.7) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-left: 3px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ratio-concept-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: #f59e0b;
+  letter-spacing: 0.8px;
+  font-family: 'DM Mono', monospace;
+}
+
+.ratio-concept-text {
+  font-size: 13px;
+  color: #e2e8f0;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.ratio-meaning-text {
+  font-size: 13.5px;
+  color: #cbd5e1;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Where Used Strip */
+.ratio-where-used-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  margin-top: 2px;
+}
+
+.where-used-label {
+  font-weight: 850;
+  color: #64748b;
+  text-transform: uppercase;
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.6px;
+  flex-shrink: 0;
+}
+
+.where-used-text {
+  color: #38bdf8;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+
+/* Plot Concept Box */
+.plot-concept-box {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-left: 3px solid #c084fc;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 6px;
+}
+
+.plot-concept-header {
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+  color: #c084fc;
+  letter-spacing: 0.8px;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plot-concept-text {
+  font-size: 13px;
+  color: #e2e8f0;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Methodology Grid & Cards */
+.methodology-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 20px;
+}
+
+.method-card {
+  background: linear-gradient(155deg, #131b2e 0%, #0d1322 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.method-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.method-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.method-card-orb {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+  flex-shrink: 0;
+}
+
+.method-card-title {
+  margin: 0 0 3px 0;
+  font-size: 16.5px;
+  font-weight: 850;
+  color: #f8fafc;
+}
+
+.method-card-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.method-purpose-box {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.method-purpose-box strong {
+  color: #38bdf8;
+}
+
+.method-algo-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.method-algo-title {
+  font-size: 10.5px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 850;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.method-algo-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.method-why-box {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #6ee7b7;
+  line-height: 1.45;
+}
+
+.method-why-box strong {
+  color: #34d399;
+}
+
+/* Bright Theme Enhancements */
+.theme-bright .checks-mode-selector {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.theme-bright .checks-mode-pill {
+  color: #475569;
+}
+
+.theme-bright .checks-mode-pill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-bright .checks-mode-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.theme-bright .ratio-concept-box {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #d97706;
+}
+
+.theme-bright .ratio-concept-header {
+  color: #b45309;
+}
+
+.theme-bright .ratio-concept-text {
+  color: #1e293b;
+}
+
+.theme-bright .ratio-meaning-text {
+  color: #334155;
+}
+
+.theme-bright .ratio-where-used-strip {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.theme-bright .where-used-label {
+  color: #64748b;
+}
+
+.theme-bright .where-used-text {
+  color: #0284c7;
+}
+
+.theme-bright .plot-concept-box {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+  border-left-color: #9333ea;
+}
+
+.theme-bright .plot-concept-header {
+  color: #7e22ce;
+}
+
+.theme-bright .plot-concept-text {
+  color: #1e293b;
+}
+
+.theme-bright .method-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.theme-bright .method-card-title {
+  color: #0f172a;
+}
+
+.theme-bright .method-card-sub {
+  color: #475569;
+}
+
+.theme-bright .method-purpose-box {
+  background: #f8fafc;
+  color: #334155;
+}
+
+.theme-bright .method-purpose-box strong {
+  color: #0284c7;
+}
+
+.theme-bright .method-algo-box {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.theme-bright .method-algo-title {
+  color: #64748b;
+}
+
+.theme-bright .method-algo-list {
+  color: #1e293b;
+}
+
+.theme-bright .method-why-box {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.theme-bright .method-why-box strong {
+  color: #047857;
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, Layers, LoaderCircle, Moon, PieChart, RefreshCw, Settings, ShieldCheck, Sparkles, Sun, Trash2, TrendingUp, Vault, Zap } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, ExternalLink, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, Layers, LoaderCircle, Moon, PieChart, RefreshCw, Settings, ShieldCheck, Sparkles, Sun, Trash2, TrendingUp, Vault, Zap } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { ComparisonSection } from './ComparisonSection'
 import { BankDashboard } from './BankDashboard'
@@ -401,6 +401,17 @@ function App() {
 
   const companySpecs = useMemo(() => !data || data.mode === 'bank' ? null : makeChartSpecs(data.annual, data.quarterly), [data])
   const bankSpecs = useMemo(() => !data || data.mode !== 'bank' ? null : makeBankChartSpecs(data.annual, data.quarterly), [data])
+  const screenerUrl = useMemo(() => {
+    if (!data) return ''
+    if (about?.data?.company_info?.screener_url) {
+      return about.data.company_info.screener_url
+    }
+    const resolvedCode = (activeCode || inferCompanyCode(data.companyName, data.sourceFileName) || '').trim().toUpperCase()
+    if (resolvedCode) {
+      return `https://www.screener.in/company/${encodeURIComponent(resolvedCode)}/`
+    }
+    return `https://www.screener.in/search/?q=${encodeURIComponent(data.companyName)}`
+  }, [data, activeCode, about])
   const companySuggestions = useMemo(() => {
     const query = companyCode.trim().toLocaleLowerCase()
     if (!query) return []
@@ -1175,7 +1186,7 @@ function App() {
           <span className="foot-caps">Annual trends <b className="foot-dot">·</b> Quarterly movements <b className="foot-dot">·</b> Advanced ratios <b className="foot-dot">·</b> Peer Medians</span>
         </div>
       </section> : <>
-        <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1></div></div><div className="company-actions"><button type="button" className="button plot-ribbon-button" onClick={() => setPlotModalOpen(true)} title={`Open Interactive Stock Plot for ${activeCode || data.companyName}`}><TrendingUp size={15}/> PLOT</button><button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
+        <section className="company-banner"><div className="company-title-wrap"><div className="company-icon">{data.companyName.slice(0,1).toUpperCase()}</div><div><div className="hero-kicker"><span className="status-pulse"/> {data.mode === 'bank' ? 'BANK ANALYSIS' : 'NON-BANK ANALYSIS'} <span className="title-divider">/</span> {data.annual[0]?.period} — {data.annual.at(-1)?.period}</div><h1>{data.companyName}</h1></div></div><div className="company-actions"><button type="button" className="button plot-ribbon-button" onClick={() => setPlotModalOpen(true)} title={`Open Interactive Stock Plot for ${activeCode || data.companyName}`}><TrendingUp size={15}/> PLOT</button>{screenerUrl && <a href={screenerUrl} target="_blank" rel="noopener noreferrer" className="button screener-ribbon-button" title={`Open ${activeCode || data.companyName} directly in Screener.in`}><ExternalLink size={15}/> SCREENER.IN</a>}<button className="button button-soft" onClick={reset}><RefreshCw size={15}/> New workbook</button><button className="button button-danger-soft" onClick={reset}><Trash2 size={15}/> Clear</button></div></section>
         <nav className="section-nav" aria-label="Analysis sections">{sections.map(({key,label,icon:Icon})=><button key={key} className={section===key?'active':''} onClick={()=>setSection(key)}><Icon size={16}/>{label}{section===key&&<span className="nav-active-mark"/>}</button>)}</nav>
         {section === 'about' && (
           <AboutSection
