@@ -2084,20 +2084,16 @@ export const STATISTICAL_MODELS: StatisticalModelDefinition[] = [
   }
 ]
 
-export function DataChecksView({ data }: { data: FinancialData }) {
+export function DataChecksView({ data }: { data?: FinancialData | null }) {
   const [activeTab, setActiveTab] = useState<'ratios' | 'plots' | 'methodology'>('ratios')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [modeFilter, setModeFilter] = useState<'auto' | 'all' | 'nonbank' | 'bank'>('auto')
 
-  const isBank = data.mode === 'bank'
-  const activeMode = modeFilter === 'auto' ? (isBank ? 'bank' : 'nonbank') : modeFilter
+  const isBank = data?.mode === 'bank'
 
-  // Filter ratio definitions
+  // Filter ratio definitions (Unified: shows Bank, Non-Bank, and Universal together)
   const filteredRatios = useMemo(() => {
     return RATIO_DEFINITIONS.filter(item => {
-      if (activeMode === 'bank' && item.applicableTo === 'nonbank') return false
-      if (activeMode === 'nonbank' && item.applicableTo === 'bank') return false
       if (selectedCategory !== 'all') {
         if (selectedCategory === 'liquidity' || selectedCategory === 'solvency' || selectedCategory === 'liquidity-solvency') {
           if (item.category !== 'liquidity' && item.category !== 'solvency') return false
@@ -2118,17 +2114,16 @@ export function DataChecksView({ data }: { data: FinancialData }) {
         const matchNotes = item.notes.toLowerCase().includes(q)
         const matchBenchmark = item.benchmark.toLowerCase().includes(q)
         const matchUsed = item.whereUsed.toLowerCase().includes(q)
-        return matchName || matchAbbr || matchFormula || matchMeaning || matchConcept || matchNotes || matchBenchmark || matchUsed
+        const matchScope = (item.applicableTo === 'all' ? 'universal both bank corporate non-bank' : item.applicableTo === 'bank' ? 'bank bfsi only' : 'corporate non-bank only').includes(q)
+        return matchName || matchAbbr || matchFormula || matchMeaning || matchConcept || matchNotes || matchBenchmark || matchUsed || matchScope
       }
       return true
     })
-  }, [activeMode, selectedCategory, searchQuery])
+  }, [selectedCategory, searchQuery])
 
-  // Filter plot definitions
+  // Filter plot definitions (Unified: shows Bank and Non-Bank plots together)
   const filteredPlots = useMemo(() => {
     return PLOT_DEFINITIONS.filter(item => {
-      if (activeMode === 'bank' && item.applicableTo === 'nonbank') return false
-      if (activeMode === 'nonbank' && item.applicableTo === 'bank') return false
       if (selectedCategory !== 'all') {
         if (selectedCategory === 'annual' && !item.category.includes('annual')) return false
         if (selectedCategory === 'quarterly' && !item.category.includes('quarterly')) return false
@@ -2148,7 +2143,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
       }
       return true
     })
-  }, [activeMode, selectedCategory, searchQuery])
+  }, [selectedCategory, searchQuery])
 
   // Filter methodology models
   const filteredModels = useMemo(() => {
@@ -2167,12 +2162,10 @@ export function DataChecksView({ data }: { data: FinancialData }) {
     })
   }, [searchQuery])
 
-  // Count by category for filter pills
+  // Count by category for filter pills (Unified across Bank & Non-Bank)
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { all: 0, liquidity: 0, 'liquidity-solvency': 0, solvency: 0, banking: 0 }
     RATIO_DEFINITIONS.forEach(item => {
-      if (activeMode === 'bank' && item.applicableTo === 'nonbank') return
-      if (activeMode === 'nonbank' && item.applicableTo === 'bank') return
       counts.all = (counts.all || 0) + 1
       counts[item.category] = (counts[item.category] || 0) + 1
       if (item.category === 'liquidity' || item.category === 'solvency') {
@@ -2185,7 +2178,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
       }
     })
     return counts
-  }, [activeMode])
+  }, [])
 
   const categories = [
     { key: 'all', label: 'All Ratios & Terms' },
@@ -2208,9 +2201,9 @@ export function DataChecksView({ data }: { data: FinancialData }) {
     { key: 'special', label: 'Special Analysis' },
   ]
 
-  const warningCount = data.warnings.length + (data.missingMetrics?.length || 0)
-  const totalRatiosCount = RATIO_DEFINITIONS.filter(r => (activeMode === 'bank' ? r.applicableTo !== 'nonbank' : activeMode === 'nonbank' ? r.applicableTo !== 'bank' : true)).length
-  const totalPlotsCount = PLOT_DEFINITIONS.filter(p => (activeMode === 'bank' ? p.applicableTo !== 'nonbank' : activeMode === 'nonbank' ? p.applicableTo !== 'bank' : true)).length
+  const warningCount = data ? (data.warnings.length + (data.missingMetrics?.length || 0)) : 0
+  const totalRatiosCount = RATIO_DEFINITIONS.length
+  const totalPlotsCount = PLOT_DEFINITIONS.length
 
   return (
     <div className="checks-page-container">
@@ -2221,66 +2214,42 @@ export function DataChecksView({ data }: { data: FinancialData }) {
             <ShieldCheck size={28} />
           </div>
           <div>
-            <div className="checks-hero-kicker">FINANCIAL AUDIT, RATIOS & METHODOLOGY ENCYCLOPEDIA</div>
-            <h1 className="checks-hero-title">Financial Dictionary, Data Checks & Plot Directory</h1>
+            <div className="checks-hero-kicker">UNIFIED FINANCIAL KNOWLEDGE BASE · BANK &amp; NON-BANK</div>
+            <h1 className="checks-hero-title">Financial Dictionary, Formulas &amp; Plot Directory</h1>
             <p className="checks-hero-subtitle">
-              Exhaustive reference compendium explaining every ratio, financial term, valuation multiple, DuPont decomposition,
-              market technical indicator, and interactive chart used across this application — complete with mathematical formulas,
-              economic intuition, conceptual interpretation, red flags, and benchmarks.
+              Unified reference encyclopedia explaining every ratio, financial term, valuation multiple, DuPont decomposition,
+              market technical indicator, and interactive chart across both Corporate (Non-Bank) and Banking (BFSI) analysis —
+              complete with applicability scope, mathematical formulas, conceptual usage, red flags, and benchmarks.
             </p>
           </div>
         </div>
         <div className="checks-hero-right">
-          <span className={`checks-status-pill ${warningCount > 0 ? 'attention' : 'ready'}`}>
-            {warningCount > 0 ? (
-              <>
-                <AlertTriangle size={15} /> {warningCount} DATA AUDIT NOTES
-              </>
-            ) : (
-              <>
-                <CheckCircle2 size={15} /> ALL INPUTS VERIFIED
-              </>
-            )}
-          </span>
-          <div className="checks-mode-selector">
-            <button
-              type="button"
-              className={`checks-mode-pill ${modeFilter === 'auto' ? 'active' : ''}`}
-              onClick={() => setModeFilter('auto')}
-              title="Match active company reporting classification"
-            >
-              Auto ({isBank ? 'Bank' : 'Corporate'})
-            </button>
-            <button
-              type="button"
-              className={`checks-mode-pill ${modeFilter === 'nonbank' ? 'active' : ''}`}
-              onClick={() => setModeFilter('nonbank')}
-            >
-              Corporate Non-Bank
-            </button>
-            <button
-              type="button"
-              className={`checks-mode-pill ${modeFilter === 'bank' ? 'active' : ''}`}
-              onClick={() => setModeFilter('bank')}
-            >
-              Bank / BFSI
-            </button>
-            <button
-              type="button"
-              className={`checks-mode-pill ${modeFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setModeFilter('all')}
-            >
-              Show All Modes
-            </button>
-          </div>
+          {data ? (
+            <span className={`checks-status-pill ${warningCount > 0 ? 'attention' : 'ready'}`}>
+              {warningCount > 0 ? (
+                <>
+                  <AlertTriangle size={15} /> {warningCount} WORKBOOK AUDIT NOTES
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={15} /> WORKBOOK INPUTS VERIFIED
+                </>
+              )}
+            </span>
+          ) : (
+            <span className="checks-status-pill ready">
+              <BookOpen size={15} /> STATIC REFERENCE GUIDE
+            </span>
+          )}
         </div>
       </header>
 
-      {/* 2. SOURCE COVERAGE & VERIFICATION METRICS */}
+      {/* 2. SOURCE COVERAGE & VERIFICATION METRICS (Only shown when a workbook is loaded) */}
+      {data && (
       <section className="checks-meta-grid" aria-label="Workbook verification">
         <div className="checks-info-card">
           <h3>
-            <BookOpen size={17} style={{ color: '#38bdf8' }} /> Source Coverage & Active Verification
+            <BookOpen size={17} style={{ color: '#38bdf8' }} /> Active Workbook Verification
           </h3>
           <div className="checks-kv-row">
             <span className="checks-kv-label">Company Name</span>
@@ -2303,7 +2272,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
           <div className="checks-kv-row">
             <span className="checks-kv-label">Screener.in Integration</span>
             <span className="checks-kv-value" style={{ color: '#34d399', fontWeight: 700 }}>
-              Official #ratios + Deeper Cash Flow & Balance Sheet Schedules
+              Official #ratios + Deeper Cash Flow &amp; Balance Sheet Schedules
             </span>
           </div>
           <div className="checks-kv-row">
@@ -2315,7 +2284,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
         <div className="checks-info-card">
           <h3>
             <AlertTriangle size={17} style={{ color: warningCount > 0 ? '#f59e0b' : '#10b981' }} />
-            Data Quality & Screener.in Schedules
+            Data Quality &amp; Screener.in Schedules
           </h3>
           {warningCount > 0 ? (
             <ul className="checks-warning-list">
@@ -2325,7 +2294,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
             </ul>
           ) : (
             <p className="checks-ready-notice">
-              <CheckCircle2 size={16} /> All core mathematical schedules, P&L statements, Balance Sheet rows, and Screener.in schedule endpoints match verified criteria.
+              <CheckCircle2 size={16} /> All core mathematical schedules, P&amp;L statements, Balance Sheet rows, and Screener.in schedule endpoints match verified criteria.
             </p>
           )}
           <div className="ratio-note-box" style={{ marginTop: '14px' }}>
@@ -2333,6 +2302,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 3. MAIN SECTION TABS: RATIOS VS PLOTS VS METHODOLOGY */}
       <section className="checks-tabs-container">
@@ -2432,7 +2402,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
               Financial Ratios, Terms & Expressions Directory
             </h3>
             <span className="checks-results-meta">
-              Showing {filteredRatios.length} of {totalRatiosCount} ratios (Filtered by: {activeMode.toUpperCase()})
+              Showing {filteredRatios.length} of {totalRatiosCount} ratios &amp; terms (Bank + Non-Bank Unified)
             </span>
           </div>
 
@@ -2445,7 +2415,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
                       <div className="ratio-card-badges-line">
                         <span className="ratio-card-abbr">{item.abbr}</span>
                         <span className={`ratio-scope-pill scope-${item.applicableTo}`}>
-                          {item.applicableTo === 'all' ? 'UNIVERSAL' : item.applicableTo === 'bank' ? 'BANK / BFSI' : 'CORPORATE'}
+                          {item.applicableTo === 'all' ? 'BOTH: BANK & NON-BANK' : item.applicableTo === 'bank' ? 'BANK / BFSI ONLY' : 'NON-BANK (CORPORATE) ONLY'}
                         </span>
                       </div>
                       <h4 className="ratio-card-name">{item.name}</h4>
@@ -2456,18 +2426,26 @@ export function DataChecksView({ data }: { data: FinancialData }) {
                   </div>
 
                   <div className="ratio-formula-box">
-                    <div className="ratio-formula-label">MATHEMATICAL FORMULA & SOURCE</div>
+                    <div className="ratio-formula-label">MATHEMATICAL FORMULA &amp; SOURCE</div>
                     <div className="ratio-formula-text">{item.formula}</div>
                   </div>
 
                   <div className="ratio-details-content">
                     <p className="ratio-meaning-text">{item.meaning}</p>
+                    <p className="ratio-applicability-note" style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
+                      <strong>Applicability:</strong>{' '}
+                      {item.applicableTo === 'all'
+                        ? 'Used for both Corporate (Non-Bank) and Banking (BFSI) companies.'
+                        : item.applicableTo === 'bank'
+                        ? 'Used exclusively for Banks / BFSI institutions (not applicable to Non-Bank Corporates).'
+                        : 'Used exclusively for Corporate (Non-Bank) companies (not applicable to Banks / BFSI).'}
+                    </p>
                   </div>
 
                   <div className="ratio-concept-box">
                     <div className="ratio-concept-header">
                       <Lightbulb size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                      <span>HOW TO CONCEPTUALLY USE IT & RED FLAGS</span>
+                      <span>HOW TO CONCEPTUALLY USE IT &amp; RED FLAGS</span>
                     </div>
                     <p className="ratio-concept-text">{item.conceptualUse}</p>
                   </div>
@@ -2492,7 +2470,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
             <div className="checks-empty-state">
               <CircleHelp size={40} style={{ color: '#64748b', margin: '0 auto' }} />
               <h4>No matching ratios found</h4>
-              <p>Try searching for a different keyword or reset the category / mode filter.</p>
+              <p>Try searching for a different keyword or reset the category filter.</p>
             </div>
           )}
         </>
@@ -2503,10 +2481,10 @@ export function DataChecksView({ data }: { data: FinancialData }) {
           <div className="checks-grid-section-title">
             <h3>
               <BarChart3 size={19} style={{ color: '#38bdf8' }} />
-              Visual Analytics & Interactive Plot Directory
+              Visual Analytics &amp; Interactive Plot Directory
             </h3>
             <span className="checks-results-meta">
-              Showing {filteredPlots.length} of {totalPlotsCount} visual plots (Mode: {activeMode.toUpperCase()})
+              Showing {filteredPlots.length} of {totalPlotsCount} visual plots (Bank + Non-Bank Unified)
             </span>
           </div>
 
@@ -2521,7 +2499,7 @@ export function DataChecksView({ data }: { data: FinancialData }) {
                           {plot.category.includes('quarterly') ? 'QUARTERLY' : plot.category.includes('special') ? 'SPECIAL ANALYSIS' : 'YEARLY'}
                         </span>
                         <span className={`ratio-scope-pill scope-${plot.applicableTo}`}>
-                          {plot.applicableTo === 'all' ? 'ALL MODES' : plot.applicableTo === 'bank' ? 'BANK ONLY' : 'CORPORATE ONLY'}
+                          {plot.applicableTo === 'all' ? 'BOTH: BANK & NON-BANK' : plot.applicableTo === 'bank' ? 'BANK / BFSI ONLY' : 'NON-BANK (CORPORATE) ONLY'}
                         </span>
                       </div>
                       <h4 className="plot-card-title">{plot.title}</h4>

@@ -105,9 +105,6 @@ export function buildStandaloneWebReportHtml(
   const tablesEl = clone.querySelector('[data-print-section="tables"]')
   if (tablesEl) tablesEl.id = 'tables-section-anchor'
 
-  const checksEl = clone.querySelector('[data-print-section="checks"]')
-  if (checksEl) checksEl.id = 'checks-section-anchor'
-
   // Remove desktop-only action bars and interactive overlays
   Array.from(clone.querySelectorAll<HTMLElement>(
     '.company-actions, .topbar, .section-nav, .theme-toggle-button, .settings-btn, .about-refresh-btn, .holding-btn-refresh, .peer-refresh-btn, .recharts-tooltip-wrapper',
@@ -860,7 +857,6 @@ export function buildStandaloneWebReportHtml(
         <a href="#plots-section-anchor">Charts</a>
         <a href="#holding-section-anchor">Holding-%</a>
         <a href="#tables-section-anchor">Data Sheet</a>
-        <a href="#checks-section-anchor">Data Checks</a>
         <a href="#top" class="top-link">↑ Top</a>
       </nav>
     </div>
