@@ -1346,19 +1346,19 @@
           <div class="settings-group">
             <label class="settings-label">Chart Type</label>
             <div class="chart-type-grid" id="modal-type-grid">
-              <div class="type-card" data-type="line" onclick="setModalChartType('line')">
+              <div class="type-card" data-type="line" onclick="setModalChartType('line', true)">
                 <span class="type-icon">📈</span>
                 <span>Line</span>
               </div>
-              <div class="type-card" data-type="step-line" onclick="setModalChartType('step-line')">
+              <div class="type-card" data-type="step-line" onclick="setModalChartType('step-line', true)">
                 <span class="type-icon">🪜</span>
                 <span>Step-Line</span>
               </div>
-              <div class="type-card" data-type="column" onclick="setModalChartType('column')">
+              <div class="type-card" data-type="column" onclick="setModalChartType('column', true)">
                 <span class="type-icon">📊</span>
                 <span>Column</span>
               </div>
-              <div class="type-card" data-type="histogram" onclick="setModalChartType('histogram')">
+              <div class="type-card" data-type="histogram" onclick="setModalChartType('histogram', true)">
                 <span class="type-icon">▦</span>
                 <span>Histogram</span>
               </div>
@@ -1395,6 +1395,14 @@
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text);">
               <input type="checkbox" id="modal-fill-checkbox" checked onchange="onModalFillChange(this.checked)" style="accent-color: #3b82f6; width: 15px; height: 15px;">
               Show Area Gradient Fill
+            </label>
+          </div>
+
+          <!-- Statistical Bands (AVG, 1σ, 2σ) -->
+          <div class="settings-group" id="group-show-stats">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text);">
+              <input type="checkbox" id="modal-stats-checkbox" checked onchange="onModalStatsChange(this.checked)" style="accent-color: #3b82f6; width: 15px; height: 15px;">
+              Show AVG, ±1σ &amp; ±2σ Lines
             </label>
           </div>
         </div>
@@ -1595,8 +1603,10 @@
     function getParamStyle(paramId) {
       const def = DEFAULT_PARAM_STYLES[paramId] || { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true };
       const cur = paramStyles[paramId] || def;
+      const resolvedChartType = cur.chartType || def.chartType;
+      const defaultShowStats = (resolvedChartType === 'line' || resolvedChartType === 'step-line');
       return {
-        chartType: cur.chartType || def.chartType,
+        chartType: resolvedChartType,
         color: cur.color || null,
         volType: cur.volType || def.volType || 'column',
         volColor: cur.volColor || null,
@@ -1607,7 +1617,8 @@
         delivWidth: cur.delivWidth !== undefined ? Number(cur.delivWidth) : 1.5,
         delivFill: cur.delivFill !== undefined ? Boolean(cur.delivFill) : false,
         lineWidth: cur.lineWidth !== undefined ? Number(cur.lineWidth) : 1.5,
-        showAreaFill: cur.showAreaFill !== undefined ? Boolean(cur.showAreaFill) : def.showAreaFill
+        showAreaFill: cur.showAreaFill !== undefined ? Boolean(cur.showAreaFill) : def.showAreaFill,
+        showStats: cur.showStats !== undefined ? Boolean(cur.showStats) : (def.showStats !== undefined ? Boolean(def.showStats) : defaultShowStats)
       };
     }
 
@@ -1729,7 +1740,8 @@
           chartType: style.chartType,
           color: activeColor,
           lineWidth: style.lineWidth,
-          showAreaFill: style.showAreaFill
+          showAreaFill: style.showAreaFill,
+          showStats: style.showStats
         };
 
         setModalChartType(modalDraft.chartType);
@@ -1738,6 +1750,11 @@
 
         const chkFill = document.getElementById('modal-fill-checkbox');
         if (chkFill) chkFill.checked = modalDraft.showAreaFill;
+
+        const statsGrp = document.getElementById('group-show-stats');
+        if (statsGrp) statsGrp.style.display = (paramId === 'price') ? 'none' : 'flex';
+        const chkStats = document.getElementById('modal-stats-checkbox');
+        if (chkStats) chkStats.checked = modalDraft.showStats;
 
         const swatchesContainer = document.getElementById('modal-color-swatches');
         swatchesContainer.innerHTML = '';
@@ -1767,7 +1784,7 @@
     }
 
     // Single Parameter Handlers
-    function setModalChartType(type) {
+    function setModalChartType(type, isUserClick = false) {
       if (!modalDraft) return;
       modalDraft.chartType = type;
       document.querySelectorAll('#modal-type-grid .type-card').forEach(el => {
@@ -1775,6 +1792,11 @@
       });
       document.getElementById('group-area-fill').style.display =
         (type === 'line' || type === 'step-line') ? 'flex' : 'none';
+      if (isUserClick) {
+        modalDraft.showStats = (type === 'line' || type === 'step-line');
+        const chkStats = document.getElementById('modal-stats-checkbox');
+        if (chkStats) chkStats.checked = modalDraft.showStats;
+      }
     }
 
     function onModalColorChange(hex) {
@@ -1802,6 +1824,11 @@
     function onModalFillChange(checked) {
       if (!modalDraft) return;
       modalDraft.showAreaFill = checked;
+    }
+
+    function onModalStatsChange(checked) {
+      if (!modalDraft) return;
+      modalDraft.showStats = checked;
     }
 
     // Dual Parameter Handlers (Total Volume & Delivery Volume)
@@ -1918,17 +1945,21 @@
         if (chkDeliv) chkDeliv.checked = false;
       } else {
         const defaultColor = (modalActiveParamId === 'price' ? css.getPropertyValue('--color-price') : (paramDef.colorVar ? css.getPropertyValue(paramDef.colorVar) : '#3b82f6')).trim() || '#3b82f6';
+        const defaultShowStats = (def.chartType === 'line' || def.chartType === 'step-line');
         modalDraft = {
           chartType: def.chartType,
           color: defaultColor,
           lineWidth: def.lineWidth,
-          showAreaFill: def.showAreaFill
+          showAreaFill: def.showAreaFill,
+          showStats: def.showStats !== undefined ? Boolean(def.showStats) : defaultShowStats
         };
         setModalChartType(modalDraft.chartType);
         onModalColorChange(defaultColor);
         onModalWidthChange(def.lineWidth);
         const chk = document.getElementById('modal-fill-checkbox');
         if (chk) chk.checked = def.showAreaFill;
+        const chkStats = document.getElementById('modal-stats-checkbox');
+        if (chkStats) chkStats.checked = modalDraft.showStats;
       }
     }
 
@@ -1954,7 +1985,8 @@
           chartType: modalDraft.chartType,
           color: modalDraft.color,
           lineWidth: modalDraft.lineWidth,
-          showAreaFill: modalDraft.showAreaFill
+          showAreaFill: modalDraft.showAreaFill,
+          showStats: modalDraft.showStats
         };
       }
       saveParamStyles();
@@ -3077,9 +3109,18 @@
         if (showTooltips) {
           const d = data[localIdx];
           const prevD = localIdx > 0 ? data[localIdx - 1] : null;
+          const latestD = rawData.length ? rawData[rawData.length - 1] : null;
+          const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
           const tooltipItems = [
             { label: 'Price', val: `₹${d.price.toFixed(2)}`, color: lineColor, bold: true },
           ];
+          if (latestD && latestD.price !== null && latestD.price !== undefined) {
+            tooltipItems.push({
+              label: 'Current Price',
+              val: `₹${latestD.price.toFixed(2)}`,
+              color: isDarkTheme ? '#e2e8f0' : '#1e293b'
+            });
+          }
           if (prevD) {
             const chg = d.price - prevD.price;
             const pct = (chg / prevD.price) * 100;
@@ -3285,9 +3326,14 @@
           }
 
           if (showTooltips) {
+            const latestPt = rawData.length ? rawData[rawData.length - 1] : null;
+            const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
+            const curColor = isDarkTheme ? '#e2e8f0' : '#1e293b';
             drawWindowFloatingTooltip(ctx, hx, hy, w, h, [
               { label: 'Total Volume', val: formatNumber(pt.volume), color: volColor, bold: true },
+              ...(latestPt ? [{ label: 'Current Vol', val: formatNumber(latestPt.volume), color: curColor }] : []),
               { label: 'Delivery Volume', val: formatNumber(pt.delivVol), color: delivColor, bold: true },
+              ...(latestPt ? [{ label: 'Current Deliv', val: formatNumber(latestPt.delivVol), color: curColor }] : []),
               { label: 'Delivery %', val: pt.delivPct !== null ? `${pt.delivPct}%` : '--', color: '#10b981' }
             ], delivColor);
           }
@@ -3305,11 +3351,14 @@
       let maxVal = validVals.length ? Math.max(...validVals) : 10;
 
       const isLineOrStep = (style.chartType === 'line' || style.chartType === 'step-line');
-      const isRatioOrMargin = ['pe', 'price_to_bv', 'mc_sales', 'ev_ebitda', 'opm', 'gpm', 'npm', 'deliv_pct'].includes(paramId);
 
-      // Statistical bands (MA, +/- 1SD, 2SD) for line/step-line or ratios
+      if (!isLineOrStep) {
+        minVal = Math.min(0, minVal);
+      }
+
+      // Statistical bands (AVG, +/- 1SD, 2SD) for all chart types (Line, Step-Line, Column, Histogram) based on showStats setting
       let ma = 0, sd = 0, p1sd = 0, m1sd = 0, p2sd = 0, m2sd = 0;
-      const hasSDBands = (isLineOrStep || isRatioOrMargin) && validVals.length >= 2;
+      const hasSDBands = Boolean(style.showStats) && validVals.length >= 2;
       if (hasSDBands) {
         ma = validVals.reduce((a, b) => a + b, 0) / validVals.length;
         const variance = validVals.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / validVals.length;
@@ -3319,14 +3368,8 @@
         p2sd = ma + 2 * sd;
         m2sd = ma - 2 * sd;
 
-        if (isLineOrStep) {
-          minVal = Math.min(minVal, m2sd);
-          maxVal = Math.max(maxVal, p2sd);
-        }
-      }
-
-      if (!isLineOrStep) {
-        minVal = Math.min(0, minVal);
+        minVal = Math.min(minVal, m2sd);
+        maxVal = Math.max(maxVal, p2sd);
       }
 
       if (minVal === maxVal) {
@@ -3349,8 +3392,8 @@
       // Draw Right Axis (No horizontal grid)
       drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, 4, formatter);
 
-      // Draw Statistical Dotted Lines for Line / Step-Line
-      if (isLineOrStep && hasSDBands) {
+      // Draw Statistical Dotted Lines for all chart types when enabled
+      if (hasSDBands) {
         ctx.save();
         ctx.setLineDash([2, 2.5]); // Small-dotted lines keeping exact dot size
         ctx.lineWidth = 1.25;      // Bright, crisp and distinct
@@ -3527,28 +3570,46 @@
           }
 
           if (showTooltips) {
+            const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
+            let currentVal = null;
+            for (let idx = rawData.length - 1; idx >= 0; idx--) {
+              const cvVal = rawData[idx][key];
+              if (cvVal !== null && cvVal !== undefined && !isNaN(cvVal)) {
+                currentVal = cvVal;
+                break;
+              }
+            }
             const tooltipItems = [
               { label: paramDef.name, val: pillTxt, color: activeColor, bold: true }
             ];
+            if (currentVal !== null) {
+              const curTxt = paramDef.formatUnit ? formatNumber(currentVal) : `${currentVal.toFixed(2)}${suffix}`;
+              tooltipItems.push({
+                label: `Current ${paramDef.name}`,
+                val: curTxt,
+                color: isDarkTheme ? '#e2e8f0' : '#1e293b'
+              });
+            }
 
             if (paramId === 'deliv_vol' && data[localIdx].delivPct !== null) {
               tooltipItems.push({ label: 'Delivery %', val: `${data[localIdx].delivPct}%`, color: '#10b981' });
             }
 
-            if (isLineOrStep && hasSDBands) {
+            if (hasSDBands) {
               const colorMA = css.getPropertyValue('--sd-ma').trim() || '#3b82f6';
               const colorPlus = css.getPropertyValue('--sd-plus').trim() || '#ff4444';
               const colorMinus = css.getPropertyValue('--sd-minus').trim() || '#22c55e';
-              tooltipItems.push({ label: 'AVG', val: `${ma.toFixed(2)}${suffix}`, color: colorMA });
-              tooltipItems.push({ label: '1𝞼+', val: `${p1sd.toFixed(2)}${suffix}`, color: colorPlus });
-              tooltipItems.push({ label: '1𝞼-', val: `${m1sd.toFixed(2)}${suffix}`, color: colorMinus });
-              tooltipItems.push({ label: '2𝞼+', val: `${p2sd.toFixed(2)}${suffix}`, color: colorPlus });
-              tooltipItems.push({ label: '2𝞼-', val: `${m2sd.toFixed(2)}${suffix}`, color: colorMinus });
+              const fmtStat = (v) => paramDef.formatUnit ? formatNumber(v) : `${v.toFixed(2)}${suffix}`;
+              tooltipItems.push({ label: 'AVG', val: fmtStat(ma), color: colorMA });
+              tooltipItems.push({ label: '1𝞼+', val: fmtStat(p1sd), color: colorPlus });
+              tooltipItems.push({ label: '1𝞼-', val: fmtStat(m1sd), color: colorMinus });
+              tooltipItems.push({ label: '2𝞼+', val: fmtStat(p2sd), color: colorPlus });
+              tooltipItems.push({ label: '2𝞼-', val: fmtStat(m2sd), color: colorMinus });
               const diffFromAvg = val - ma;
               const sgn = diffFromAvg >= 0 ? '+' : '';
               tooltipItems.push({
                 label: 'Diff (AVG)',
-                val: `${sgn}${diffFromAvg.toFixed(2)}${suffix}`,
+                val: paramDef.formatUnit ? `${sgn}${formatNumber(diffFromAvg)}` : `${sgn}${diffFromAvg.toFixed(2)}${suffix}`,
                 color: diffFromAvg >= 0 ? colorPlus : colorMinus
               });
             }
