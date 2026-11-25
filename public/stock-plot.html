@@ -2400,30 +2400,49 @@
       }
 
       const priceDates = priceDs.values.map(x => x[0]);
+      discreteDateSets = {};
 
-      // Robust Step Forward-Fill function for all metrics
-      function buildAlignedMap(metricName) {
+      // Robust Step Forward-Fill function for all metrics (+ discrete quarterly transition dates)
+      function buildAlignedMap(metricName, discreteKey) {
         const ds = datasets.find(d => d.metric === metricName);
-        if (!ds || !ds.values || !ds.values.length) return new Map();
+        if (!ds || !ds.values || !ds.values.length) {
+          if (discreteKey) discreteDateSets[discreteKey] = new Set();
+          return new Map();
+        }
 
         const sorted = ds.values
           .filter(x => x[1] !== null && x[1] !== undefined && !isNaN(parseFloat(x[1])))
           .map(x => [x[0], parseFloat(x[1])])
           .sort((a, b) => a[0].localeCompare(b[0]));
 
-        if (!sorted.length) return new Map();
+        if (!sorted.length) {
+          if (discreteKey) discreteDateSets[discreteKey] = new Set();
+          return new Map();
+        }
 
         const aligned = new Map();
+        const discreteDates = new Set();
         let sIdx = 0;
         let lastVal = sorted[0][1];
+        let initializedStart = false;
 
         for (const pd of priceDates) {
+          let advanced = false;
           while (sIdx < sorted.length && sorted[sIdx][0] <= pd) {
             lastVal = sorted[sIdx][1];
             sIdx++;
+            advanced = true;
+          }
+          if (advanced) {
+            discreteDates.add(pd);
+            initializedStart = true;
+          } else if (!initializedStart) {
+            discreteDates.add(pd);
+            initializedStart = true;
           }
           aligned.set(pd, lastVal);
         }
+        if (discreteKey) discreteDateSets[discreteKey] = discreteDates;
         return aligned;
       }
 
@@ -2433,14 +2452,14 @@
       const pbMap = buildAlignedMap('Price to book value');
       const psMap = buildAlignedMap('Market Cap to Sales');
       const evMap = buildAlignedMap('EV Multiple');
-      const epsMap = buildAlignedMap('EPS');
-      const qSalesMap = buildAlignedMap('Quarter Sales');
-      const salesMap = buildAlignedMap('Sales');
-      const ebitdaMap = buildAlignedMap('EBITDA');
-      const bvMap = buildAlignedMap('Book value');
-      const opmMap = buildAlignedMap('OPM');
-      const gpmMap = buildAlignedMap('GPM');
-      const npmMap = buildAlignedMap('NPM');
+      const epsMap = buildAlignedMap('EPS', 'ttm_eps');
+      const qSalesMap = buildAlignedMap('Quarter Sales', 'quarter_sales');
+      const salesMap = buildAlignedMap('Sales', 'sales');
+      const ebitdaMap = buildAlignedMap('EBITDA', 'ebitda');
+      const bvMap = buildAlignedMap('Book value', 'book_value');
+      const opmMap = buildAlignedMap('OPM', 'opm');
+      const gpmMap = buildAlignedMap('GPM', 'gpm');
+      const npmMap = buildAlignedMap('NPM', 'npm');
 
       // Volume & Delivery
       const volDs = datasets.find(d => d.metric === 'Volume');
@@ -2487,10 +2506,17 @@
       resizeAndRender();
     }
 
+    const DISCRETE_QUARTERLY_KEYS = new Set([
+      'ttm_eps', 'quarter_sales', 'sales', 'ebitda', 'book_value', 'opm', 'gpm', 'npm'
+    ]);
+    let discreteDateSets = {};
+
     function generateRichSimulationData(days) {
       const isDaily = days <= 365;
       const count = isDaily ? Math.round(days * 0.68) : Math.round(days / 7);
       rawData = [];
+      discreteDateSets = {};
+      DISCRETE_QUARTERLY_KEYS.forEach(k => { discreteDateSets[k] = new Set(); });
       let basePrice = 1150;
       let basePE = 13.5;
       let basePB = 1.8;
@@ -2506,8 +2532,10 @@
       let baseNPM = 45.0;
       const now = new Date();
 
+      const qStep = isDaily ? 63 : 13;
       for (let i = count - 1; i >= 0; i--) {
         const dt = new Date(now.getTime() - i * (isDaily ? 86400000 : 7 * 86400000));
+        const dateStr = dt.toISOString().split('T')[0];
         basePrice = Math.max(100, basePrice + (Math.random() - 0.485) * (basePrice * 0.022));
         const vol = Math.floor(Math.random() * 75000000) + 12000000;
         const delivPct = Math.floor(Math.random() * 32) + 38;
@@ -2517,16 +2545,21 @@
         basePB = Math.max(0.8, basePB + (Math.random() - 0.49) * 0.035);
         basePS = Math.max(1.0, basePS + (Math.random() - 0.49) * 0.025);
         baseEV = Math.max(12, baseEV + (Math.random() - 0.49) * 0.3);
-        baseEPS = Math.max(40, baseEPS + (Math.random() - 0.47) * 0.4);
-        baseQSales = Math.max(80000, baseQSales + (Math.random() - 0.47) * 800);
-        baseSales = baseQSales * 3.8;
-        baseEbitda = baseSales * 0.82;
-        baseBV = Math.max(300, baseBV + (Math.random() - 0.47) * 1.5);
-        baseOPM = Math.max(40, Math.min(95, baseOPM + (Math.random() - 0.49) * 0.5));
-        baseNPM = Math.max(10, Math.min(85, baseNPM + (Math.random() - 0.49) * 0.5));
+
+        const stepIdx = (count - 1) - i;
+        if (stepIdx % qStep === 0) {
+          baseEPS = Math.max(40, baseEPS + (Math.random() - 0.44) * 3.2);
+          baseQSales = Math.max(80000, baseQSales + (Math.random() - 0.44) * 4500);
+          baseSales = baseQSales * 3.8;
+          baseEbitda = baseSales * 0.82;
+          baseBV = Math.max(300, baseBV + (Math.random() - 0.42) * 14);
+          baseOPM = Math.max(40, Math.min(95, baseOPM + (Math.random() - 0.49) * 1.8));
+          baseNPM = Math.max(10, Math.min(85, baseNPM + (Math.random() - 0.49) * 1.6));
+          DISCRETE_QUARTERLY_KEYS.forEach(k => discreteDateSets[k].add(dateStr));
+        }
 
         rawData.push({
-          date: dt.toISOString().split('T')[0],
+          date: dateStr,
           price: parseFloat(basePrice.toFixed(2)),
           dma50: parseFloat((basePrice * 0.985).toFixed(2)),
           dma200: parseFloat((basePrice * 0.95).toFixed(2)),
@@ -3569,6 +3602,31 @@
       let minVal = validVals.length ? Math.min(...validVals) : 0;
       let maxVal = validVals.length ? Math.max(...validVals) : 10;
 
+      const isDiscreteQuarterly = DISCRETE_QUARTERLY_KEYS.has(key);
+      let discreteIndices = null;
+      if (isDiscreteQuarterly) {
+        const dSet = discreteDateSets[key];
+        if (dSet && dSet.size > 0) {
+          discreteIndices = [];
+          data.forEach((d, i) => {
+            const v = d[key];
+            if (dSet.has(d.date) && v !== null && v !== undefined && !isNaN(v)) discreteIndices.push(i);
+          });
+        }
+        if (!discreteIndices || discreteIndices.length === 0) {
+          discreteIndices = [];
+          data.forEach((d, i) => {
+            const v = d[key];
+            if (v !== null && v !== undefined && !isNaN(v) && (i === 0 || v !== data[i - 1][key])) {
+              discreteIndices.push(i);
+            }
+          });
+        }
+      }
+      const statVals = (isDiscreteQuarterly && discreteIndices && discreteIndices.length >= 2)
+        ? discreteIndices.map(i => data[i][key])
+        : validVals;
+
       const isLineOrStep = (style.chartType === 'line' || style.chartType === 'step-line');
 
       if (!isLineOrStep) {
@@ -3577,10 +3635,10 @@
 
       // Statistical bands (AVG, +/- 1SD, 2SD) for all chart types (Line, Step-Line, Column, Histogram) based on showStats setting
       let ma = 0, sd = 0, p1sd = 0, m1sd = 0, p2sd = 0, m2sd = 0;
-      const hasSDBands = Boolean(style.showStats) && validVals.length >= 2;
+      const hasSDBands = Boolean(style.showStats) && statVals.length >= 2;
       if (hasSDBands) {
-        ma = validVals.reduce((a, b) => a + b, 0) / validVals.length;
-        const variance = validVals.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / validVals.length;
+        ma = statVals.reduce((a, b) => a + b, 0) / statVals.length;
+        const variance = statVals.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / statVals.length;
         sd = Math.sqrt(variance);
         p1sd = ma + sd;
         m1sd = ma - sd;
@@ -3736,20 +3794,38 @@
         ctx.stroke();
 
       } else if (style.chartType === 'column') {
-        const barW = Math.max(2, Math.min(22, (chartW / n) * 0.72));
-        data.forEach((d, i) => {
-          const val = d[key];
-          if (val === null || val === undefined || isNaN(val)) return;
-          const xLeft = getX(i) - barW / 2;
-          const y = getY(val);
-          if (val >= 0) {
-            ctx.fillStyle = activeColor;
-            ctx.fillRect(xLeft, y, barW, Math.max(1, zeroY - y));
-          } else {
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(xLeft, zeroY, barW, Math.max(1, y - zeroY));
-          }
-        });
+        if (isDiscreteQuarterly && discreteIndices && discreteIndices.length > 0) {
+          const qSpacing = discreteIndices.length > 1 ? chartW / discreteIndices.length : chartW * 0.25;
+          const barW = Math.max(6, Math.min(44, qSpacing * 0.52));
+          discreteIndices.forEach(i => {
+            const val = data[i][key];
+            if (val === null || val === undefined || isNaN(val)) return;
+            const xLeft = getX(i) - barW / 2;
+            const y = getY(val);
+            if (val >= 0) {
+              ctx.fillStyle = activeColor;
+              ctx.fillRect(xLeft, y, barW, Math.max(1, zeroY - y));
+            } else {
+              ctx.fillStyle = '#ef4444';
+              ctx.fillRect(xLeft, zeroY, barW, Math.max(1, y - zeroY));
+            }
+          });
+        } else {
+          const barW = Math.max(2, Math.min(22, (chartW / n) * 0.72));
+          data.forEach((d, i) => {
+            const val = d[key];
+            if (val === null || val === undefined || isNaN(val)) return;
+            const xLeft = getX(i) - barW / 2;
+            const y = getY(val);
+            if (val >= 0) {
+              ctx.fillStyle = activeColor;
+              ctx.fillRect(xLeft, y, barW, Math.max(1, zeroY - y));
+            } else {
+              ctx.fillStyle = '#ef4444';
+              ctx.fillRect(xLeft, zeroY, barW, Math.max(1, y - zeroY));
+            }
+          });
+        }
 
       } else if (style.chartType === 'histogram') {
         const barW = Math.max(1, Math.ceil(chartW / n));
@@ -3802,7 +3878,7 @@
               }
             }
 
-            const sortedVals = [...validVals].sort((a, b) => a - b);
+            const sortedVals = [...statVals].sort((a, b) => a - b);
             const midIdx = Math.floor(sortedVals.length / 2);
             const medianVal = sortedVals.length === 0
               ? null
