@@ -3108,33 +3108,48 @@
 
         if (showTooltips) {
           const d = data[localIdx];
-          const prevD = localIdx > 0 ? data[localIdx - 1] : null;
           const latestD = rawData.length ? rawData[rawData.length - 1] : null;
           const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
-          const tooltipItems = [
+          const curColor = isDarkTheme ? '#e2e8f0' : '#1e293b';
+          const priceVals = data.map(pt => pt.price).filter(v => v !== null && v !== undefined && !isNaN(v)).sort((a, b) => a - b);
+          const pMid = Math.floor(priceVals.length / 2);
+          const priceMdn = priceVals.length ? (priceVals.length % 2 !== 0 ? priceVals[pMid] : (priceVals[pMid - 1] + priceVals[pMid]) / 2) : null;
+
+          const leftItems = [
             { label: 'Price', val: `₹${d.price.toFixed(2)}`, color: lineColor, bold: true },
           ];
           if (latestD && latestD.price !== null && latestD.price !== undefined) {
-            tooltipItems.push({
-              label: 'Current Price',
+            leftItems.push({
+              label: 'Price (C)',
               val: `₹${latestD.price.toFixed(2)}`,
-              color: isDarkTheme ? '#e2e8f0' : '#1e293b'
+              color: curColor
             });
+            if (latestD.price !== 0) {
+              const diffPct = ((d.price - latestD.price) / Math.abs(latestD.price)) * 100;
+              const sgn = diffPct >= 0 ? '+' : '';
+              leftItems.push({
+                label: 'Diff',
+                val: `${sgn}${diffPct.toFixed(2)}%`,
+                color: diffPct >= 0 ? '#10b981' : '#ef4444'
+              });
+            }
           }
-          if (prevD) {
-            const chg = d.price - prevD.price;
-            const pct = (chg / prevD.price) * 100;
-            const sgn = chg >= 0 ? '+' : '';
-            tooltipItems.push({
-              label: 'Change',
-              val: `${sgn}₹${chg.toFixed(2)} (${sgn}${pct.toFixed(2)}%)`,
-              color: chg >= 0 ? '#10b981' : '#ef4444'
-            });
+          if (priceMdn !== null) {
+            leftItems.push({ label: 'Mdn', val: `₹${priceMdn.toFixed(2)}`, color: '#f59e0b' });
           }
-          if (d.dma50) tooltipItems.push({ label: '50 DMA', val: `₹${d.dma50.toFixed(2)}`, color: '#38bdf8' });
-          if (d.dma200) tooltipItems.push({ label: '200 DMA', val: `₹${d.dma200.toFixed(2)}`, color: '#f59e0b' });
+          const rightItems = [];
+          if (d.dma50) rightItems.push({ label: '50 DMA', val: `₹${d.dma50.toFixed(2)}`, color: '#38bdf8' });
+          if (d.dma200) rightItems.push({ label: '200 DMA', val: `₹${d.dma200.toFixed(2)}`, color: '#f59e0b' });
 
-          drawWindowFloatingTooltip(ctx, hx, hy, w, h, tooltipItems, lineColor);
+          drawWindowFloatingTooltip(
+            ctx,
+            hx,
+            hy,
+            w,
+            h,
+            rightItems.length ? { left: leftItems, right: rightItems } : leftItems,
+            lineColor
+          );
         }
       }
 
@@ -3330,11 +3345,11 @@
             const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
             const curColor = isDarkTheme ? '#e2e8f0' : '#1e293b';
             drawWindowFloatingTooltip(ctx, hx, hy, w, h, [
-              { label: 'Total Volume', val: formatNumber(pt.volume), color: volColor, bold: true },
-              ...(latestPt ? [{ label: 'Current Vol', val: formatNumber(latestPt.volume), color: curColor }] : []),
-              { label: 'Delivery Volume', val: formatNumber(pt.delivVol), color: delivColor, bold: true },
-              ...(latestPt ? [{ label: 'Current Deliv', val: formatNumber(latestPt.delivVol), color: curColor }] : []),
-              { label: 'Delivery %', val: pt.delivPct !== null ? `${pt.delivPct}%` : '--', color: '#10b981' }
+              { label: 'Vol', val: formatNumber(pt.volume), color: volColor, bold: true },
+              ...(latestPt ? [{ label: 'Vol (C)', val: formatNumber(latestPt.volume), color: curColor }] : []),
+              { label: 'Deliv', val: formatNumber(pt.delivVol), color: delivColor, bold: true },
+              ...(latestPt ? [{ label: 'Deliv (C)', val: formatNumber(latestPt.delivVol), color: curColor }] : []),
+              { label: 'Deliv %', val: pt.delivPct !== null ? `${pt.delivPct}%` : '--', color: '#10b981' }
             ], delivColor);
           }
         }
@@ -3571,6 +3586,9 @@
 
           if (showTooltips) {
             const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
+            const curColor = isDarkTheme ? '#e2e8f0' : '#1e293b';
+            const fmtStat = (v) => paramDef.formatUnit ? formatNumber(v) : `${v.toFixed(2)}${suffix}`;
+
             let currentVal = null;
             for (let idx = rawData.length - 1; idx >= 0; idx--) {
               const cvVal = rawData[idx][key];
@@ -3579,42 +3597,60 @@
                 break;
               }
             }
-            const tooltipItems = [
+
+            const sortedVals = [...validVals].sort((a, b) => a - b);
+            const midIdx = Math.floor(sortedVals.length / 2);
+            const medianVal = sortedVals.length === 0
+              ? null
+              : (sortedVals.length % 2 !== 0 ? sortedVals[midIdx] : (sortedVals[midIdx - 1] + sortedVals[midIdx]) / 2);
+
+            const leftItems = [
               { label: paramDef.name, val: pillTxt, color: activeColor, bold: true }
             ];
             if (currentVal !== null) {
-              const curTxt = paramDef.formatUnit ? formatNumber(currentVal) : `${currentVal.toFixed(2)}${suffix}`;
-              tooltipItems.push({
-                label: `Current ${paramDef.name}`,
-                val: curTxt,
-                color: isDarkTheme ? '#e2e8f0' : '#1e293b'
+              leftItems.push({
+                label: `${paramDef.name} (C)`,
+                val: fmtStat(currentVal),
+                color: curColor
               });
+              if (currentVal !== 0) {
+                const diffPct = ((val - currentVal) / Math.abs(currentVal)) * 100;
+                const sgn = diffPct >= 0 ? '+' : '';
+                leftItems.push({
+                  label: 'Diff',
+                  val: `${sgn}${diffPct.toFixed(2)}%`,
+                  color: diffPct >= 0 ? '#10b981' : '#ef4444'
+                });
+              }
             }
-
+            if (medianVal !== null) {
+              leftItems.push({ label: 'Mdn', val: fmtStat(medianVal), color: '#f59e0b' });
+            }
             if (paramId === 'deliv_vol' && data[localIdx].delivPct !== null) {
-              tooltipItems.push({ label: 'Delivery %', val: `${data[localIdx].delivPct}%`, color: '#10b981' });
+              leftItems.push({ label: 'Deliv %', val: `${data[localIdx].delivPct}%`, color: '#10b981' });
             }
 
+            const rightItems = [];
             if (hasSDBands) {
               const colorMA = css.getPropertyValue('--sd-ma').trim() || '#3b82f6';
               const colorPlus = css.getPropertyValue('--sd-plus').trim() || '#ff4444';
               const colorMinus = css.getPropertyValue('--sd-minus').trim() || '#22c55e';
-              const fmtStat = (v) => paramDef.formatUnit ? formatNumber(v) : `${v.toFixed(2)}${suffix}`;
-              tooltipItems.push({ label: 'AVG', val: fmtStat(ma), color: colorMA });
-              tooltipItems.push({ label: '1𝞼+', val: fmtStat(p1sd), color: colorPlus });
-              tooltipItems.push({ label: '1𝞼-', val: fmtStat(m1sd), color: colorMinus });
-              tooltipItems.push({ label: '2𝞼+', val: fmtStat(p2sd), color: colorPlus });
-              tooltipItems.push({ label: '2𝞼-', val: fmtStat(m2sd), color: colorMinus });
-              const diffFromAvg = val - ma;
-              const sgn = diffFromAvg >= 0 ? '+' : '';
-              tooltipItems.push({
-                label: 'Diff (AVG)',
-                val: paramDef.formatUnit ? `${sgn}${formatNumber(diffFromAvg)}` : `${sgn}${diffFromAvg.toFixed(2)}${suffix}`,
-                color: diffFromAvg >= 0 ? colorPlus : colorMinus
-              });
+              rightItems.push({ label: 'avg', val: fmtStat(ma), color: colorMA });
+              rightItems.push({ label: 'avg + std1', val: fmtStat(p1sd), color: colorPlus });
+              rightItems.push({ label: 'avg + std2', val: fmtStat(p2sd), color: colorPlus });
+              rightItems.push({ label: 'avg - std1', val: fmtStat(m1sd), color: colorMinus });
+              rightItems.push({ label: 'avg - std2', val: fmtStat(m2sd), color: colorMinus });
             }
 
-            drawWindowFloatingTooltip(ctx, hx, hy, w, h, tooltipItems, activeColor);
+            drawWindowFloatingTooltip(
+              ctx,
+              hx,
+              hy,
+              w,
+              h,
+              rightItems.length ? { left: leftItems, right: rightItems } : leftItems,
+              activeColor
+            );
           }
         }
       }
@@ -3804,7 +3840,9 @@
       ctx.restore();
     }
 
-    function drawWindowFloatingTooltip(ctx, x, y, w, h, items, borderColor) {
+    function drawWindowFloatingTooltip(ctx, x, y, w, h, itemsOrCols, borderColor) {
+      const hasExplicitCols = itemsOrCols && !Array.isArray(itemsOrCols) && Array.isArray(itemsOrCols.left);
+      const items = hasExplicitCols ? [...itemsOrCols.left, ...(itemsOrCols.right || [])] : itemsOrCols;
       if (!items || !items.length) return;
       ctx.save();
       const isDark = !document.documentElement.classList.contains('bright-theme');
@@ -3814,8 +3852,9 @@
       const availableH = h - PADDING.top - PADDING.bottom;
       const rowH = 17;
       const singleColH = items.length * rowH + 16;
-      // Requirement 1: Double column layout for small size sub-windows so all data fits
-      const useDoubleColumn = items.length >= 4 && (singleColH > availableH || availableH < 170);
+      const useDoubleColumn = hasExplicitCols
+        ? (itemsOrCols.right && itemsOrCols.right.length > 0)
+        : (items.length >= 4 && (singleColH > availableH || availableH < 170));
 
       let boxW = 0;
       let boxH = 0;
@@ -3827,9 +3866,15 @@
       let col2Items = [];
 
       if (useDoubleColumn) {
-        numRows = Math.ceil(items.length / 2);
-        col1Items = items.slice(0, numRows);
-        col2Items = items.slice(numRows);
+        if (hasExplicitCols) {
+          col1Items = itemsOrCols.left;
+          col2Items = itemsOrCols.right;
+          numRows = Math.max(col1Items.length, col2Items.length);
+        } else {
+          numRows = Math.ceil(items.length / 2);
+          col1Items = items.slice(0, numRows);
+          col2Items = items.slice(numRows);
+        }
 
         let col1MaxL = 0, col1MaxV = 0;
         col1Items.forEach(it => {
