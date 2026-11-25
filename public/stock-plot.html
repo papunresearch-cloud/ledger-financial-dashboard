@@ -52,10 +52,10 @@
       --c-npm: #f43f5e;
       --c-deliv-pct: #2dd4bf;
 
-      /* Statistical SD Lines - High Contrast & Vivid in Dark Mode */
-      --sd-ma: #3b82f6;
-      --sd-plus: #ff4444;
-      --sd-minus: #22c55e;
+      /* Statistical SD Lines - Brightest High Contrast in Dark Mode */
+      --sd-ma: #00e5ff;
+      --sd-plus: #ff1744;
+      --sd-minus: #00ff66;
     }
 
     :root[data-theme="bright"] {
@@ -102,10 +102,10 @@
       --c-npm: #be123c;
       --c-deliv-pct: #0d9488;
 
-      /* Statistical SD Lines - High Contrast & Vivid in Bright Mode */
-      --sd-ma: #1d4ed8;
-      --sd-plus: #dc2626;
-      --sd-minus: #15803d;
+      /* Statistical SD Lines - Brightest High Contrast in Bright Mode */
+      --sd-ma: #0066ff;
+      --sd-plus: #ff0000;
+      --sd-minus: #00c853;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1660,12 +1660,12 @@
       npm: { chartType: 'step-line', color: null, lineWidth: 1.5, showAreaFill: true },
       ebitda: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
       quarter_sales: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      deliv_vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false },
-      deliv_pct: { chartType: 'histogram', color: null, lineWidth: 1.5, showAreaFill: false },
+      vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false, overlayMode: 'quartile', showSma: true },
+      deliv_vol: { chartType: 'column', color: null, lineWidth: 1.5, showAreaFill: false, overlayMode: 'quartile', showSma: true },
+      deliv_pct: { chartType: 'histogram', color: null, lineWidth: 1.5, showAreaFill: false, overlayMode: 'sd', showSma: true },
     };
 
-    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v6';
+    const STYLES_SESSION_KEY = 'desktop_ledger_chart_styles_v7';
     let paramStyles = {};
 
     function initParamStyles() {
@@ -1698,7 +1698,8 @@
       const def = DEFAULT_PARAM_STYLES[paramId] || { chartType: 'line', color: null, lineWidth: 1.5, showAreaFill: true };
       const cur = paramStyles[paramId] || def;
       const resolvedChartType = cur.chartType || def.chartType;
-      const defaultOverlay = VOLUME_PLOT_IDS.has(paramId) ? 'none' : 'quartile';
+      const defaultOverlay = paramId === 'deliv_pct' ? 'sd' : 'quartile';
+      const defaultShowSma = VOLUME_PLOT_IDS.has(paramId);
       let overlayMode = cur.overlayMode || def.overlayMode || defaultOverlay;
       if (VOLUME_BAR_IDS.has(paramId) && overlayMode === 'sd') overlayMode = 'none';
       if (overlayMode === 'sma') overlayMode = 'none';
@@ -1716,7 +1717,7 @@
         lineWidth: cur.lineWidth !== undefined ? Number(cur.lineWidth) : 1.5,
         showAreaFill: cur.showAreaFill !== undefined ? Boolean(cur.showAreaFill) : def.showAreaFill,
         overlayMode,
-        showSma: VOLUME_PLOT_IDS.has(paramId) ? Boolean(cur.showSma) : false,
+        showSma: VOLUME_PLOT_IDS.has(paramId) ? (cur.showSma !== undefined ? Boolean(cur.showSma) : (def.showSma !== undefined ? Boolean(def.showSma) : defaultShowSma)) : false,
         smaPeriod: cur.smaPeriod !== undefined ? Math.max(2, Math.min(500, parseInt(cur.smaPeriod, 10) || 20)) : 20,
         smaColor: cur.smaColor || '#f59e0b'
       };
@@ -2097,14 +2098,15 @@
         if (chkDeliv) chkDeliv.checked = false;
       } else {
         const defaultColor = (modalActiveParamId === 'price' ? css.getPropertyValue('--color-price') : (paramDef.colorVar ? css.getPropertyValue(paramDef.colorVar) : '#3b82f6')).trim() || '#3b82f6';
-        const defaultOverlay = VOLUME_PLOT_IDS.has(modalActiveParamId) ? 'none' : 'quartile';
+        const defaultOverlay = def.overlayMode || (modalActiveParamId === 'deliv_pct' ? 'sd' : 'quartile');
+        const defaultShowSma = def.showSma !== undefined ? Boolean(def.showSma) : VOLUME_PLOT_IDS.has(modalActiveParamId);
         modalDraft = {
           chartType: def.chartType,
           color: defaultColor,
           lineWidth: def.lineWidth,
           showAreaFill: def.showAreaFill,
-          overlayMode: def.overlayMode || defaultOverlay,
-          showSma: false,
+          overlayMode: defaultOverlay,
+          showSma: defaultShowSma,
           smaPeriod: 20,
           smaColor: '#f59e0b'
         };
@@ -3345,23 +3347,25 @@
       ctx.save();
       const isDark = !document.documentElement.classList.contains('bright-theme');
       const isMobile = window.innerWidth <= 768;
-      // Deep & bright colors for Q1 (Green dotted), Q2 (Blue dotted), Q3 (Red dotted), Mn (Thin blue straight line)
-      const cQ1 = isDark ? '#00e676' : '#15803d';
-      const cQ2 = isDark ? '#38bdf8' : '#1d4ed8';
-      const cQ3 = isDark ? '#ff3b3b' : '#dc2626';
-      const cMn = isDark ? '#00b4ff' : '#1e40af';
+      // Brightest high-contrast colors for Q1 (Green dotted), Q2 (Blue dotted), Q3 (Red dotted), Mn (Thin blue straight line)
+      const cQ1 = isDark ? '#00ff88' : '#00c853';
+      const cQ2 = isDark ? '#00ffff' : '#0080ff';
+      const cQ3 = isDark ? '#ff1744' : '#ff0000';
+      const cMn = isDark ? '#33ccff' : '#0055ff';
 
       const drawLine = (val, color, label, isSolid) => {
         const y = getY(val);
         if (y >= PADDING.top && y <= h - PADDING.bottom) {
           ctx.save();
           ctx.strokeStyle = color;
+          ctx.shadowColor = isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)';
+          ctx.shadowBlur = 3;
           if (isSolid) {
             ctx.setLineDash([]);
-            ctx.lineWidth = 1.0;
+            ctx.lineWidth = 1.4;
           } else {
-            ctx.setLineDash([2.5, 2.5]);
-            ctx.lineWidth = 1.35;
+            ctx.setLineDash([3, 2.5]);
+            ctx.lineWidth = 1.8;
           }
           ctx.beginPath();
           ctx.moveTo(PADDING.left, y);
@@ -3385,11 +3389,14 @@
 
     function drawSDOverlay(ctx, w, h, getY, ma, p1sd, m1sd, p2sd, m2sd, css) {
       ctx.save();
-      ctx.setLineDash([2.5, 2.5]);
-      ctx.lineWidth = 1.3;
-      const colorMA = css.getPropertyValue('--sd-ma').trim() || '#3b82f6';
-      const colorPlus = css.getPropertyValue('--sd-plus').trim() || '#ff4444';
-      const colorMinus = css.getPropertyValue('--sd-minus').trim() || '#22c55e';
+      const isDark = !document.documentElement.classList.contains('bright-theme');
+      ctx.setLineDash([3, 2.5]);
+      ctx.lineWidth = 1.7;
+      ctx.shadowColor = isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)';
+      ctx.shadowBlur = 3;
+      const colorMA = css.getPropertyValue('--sd-ma').trim() || (isDark ? '#00e5ff' : '#0066ff');
+      const colorPlus = css.getPropertyValue('--sd-plus').trim() || (isDark ? '#ff1744' : '#ff0000');
+      const colorMinus = css.getPropertyValue('--sd-minus').trim() || (isDark ? '#00ff66' : '#00c853');
       const isMobile = window.innerWidth <= 768;
 
       const drawSDLine = (val, color, label) => {
@@ -4153,10 +4160,10 @@
               if (statVals.length) {
                 leftItems.push({ label: 'Avg', val: fmtStat(simpleAvg), color: '#3b82f6' });
               }
-              rightItems.push({ label: 'Q1', val: fmtStat(qStats.q1), color: isDarkTheme ? '#00e676' : '#15803d' });
-              rightItems.push({ label: 'Q2', val: fmtStat(qStats.q2), color: isDarkTheme ? '#38bdf8' : '#1d4ed8' });
-              rightItems.push({ label: 'Q3', val: fmtStat(qStats.q3), color: isDarkTheme ? '#ff3b3b' : '#dc2626' });
-              rightItems.push({ label: 'Mn', val: fmtStat(qStats.mn), color: isDarkTheme ? '#00b4ff' : '#1e40af' });
+              rightItems.push({ label: 'Q1', val: fmtStat(qStats.q1), color: isDarkTheme ? '#00ff88' : '#00c853' });
+              rightItems.push({ label: 'Q2', val: fmtStat(qStats.q2), color: isDarkTheme ? '#00ffff' : '#0080ff' });
+              rightItems.push({ label: 'Q3', val: fmtStat(qStats.q3), color: isDarkTheme ? '#ff1744' : '#ff0000' });
+              rightItems.push({ label: 'Mn', val: fmtStat(qStats.mn), color: isDarkTheme ? '#33ccff' : '#0055ff' });
             } else if (hasSDBands) {
               if (iqrMeanVal !== null) {
                 leftItems.push({ label: 'Mn+', val: fmtStat(iqrMeanVal), color: '#38bdf8' });
