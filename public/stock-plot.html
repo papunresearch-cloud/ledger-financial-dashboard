@@ -2944,6 +2944,21 @@
       updateSlimRibbon();
     }
 
+    function calcIQRMean(sorted) {
+      const len = sorted.length;
+      if (len === 0) return null;
+      if (len < 4) return sorted.reduce((a, b) => a + b, 0) / len;
+      const q1Pos = (len - 1) * 0.25;
+      const q3Pos = (len - 1) * 0.75;
+      const q1Lo = Math.floor(q1Pos), q1Hi = Math.ceil(q1Pos);
+      const q3Lo = Math.floor(q3Pos), q3Hi = Math.ceil(q3Pos);
+      const q1 = sorted[q1Lo] + (sorted[q1Hi] - sorted[q1Lo]) * (q1Pos - q1Lo);
+      const q3 = sorted[q3Lo] + (sorted[q3Hi] - sorted[q3Lo]) * (q3Pos - q3Lo);
+      const iqrVals = sorted.filter(v => v >= q1 && v <= q3);
+      if (!iqrVals.length) return sorted.reduce((a, b) => a + b, 0) / len;
+      return iqrVals.reduce((a, b) => a + b, 0) / iqrVals.length;
+    }
+
     // --- MAIN PRICE WINDOW (No Horizontal Grid, Customizable Style) ---
     function renderPriceWindow(data) {
       const cv = document.getElementById('cv-price');
@@ -3136,6 +3151,10 @@
           }
           if (priceMdn !== null) {
             leftItems.push({ label: 'Mdn', val: `₹${priceMdn.toFixed(2)}`, color: '#f59e0b' });
+          }
+          const priceIqrMean = calcIQRMean(priceVals);
+          if (priceIqrMean !== null) {
+            leftItems.push({ label: 'mn+', val: `₹${priceIqrMean.toFixed(2)}`, color: '#38bdf8' });
           }
           const rightItems = [];
           if (d.dma50) rightItems.push({ label: '50 DMA', val: `₹${d.dma50.toFixed(2)}`, color: '#38bdf8' });
@@ -3344,12 +3363,15 @@
             const latestPt = rawData.length ? rawData[rawData.length - 1] : null;
             const isDarkTheme = !document.documentElement.classList.contains('bright-theme');
             const curColor = isDarkTheme ? '#e2e8f0' : '#1e293b';
+            const volSorted = data.map(p => p.volume).filter(v => v !== null && v !== undefined && !isNaN(v)).sort((a, b) => a - b);
+            const volIqrMean = calcIQRMean(volSorted);
             drawWindowFloatingTooltip(ctx, hx, hy, w, h, [
               { label: 'Vol', val: formatNumber(pt.volume), color: volColor, bold: true },
               ...(latestPt ? [{ label: 'Vol (C)', val: formatNumber(latestPt.volume), color: curColor }] : []),
               { label: 'Deliv', val: formatNumber(pt.delivVol), color: delivColor, bold: true },
               ...(latestPt ? [{ label: 'Deliv (C)', val: formatNumber(latestPt.delivVol), color: curColor }] : []),
-              { label: 'Deliv %', val: pt.delivPct !== null ? `${pt.delivPct}%` : '--', color: '#10b981' }
+              { label: 'Deliv %', val: pt.delivPct !== null ? `${pt.delivPct}%` : '--', color: '#10b981' },
+              ...(volIqrMean !== null ? [{ label: 'mn+', val: formatNumber(volIqrMean), color: '#38bdf8' }] : [])
             ], delivColor);
           }
         }
@@ -3603,6 +3625,7 @@
             const medianVal = sortedVals.length === 0
               ? null
               : (sortedVals.length % 2 !== 0 ? sortedVals[midIdx] : (sortedVals[midIdx - 1] + sortedVals[midIdx]) / 2);
+            const iqrMeanVal = calcIQRMean(sortedVals);
 
             const leftItems = [
               { label: paramDef.name, val: pillTxt, color: activeColor, bold: true }
@@ -3623,8 +3646,17 @@
                 });
               }
             }
-            if (medianVal !== null) {
-              leftItems.push({ label: 'Mdn', val: fmtStat(medianVal), color: '#f59e0b' });
+            if (isLineOrStep) {
+              if (medianVal !== null) {
+                leftItems.push({ label: 'Mdn', val: fmtStat(medianVal), color: '#f59e0b' });
+              }
+              if (iqrMeanVal !== null) {
+                leftItems.push({ label: 'mn+', val: fmtStat(iqrMeanVal), color: '#38bdf8' });
+              }
+            } else {
+              if (iqrMeanVal !== null) {
+                leftItems.push({ label: 'mn+', val: fmtStat(iqrMeanVal), color: '#38bdf8' });
+              }
             }
             if (paramId === 'deliv_vol' && data[localIdx].delivPct !== null) {
               leftItems.push({ label: 'Deliv %', val: `${data[localIdx].delivPct}%`, color: '#10b981' });
@@ -3636,10 +3668,10 @@
               const colorPlus = css.getPropertyValue('--sd-plus').trim() || '#ff4444';
               const colorMinus = css.getPropertyValue('--sd-minus').trim() || '#22c55e';
               rightItems.push({ label: 'avg', val: fmtStat(ma), color: colorMA });
-              rightItems.push({ label: 'avg + std1', val: fmtStat(p1sd), color: colorPlus });
-              rightItems.push({ label: 'avg + std2', val: fmtStat(p2sd), color: colorPlus });
-              rightItems.push({ label: 'avg - std1', val: fmtStat(m1sd), color: colorMinus });
-              rightItems.push({ label: 'avg - std2', val: fmtStat(m2sd), color: colorMinus });
+              rightItems.push({ label: '𝞼1+', val: fmtStat(p1sd), color: colorPlus });
+              rightItems.push({ label: '𝞼2+', val: fmtStat(p2sd), color: colorPlus });
+              rightItems.push({ label: '𝞼1-', val: fmtStat(m1sd), color: colorMinus });
+              rightItems.push({ label: '𝞼2-', val: fmtStat(m2sd), color: colorMinus });
             }
 
             drawWindowFloatingTooltip(
