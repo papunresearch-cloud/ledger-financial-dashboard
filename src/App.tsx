@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, ExternalLink, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, Layers, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2, TrendingUp, Zap } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowDownToLine, BarChart3, BookOpen, Calculator, Calendar, Check, ChevronRight, CircleHelp, Clock, CloudOff, ExternalLink, FileSpreadsheet, FileUp, GitCompare, Globe, Landmark, Layers, LoaderCircle, Moon, PieChart, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2, TrendingUp, X, Zap } from 'lucide-react'
 import { AboutSection } from './AboutSection'
 import { ComparisonSection } from './ComparisonSection'
 import { BankDashboard } from './BankDashboard'
@@ -305,6 +305,7 @@ function App() {
   const [dragging, setDragging] = useState(false)
   const [calculatorOpen, setCalculatorOpen] = useState(false)
   const [plotModalOpen, setPlotModalOpen] = useState(false)
+  const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false)
   const [about, setAbout] = useState<AboutState>(() => emptyAboutState())
   const aboutCacheRef = useRef<Map<string, AboutState>>(new Map())
   const aboutReqIdRef = useRef(0)
@@ -506,13 +507,23 @@ function App() {
     { key: 'yearly', label: 'Plots', icon: BarChart3 },
     { key: 'holding', label: 'Holding-%', icon: PieChart },
     { key: 'tables', label: 'Data Sheet', icon: FileSpreadsheet },
-    { key: 'checks', label: 'Data checks', icon: CircleHelp },
   ]
   const themeClass = data ? (theme === 'bright' ? 'theme-bright' : 'theme-dark') : ''
   return <div className={`app-shell ${data?.mode === 'bank' ? 'bank-theme' : data ? 'company-theme' : ''} ${themeClass}`}>
     <header className="topbar">
       <a className="brand" href="#top" aria-label="Ledger home"><span className="brand-mark"><Activity size={18}/></span><span>ledger<span className="brand-dot">.</span></span></a>
-      <div className="topbar-right"><span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>{data && <>
+      <div className="topbar-right">
+        <span className="privacy-label"><ShieldCheck size={15}/> Files stay in this browser</span>
+        <button
+          type="button"
+          className="button button-soft kb-topbar-button"
+          onClick={() => setKnowledgeBaseOpen(true)}
+          title="Open Unified Financial Knowledge Base (Data Checks, Ratios, Formulas & Plots)"
+        >
+          <CircleHelp size={16} />
+          <span>Data Checks</span>
+        </button>
+        {data && <>
         <button
           type="button"
           className="button plot-ribbon-button"
@@ -918,7 +929,6 @@ function App() {
                 onRetry={() => void loadAboutForCompany(data, activeCode, data.companyName, undefined, true)}
               />
             )}
-            {section === 'checks' && <DataChecksView data={data} />}
             <CompanyDashboard data={data} section={section} specs={companySpecs!} theme={theme}/>
           </>
         )}
@@ -1008,10 +1018,6 @@ function App() {
             <CompanyDashboard data={data} section="tables" specs={companySpecs!} theme="bright" hideExportStage/>
           )}
         </div>
-
-        <div data-print-section="checks">
-          <DataChecksView data={data} />
-        </div>
       </div>
     )}
     {data && calculatorOpen && <ForecastCalculator data={data} theme={theme} onClose={() => setCalculatorOpen(false)}/>}
@@ -1021,6 +1027,24 @@ function App() {
         companyName={data?.companyName || (activeCode === 'SBIN' ? 'State Bank of India' : (activeCode || 'Stock Plot'))}
         onClose={() => setPlotModalOpen(false)}
       />
+    )}
+    {knowledgeBaseOpen && (
+      <div className="kb-modal-backdrop" role="dialog" aria-modal="true" aria-label="Financial Knowledge Base" onClick={e => { if (e.target === e.currentTarget) setKnowledgeBaseOpen(false) }}>
+        <div className={`kb-modal-shell ${theme === 'bright' ? 'theme-bright' : 'theme-dark'}`}>
+          <div className="kb-modal-bar">
+            <div className="kb-modal-bar-title">
+              <CircleHelp size={18} style={{ color: '#38bdf8' }} />
+              <span>Financial Knowledge Base &amp; Data Checks</span>
+            </div>
+            <button type="button" className="button button-soft kb-modal-close" onClick={() => setKnowledgeBaseOpen(false)} title="Close Knowledge Base">
+              <X size={16} /> Close
+            </button>
+          </div>
+          <div className="kb-modal-body">
+            <DataChecksView data={data} />
+          </div>
+        </div>
+      </div>
     )}
   </div>
 }

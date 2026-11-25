@@ -3,7 +3,6 @@ import { ChartPanel, type BankChartSpecs } from './Charts'
 import { PerShareRollingSummary } from './PerShareRollingSummary'
 import { calculateRobustWeightedAverage } from './rollingPerShare'
 import { getRelativeColor, formatFiscalYearHeader } from './colorUtils'
-import { DataChecksView } from './DataChecksView'
 import type { AppTheme, BankData, BankAnnualRow, BankQuarterRow, Section } from './types'
 const amount = (value: number | null | undefined, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
 const percent = (value: number | null | undefined) => value === null || value === undefined || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`
@@ -324,7 +323,6 @@ export function BankDashboard({
       </div>
     </>}
     {section === 'tables' && <BankSourceSheet data={data}/>}
-    {section === 'checks' && <DataChecksView data={data} />}
     {!hideExportStage && <div className="chart-export-stage bank-chart-export-stage" aria-hidden="true">{[...specs.annual, ...specs.quarterly].map(spec => <ChartPanel key={`export-${spec.id}`} spec={spec} theme={theme} exportMode/>)}</div>}
   </>
 }

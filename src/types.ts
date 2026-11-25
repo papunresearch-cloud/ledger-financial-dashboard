@@ -177,7 +177,7 @@ export type FinancialData = CompanyData | BankData
 
 export type AppTheme = 'dark' | 'bright'
 
-export type Section = 'about' | 'comparison' | 'overview' | 'quarterly-ratio' | 'yearly-ratio' | 'yearly' | 'holding' | 'quarterly' | 'tables' | 'checks'
+export type Section = 'about' | 'comparison' | 'overview' | 'quarterly-ratio' | 'yearly-ratio' | 'yearly' | 'holding' | 'quarterly' | 'tables'
 
 export type AboutPeerRow = {
   s_no?: string
