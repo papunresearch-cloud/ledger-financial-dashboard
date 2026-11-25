@@ -1169,6 +1169,74 @@
         justify-content: center !important;
       }
     }
+    /* Script Search Autocomplete Dropdown */
+    .script-search-suggestions {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      min-width: 290px;
+      max-width: 380px;
+      max-height: 280px;
+      overflow-y: auto;
+      background: #0f172a;
+      border: 1px solid #38bdf8;
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+      z-index: 3000;
+      list-style: none;
+      margin: 0;
+      padding: 4px;
+      display: none;
+    }
+    .script-search-suggestions.open {
+      display: block;
+    }
+    .script-search-suggestions li button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: #f8fafc;
+      font-size: 12px;
+    }
+    .script-search-suggestions li button:hover,
+    .script-search-suggestions li.active button {
+      background: rgba(56, 189, 248, 0.18);
+    }
+    .script-search-suggestions .sug-name {
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .script-search-suggestions .sug-code {
+      font-family: monospace;
+      font-size: 11px;
+      color: #38bdf8;
+      flex-shrink: 0;
+    }
+    .bright-theme .script-search-suggestions {
+      background: #ffffff;
+      border-color: #0284c7;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    }
+    .bright-theme .script-search-suggestions li button {
+      color: #0f172a;
+    }
+    .bright-theme .script-search-suggestions li button:hover,
+    .bright-theme .script-search-suggestions li.active button {
+      background: rgba(2, 132, 199, 0.12);
+    }
+    .bright-theme .script-search-suggestions .sug-code {
+      color: #0369a1;
+    }
   </style>
 </head>
 <body>
@@ -1217,11 +1285,12 @@
             </div>
 
             <!-- Quick Script Search Box -->
-            <form class="script-search-form" id="script-search-form" onsubmit="event.preventDefault(); onSearchScript();" style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-right: auto; margin-left: 10px;">
+            <form class="script-search-form" id="script-search-form" onsubmit="event.preventDefault(); onSearchScript();" style="position: relative; display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; margin-right: auto; margin-left: 10px;">
               <input type="text" id="script-search-input" placeholder="Search Script (e.g. RELIANCE, TCS, INFY)" autocomplete="off" spellcheck="false" style="background: transparent; border: none; outline: none; color: var(--text); font-size: 12px; font-weight: 600; width: 175px; padding: 2px 4px; font-family: monospace;" />
               <button type="submit" class="btn-search-go" title="Load script" style="background: #0284c7; color: #fff; border: none; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s ease;">
                 <span>Go</span>
               </button>
+              <ul class="script-search-suggestions" id="script-search-suggestions" role="listbox"></ul>
             </form>
 
             <!-- Controls in Required Order -->
@@ -2002,6 +2071,119 @@
     let symbol = (urlParams.get('symbol') || 'RELIANCE').trim().toUpperCase();
     let initialCompanyName = (urlParams.get('name') || (symbol === 'RELIANCE' ? 'Reliance Industries' : '')).trim();
     let currentViewType = (urlParams.get('view') || 'auto').trim().toLowerCase(); // 'auto', 'consolidated', 'standalone'
+
+    let plotCompaniesList = [];
+    let plotSuggestions = [];
+    let activeSuggestionIdx = -1;
+
+    (function initScriptAutocomplete() {
+      fetch('/companies.json')
+        .then(r => r.ok ? r.json() : [])
+        .then(list => { if (Array.isArray(list)) plotCompaniesList = list; })
+        .catch(() => {});
+
+      const input = document.getElementById('script-search-input');
+      const dropdown = document.getElementById('script-search-suggestions');
+      if (!input || !dropdown) return;
+
+      function closeDropdown() {
+        dropdown.classList.remove('open');
+        dropdown.innerHTML = '';
+        plotSuggestions = [];
+        activeSuggestionIdx = -1;
+      }
+
+      function selectSuggestion(company) {
+        const chosenSymbol = (company.nse || company.bse || '').trim().toUpperCase();
+        if (!chosenSymbol) return;
+        input.value = chosenSymbol;
+        closeDropdown();
+        onSearchScript(chosenSymbol);
+      }
+
+      function renderSuggestions(query) {
+        const q = query.trim().toLowerCase();
+        if (q.length <= 2 || !plotCompaniesList.length) {
+          closeDropdown();
+          return;
+        }
+        const prefixMatches = [];
+        const substrMatches = [];
+        for (let i = 0; i < plotCompaniesList.length; i++) {
+          const c = plotCompaniesList[i];
+          const n = (c.name || '').toLowerCase();
+          const nse = (c.nse || '').toLowerCase();
+          const bse = (c.bse || '').toLowerCase();
+          if (n.startsWith(q) || nse.startsWith(q) || bse.startsWith(q)) {
+            prefixMatches.push(c);
+          } else if (n.includes(q) || nse.includes(q) || bse.includes(q)) {
+            substrMatches.push(c);
+          }
+          if (prefixMatches.length >= 12) break;
+        }
+        plotSuggestions = [...prefixMatches, ...substrMatches].slice(0, 12);
+        if (!plotSuggestions.length) {
+          closeDropdown();
+          return;
+        }
+        activeSuggestionIdx = -1;
+        dropdown.innerHTML = '';
+        plotSuggestions.forEach((c, idx) => {
+          const li = document.createElement('li');
+          li.setAttribute('role', 'option');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'sug-name';
+          nameSpan.textContent = c.name || '';
+          const codeSpan = document.createElement('span');
+          codeSpan.className = 'sug-code';
+          codeSpan.textContent = c.nse || c.bse || '';
+          btn.appendChild(nameSpan);
+          btn.appendChild(codeSpan);
+          btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectSuggestion(c);
+          });
+          li.appendChild(btn);
+          dropdown.appendChild(li);
+        });
+        dropdown.classList.add('open');
+      }
+
+      function updateActiveHighlight() {
+        const items = dropdown.querySelectorAll('li');
+        items.forEach((li, i) => {
+          li.classList.toggle('active', i === activeSuggestionIdx);
+          if (i === activeSuggestionIdx) li.scrollIntoView({ block: 'nearest' });
+        });
+      }
+
+      input.addEventListener('input', () => renderSuggestions(input.value));
+      input.addEventListener('focus', () => {
+        if (input.value.trim().length > 2) renderSuggestions(input.value);
+      });
+      input.addEventListener('blur', () => {
+        setTimeout(closeDropdown, 150);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (!dropdown.classList.contains('open') || !plotSuggestions.length) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          activeSuggestionIdx = (activeSuggestionIdx + 1) % plotSuggestions.length;
+          updateActiveHighlight();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          activeSuggestionIdx = (activeSuggestionIdx - 1 + plotSuggestions.length) % plotSuggestions.length;
+          updateActiveHighlight();
+        } else if (e.key === 'Escape') {
+          closeDropdown();
+        } else if (e.key === 'Enter' && activeSuggestionIdx >= 0 && plotSuggestions[activeSuggestionIdx]) {
+          e.preventDefault();
+          selectSuggestion(plotSuggestions[activeSuggestionIdx]);
+        }
+      });
+    })();
 
     function onSearchScript(targetSymbol) {
       const input = document.getElementById('script-search-input');
