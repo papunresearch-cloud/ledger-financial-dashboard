@@ -3443,11 +3443,8 @@
       const h = cv.parentElement.clientHeight;
       ctx.clearRect(0, 0, w, h);
 
-      const showBottomXAxis = isBottom || maximizedPaneId === paramId;
-      const padTop = 8;
-      const padBottom = showBottomXAxis ? 20 : 6;
       const chartW = w - PADDING.left - PADDING.right;
-      const chartH = h - padTop - padBottom;
+      const chartH = h - PADDING.top - PADDING.bottom;
       const n = data.length;
       if (n === 0) return;
 
