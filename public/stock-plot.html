@@ -563,6 +563,17 @@
     #mw-price-card .window-header {
       top: 28px;
     }
+    .window-card:not(#mw-price-card) > .window-header {
+      top: 2px;
+      padding: 0 6px;
+      font-size: 9.5px;
+      gap: 6px;
+    }
+    .window-card:not(#mw-price-card) > .window-header .btn-win-tool {
+      width: 15px;
+      height: 15px;
+      font-size: 10px;
+    }
     .window-header .param-clickable-title {
       pointer-events: auto;
       cursor: pointer;
@@ -3342,7 +3353,7 @@
       return { q1, q2, q3, mn };
     }
 
-    function drawQuartileOverlay(ctx, w, h, getY, qStats) {
+    function drawQuartileOverlay(ctx, w, h, getY, qStats, padTop = PADDING.top, padBottom = PADDING.bottom) {
       if (!qStats) return;
       ctx.save();
       const isDark = !document.documentElement.classList.contains('bright-theme');
@@ -3355,7 +3366,7 @@
 
       const drawLine = (val, color, label, isSolid) => {
         const y = getY(val);
-        if (y >= PADDING.top && y <= h - PADDING.bottom) {
+        if (y >= padTop && y <= h - padBottom) {
           ctx.save();
           ctx.strokeStyle = color;
           ctx.shadowColor = isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)';
@@ -3387,7 +3398,7 @@
       ctx.restore();
     }
 
-    function drawSDOverlay(ctx, w, h, getY, ma, p1sd, m1sd, p2sd, m2sd, css) {
+    function drawSDOverlay(ctx, w, h, getY, ma, p1sd, m1sd, p2sd, m2sd, css, padTop = PADDING.top, padBottom = PADDING.bottom, drawP2 = true, drawM2 = true) {
       ctx.save();
       const isDark = !document.documentElement.classList.contains('bright-theme');
       ctx.setLineDash([3, 2.5]);
@@ -3401,7 +3412,7 @@
 
       const drawSDLine = (val, color, label) => {
         const y = getY(val);
-        if (y >= PADDING.top && y <= h - PADDING.bottom) {
+        if (y >= padTop && y <= h - padBottom) {
           ctx.strokeStyle = color;
           ctx.beginPath();
           ctx.moveTo(PADDING.left, y);
@@ -3415,11 +3426,11 @@
         }
       };
 
-      drawSDLine(p2sd, colorPlus, '2𝞼+');
+      if (drawP2) drawSDLine(p2sd, colorPlus, '2𝞼+');
       drawSDLine(p1sd, colorPlus, '1𝞼+');
       drawSDLine(ma, colorMA, 'AVG');
       drawSDLine(m1sd, colorMinus, '1𝞼-');
-      drawSDLine(m2sd, colorMinus, '2𝞼-');
+      if (drawM2) drawSDLine(m2sd, colorMinus, '2𝞼-');
       ctx.restore();
     }
 
@@ -3432,8 +3443,11 @@
       const h = cv.parentElement.clientHeight;
       ctx.clearRect(0, 0, w, h);
 
+      const showBottomXAxis = isBottom || maximizedPaneId === paramId;
+      const padTop = 8;
+      const padBottom = showBottomXAxis ? 20 : 6;
       const chartW = w - PADDING.left - PADDING.right;
-      const chartH = h - PADDING.top - PADDING.bottom;
+      const chartH = h - padTop - padBottom;
       const n = data.length;
       if (n === 0) return;
 
@@ -3646,8 +3660,11 @@
       const h = cv.parentElement.clientHeight;
       ctx.clearRect(0, 0, w, h);
 
+      const showBottomXAxis = isBottom || maximizedPaneId === paramId;
+      const padTop = 8;
+      const padBottom = showBottomXAxis ? 20 : 6;
       const chartW = w - PADDING.left - PADDING.right;
-      const chartH = h - PADDING.top - PADDING.bottom;
+      const chartH = h - padTop - padBottom;
       const n = data.length;
       if (n === 0) return;
 
@@ -3673,11 +3690,11 @@
         let maxV = Math.max(...data.map(d => Math.max(d.volume || 0, d.delivVol || 0)));
         const pan = yPanOffsets['deliv_vol_overlay'] || 0;
         const mult = yScaleMultipliers['deliv_vol_overlay'] || 1.0;
-        let effectiveMax = Math.max(1, ((maxV / mult) * 1.15) + pan);
+        let effectiveMax = Math.max(1, ((maxV / mult) * 1.05) + pan);
         let effectiveMin = pan > 0 ? -pan * 0.2 : 0;
-        const getY = (val) => h - PADDING.bottom - (((val || 0) - effectiveMin) / (effectiveMax - effectiveMin)) * chartH;
+        const getY = (val) => h - padBottom - (((val || 0) - effectiveMin) / (effectiveMax - effectiveMin)) * chartH;
 
-        drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, effectiveMin, effectiveMax, 4, formatNumber);
+        drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, effectiveMin, effectiveMax, 4, formatNumber, padTop, padBottom);
 
         const volColor = style.volColor || css.getPropertyValue('--vol-bar-bg').trim() || '#1e3a8a';
         const delivColor = style.delivColor || style.color || css.getPropertyValue('--deliv-bar-fill').trim() || '#00ff66';
@@ -3694,7 +3711,7 @@
           data.forEach((d, i) => {
             const xLeft = getX(i) - barW / 2;
             const vy = getY(d.volume);
-            const vh = Math.max(1, (h - PADDING.bottom) - vy);
+            const vh = Math.max(1, (h - padBottom) - vy);
             drawGorgeousBar(ctx, xLeft, vy, barW, vh, volColor, true, false, i, n);
           });
         } else if (volType === 'histogram') {
@@ -3702,18 +3719,18 @@
           data.forEach((d, i) => {
             const xLeft = getX(i) - barW / 2;
             const vy = getY(d.volume);
-            const vh = Math.max(1, (h - PADDING.bottom) - vy);
+            const vh = Math.max(1, (h - padBottom) - vy);
             drawGorgeousBar(ctx, xLeft, vy, barW, vh, volColor, true, true, i, n);
           });
         } else if (volType === 'line') {
           if (style.volFill) {
-            const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+            const grad = ctx.createLinearGradient(0, padTop, 0, h - padBottom);
             grad.addColorStop(0, hexToRgba(volColor, 0.35));
             grad.addColorStop(1, hexToRgba(volColor, 0.0));
             ctx.beginPath();
-            ctx.moveTo(getX(0), h - PADDING.bottom);
+            ctx.moveTo(getX(0), h - padBottom);
             data.forEach((d, i) => ctx.lineTo(getX(i), getY(d.volume || 0)));
-            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.lineTo(getX(n - 1), h - padBottom);
             ctx.closePath();
             ctx.fillStyle = grad;
             ctx.fill();
@@ -3748,7 +3765,7 @@
             if (d.delivVol) {
               const xLeft = getX(i) - barW / 2;
               const dy = getY(d.delivVol);
-              const dh = Math.max(1, (h - PADDING.bottom) - dy);
+              const dh = Math.max(1, (h - padBottom) - dy);
               drawGorgeousBar(ctx, xLeft, dy, barW, dh, delivColor, true, false, i, n);
             }
           });
@@ -3758,19 +3775,19 @@
             if (d.delivVol) {
               const xLeft = getX(i) - barW / 2;
               const dy = getY(d.delivVol);
-              const dh = Math.max(1, (h - PADDING.bottom) - dy);
+              const dh = Math.max(1, (h - padBottom) - dy);
               drawGorgeousBar(ctx, xLeft, dy, barW, dh, delivColor, true, true, i, n);
             }
           });
         } else if (delivType === 'line') {
           if (style.delivFill) {
-            const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+            const grad = ctx.createLinearGradient(0, padTop, 0, h - padBottom);
             grad.addColorStop(0, hexToRgba(delivColor, 0.35));
             grad.addColorStop(1, hexToRgba(delivColor, 0.0));
             ctx.beginPath();
-            ctx.moveTo(getX(0), h - PADDING.bottom);
+            ctx.moveTo(getX(0), h - padBottom);
             data.forEach((d, i) => ctx.lineTo(getX(i), getY(d.delivVol || 0)));
-            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.lineTo(getX(n - 1), h - padBottom);
             ctx.closePath();
             ctx.fillStyle = grad;
             ctx.fill();
@@ -3799,7 +3816,7 @@
         }
 
         if (isBottom || maximizedPaneId === 'deliv_vol_overlay') {
-          drawXAxisDates(ctx, w, h, chartW, data, 'bottom');
+          drawXAxisDates(ctx, w, h, chartW, data, 'bottom', padBottom);
         }
 
         // Live Crosshair Readout & Tooltips
@@ -3808,13 +3825,13 @@
           const pt = data[localIdx];
           const hx = getX(localIdx);
           const hy = getY(pt.volume || 0);
-          drawCrosshair(ctx, hx, w, h, hy);
+          drawCrosshair(ctx, hx, w, h, hy, padTop, padBottom);
 
           // ALWAYS display crosshair data on the scale (X & Y axis), independent of Tool-Tips toggle
           const pillTxt = `Deliv: ${formatNumber(pt.delivVol)} / Vol: ${formatNumber(pt.volume)}`;
-          drawYAxisPill(ctx, w, hy, pillTxt, delivColor, '#fff');
+          drawYAxisPill(ctx, w, hy, pillTxt, delivColor, '#fff', padTop, padBottom);
           if (isBottom || maximizedPaneId === 'deliv_vol_overlay') {
-            drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(pt.date), 'bottom');
+            drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(pt.date), 'bottom', padBottom);
           }
 
           if (showTooltips) {
@@ -3877,6 +3894,8 @@
       }
 
       const sortedStatVals = [...statVals].sort((a, b) => a - b);
+      const dataMin = validVals.length ? Math.min(...validVals) : 0;
+      const dataMax = validVals.length ? Math.max(...validVals) : 0;
       const simpleAvg = statVals.length ? (statVals.reduce((a, b) => a + b, 0) / statVals.length) : 0;
       const qStats = calcQuartiles(sortedStatVals);
 
@@ -3886,6 +3905,8 @@
       const hasQuartileBands = (overlayMode === 'quartile') && qStats !== null && statVals.length >= 2;
       const hasSMA = Boolean(style.showSma) && VOLUME_PLOT_IDS.has(paramId);
 
+      let showP2SD = true;
+      let showM2SD = true;
       if (hasSDBands) {
         const variance = statVals.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / statVals.length;
         sd = Math.sqrt(variance);
@@ -3894,8 +3915,11 @@
         p2sd = ma + 2 * sd;
         m2sd = ma - 2 * sd;
 
-        minVal = Math.min(minVal, m2sd);
-        maxVal = Math.max(maxVal, p2sd);
+        showM2SD = validVals.length ? (m2sd >= dataMin) : true;
+        showP2SD = validVals.length ? (p2sd <= dataMax) : true;
+
+        if (showM2SD) minVal = Math.min(minVal, m2sd);
+        if (showP2SD) maxVal = Math.max(maxVal, p2sd);
       } else if (hasQuartileBands) {
         minVal = Math.min(minVal, qStats.q1);
         maxVal = Math.max(maxVal, qStats.q3);
@@ -3930,18 +3954,18 @@
       maxVal = mid + span / 2;
       if (minVal >= maxVal) maxVal = minVal + 1;
 
-      const getY = (val) => h - PADDING.bottom - ((val - minVal) / (maxVal - minVal)) * chartH;
+      const getY = (val) => h - padBottom - ((val - minVal) / (maxVal - minVal)) * chartH;
       const zeroY = getY(0);
       const suffix = paramDef.suffix || '';
       const formatter = (v) => paramDef.formatUnit ? formatNumber(v) : `${v.toFixed(1)}${suffix}`;
 
       // Draw Right Axis (No horizontal grid)
-      drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, 4, formatter);
+      drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, 4, formatter, padTop, padBottom);
 
       // Draw Data according to chartType:
       if (style.chartType === 'line') {
         if (style.showAreaFill) {
-          const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+          const grad = ctx.createLinearGradient(0, padTop, 0, h - padBottom);
           grad.addColorStop(0, hexToRgba(activeColor, 0.28));
           grad.addColorStop(1, hexToRgba(activeColor, 0.0));
           ctx.beginPath();
@@ -3950,12 +3974,12 @@
             const val = d[key];
             if (val !== null && val !== undefined && !isNaN(val)) {
               const x = getX(i), y = getY(val);
-              if (!started) { ctx.moveTo(x, h - PADDING.bottom); ctx.lineTo(x, y); started = true; }
+              if (!started) { ctx.moveTo(x, h - padBottom); ctx.lineTo(x, y); started = true; }
               else ctx.lineTo(x, y);
             }
           });
           if (started) {
-            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.lineTo(getX(n - 1), h - padBottom);
             ctx.closePath();
             ctx.fillStyle = grad;
             ctx.fill();
@@ -3977,7 +4001,7 @@
 
       } else if (style.chartType === 'step-line') {
         if (style.showAreaFill) {
-          const grad = ctx.createLinearGradient(0, PADDING.top, 0, h - PADDING.bottom);
+          const grad = ctx.createLinearGradient(0, padTop, 0, h - padBottom);
           grad.addColorStop(0, hexToRgba(activeColor, 0.28));
           grad.addColorStop(1, hexToRgba(activeColor, 0.0));
           ctx.beginPath();
@@ -3988,7 +4012,7 @@
             if (val !== null && val !== undefined && !isNaN(val)) {
               const x = getX(i), y = getY(val);
               if (!started) {
-                ctx.moveTo(x, h - PADDING.bottom);
+                ctx.moveTo(x, h - padBottom);
                 ctx.lineTo(x, y);
                 started = true;
               } else {
@@ -3999,7 +4023,7 @@
             }
           });
           if (started) {
-            ctx.lineTo(getX(n - 1), h - PADDING.bottom);
+            ctx.lineTo(getX(n - 1), h - padBottom);
             ctx.closePath();
             ctx.fillStyle = grad;
             ctx.fill();
@@ -4075,9 +4099,9 @@
 
       // Draw Overlay Reference Lines on top so Quartile / SD / SMA lines remain crisp above bars & lines
       if (hasQuartileBands) {
-        drawQuartileOverlay(ctx, w, h, getY, qStats);
+        drawQuartileOverlay(ctx, w, h, getY, qStats, padTop, padBottom);
       } else if (hasSDBands) {
-        drawSDOverlay(ctx, w, h, getY, ma, p1sd, m1sd, p2sd, m2sd, css);
+        drawSDOverlay(ctx, w, h, getY, ma, p1sd, m1sd, p2sd, m2sd, css, padTop, padBottom, showP2SD, showM2SD);
       }
       if (hasSMA && smaSeries) {
         ctx.save();
@@ -4097,7 +4121,7 @@
       }
 
       if (isBottom || maximizedPaneId === paramId) {
-        drawXAxisDates(ctx, w, h, chartW, data, 'bottom');
+        drawXAxisDates(ctx, w, h, chartW, data, 'bottom', padBottom);
       }
 
       // Crosshair & Live Hover Pill & Tooltips
@@ -4107,13 +4131,13 @@
         if (val !== null && val !== undefined) {
           const hx = getX(localIdx);
           const hy = getY(val);
-          drawCrosshair(ctx, hx, w, h, hy);
+          drawCrosshair(ctx, hx, w, h, hy, padTop, padBottom);
 
           // ALWAYS display crosshair data on the scale (X & Y axis), independent of Tool-Tips toggle
           const pillTxt = paramDef.formatUnit ? formatNumber(val) : `${val.toFixed(2)}${suffix}`;
-          drawYAxisPill(ctx, w, hy, pillTxt, activeColor, '#fff');
+          drawYAxisPill(ctx, w, hy, pillTxt, activeColor, '#fff', padTop, padBottom);
           if (isBottom || maximizedPaneId === paramId) {
-            drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(data[localIdx].date), 'bottom');
+            drawXAxisPill(ctx, w, h, hx, formatDateDDMMYY(data[localIdx].date), 'bottom', padBottom);
           }
 
           if (showTooltips) {
@@ -4204,13 +4228,13 @@
         }
       }
 
-      drawShiftZoomOverlay(ctx, w, h);
+      drawShiftZoomOverlay(ctx, w, h, padTop, padBottom);
     }
 
     // ==========================================
     // AXIS MARKINGS (NO HORIZONTAL GRID ACROSS CANVAS)
     // ==========================================
-    function drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, ticks, formatter) {
+    function drawAxisWithoutHorizontalGrid(ctx, w, h, chartW, chartH, minVal, maxVal, ticks, formatter, padTop = PADDING.top, padBottom = PADDING.bottom) {
       const css = getComputedStyle(document.documentElement);
       const textColor = css.getPropertyValue('--axis-text').trim();
       const tickColor = css.getPropertyValue('--axis-tick').trim();
@@ -4223,7 +4247,7 @@
       // Draw Y-Axis labels & right-side tick marks only (NO horizontal grid across chart!)
       for (let t = 0; t <= ticks; t++) {
         const val = minVal + (t / ticks) * (maxVal - minVal);
-        const y = h - PADDING.bottom - (t / ticks) * chartH;
+        const y = h - padBottom - (t / ticks) * chartH;
 
         // Tick mark extending right from the axis boundary
         ctx.strokeStyle = tickColor;
@@ -4241,12 +4265,12 @@
       ctx.strokeStyle = tickColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(w - PADDING.right, PADDING.top);
-      ctx.lineTo(w - PADDING.right, h - PADDING.bottom);
+      ctx.moveTo(w - PADDING.right, padTop);
+      ctx.lineTo(w - PADDING.right, h - padBottom);
       ctx.stroke();
     }
 
-    function drawXAxisDates(ctx, w, h, chartW, data, position = 'bottom') {
+    function drawXAxisDates(ctx, w, h, chartW, data, position = 'bottom', padBottom = PADDING.bottom) {
       const n = data.length;
       if (!n) return;
       const css = getComputedStyle(document.documentElement);
@@ -4286,18 +4310,18 @@
           ctx.moveTo(x, PADDING.top);
           ctx.lineTo(x, PADDING.top - 4);
         } else {
-          ctx.moveTo(x, h - PADDING.bottom);
-          ctx.lineTo(x, h - PADDING.bottom + 5);
+          ctx.moveTo(x, h - padBottom);
+          ctx.lineTo(x, h - padBottom + 5);
         }
         ctx.stroke();
 
-        const textY = isTop ? PADDING.top - 7 : h - 6;
+        const textY = isTop ? PADDING.top - 7 : h - 5;
         ctx.fillText(formatDateDDMMYY(data[i].date), x, textY);
       }
       ctx.restore();
     }
 
-    function drawShiftZoomOverlay(ctx, w, h) {
+    function drawShiftZoomOverlay(ctx, w, h, padTop = PADDING.top, padBottom = PADDING.bottom) {
       if (!isShiftZoomDragging) return;
       const leftX = Math.min(shiftZoomStartX, shiftZoomCurrentX);
       const rightX = Math.max(shiftZoomStartX, shiftZoomCurrentX);
@@ -4308,15 +4332,15 @@
 
       ctx.save();
       ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
-      ctx.fillRect(clampedL, PADDING.top, selW, h - PADDING.top - PADDING.bottom);
+      ctx.fillRect(clampedL, padTop, selW, h - padTop - padBottom);
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 3]);
-      ctx.strokeRect(clampedL, PADDING.top, selW, h - PADDING.top - PADDING.bottom);
+      ctx.strokeRect(clampedL, padTop, selW, h - padTop - padBottom);
       ctx.restore();
     }
 
-    function drawCrosshair(ctx, x, w, h, y) {
+    function drawCrosshair(ctx, x, w, h, y, padTop = PADDING.top, padBottom = PADDING.bottom) {
       ctx.save();
       const crossColor = getComputedStyle(document.documentElement).getPropertyValue('--crosshair').trim();
       ctx.strokeStyle = crossColor;
@@ -4324,8 +4348,8 @@
       ctx.lineWidth = 1.0;
 
       ctx.beginPath();
-      ctx.moveTo(x, PADDING.top);
-      ctx.lineTo(x, h - PADDING.bottom);
+      ctx.moveTo(x, padTop);
+      ctx.lineTo(x, h - padBottom);
       ctx.stroke();
 
       ctx.beginPath();
@@ -4340,7 +4364,7 @@
       ctx.restore();
     }
 
-    function drawYAxisPill(ctx, w, y, text, bg, fg) {
+    function drawYAxisPill(ctx, w, y, text, bg, fg, padTop = PADDING.top, padBottom = PADDING.bottom) {
       ctx.save();
       const isMobile = window.innerWidth <= 768;
       ctx.font = isMobile ? 'bold 8.5px monospace' : 'bold 10px monospace';
@@ -4348,7 +4372,7 @@
       const pillW = Math.min(PADDING.right - 4, textW + (isMobile ? 6 : 8));
       const pillH = isMobile ? 15 : 17;
       const pillX = w - PADDING.right + 2;
-      const pillY = Math.max(PADDING.top, Math.min(y - pillH / 2, ctx.canvas.height - PADDING.bottom - pillH));
+      const pillY = Math.max(padTop, Math.min(y - pillH / 2, ctx.canvas.height - padBottom - pillH));
 
       ctx.fillStyle = bg;
       ctx.beginPath();
@@ -4362,7 +4386,7 @@
       ctx.restore();
     }
 
-    function drawXAxisPill(ctx, w, h, x, text, position = 'bottom') {
+    function drawXAxisPill(ctx, w, h, x, text, position = 'bottom', padBottom = PADDING.bottom) {
       ctx.save();
       const isDark = !document.documentElement.classList.contains('bright-theme');
       const isTop = position === 'top';
@@ -4372,7 +4396,7 @@
       const pillH = isTop ? 16 : 18;
       const pillX = Math.max(PADDING.left, Math.min(x - pillW / 2, w - PADDING.right - pillW));
 
-      const pillY = isTop ? 4 : h - PADDING.bottom + 3;
+      const pillY = isTop ? 4 : h - padBottom + 2;
 
       ctx.fillStyle = isDark ? '#1e293b' : '#0f172a';
       ctx.strokeStyle = isDark ? '#38bdf8' : '#0284c7';
